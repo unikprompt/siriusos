@@ -146,19 +146,33 @@ cortextos install
 **Do not ask the user about instance names.** Auto-assign one silently:
 
 ```bash
-# Find next available instance name
-INSTANCE_NUM=1
-while [ -d "${HOME}/.cortextos/cortextos${INSTANCE_NUM}" ]; do
-  INSTANCE_NUM=$((INSTANCE_NUM + 1))
-done
-INSTANCE_ID="cortextos${INSTANCE_NUM}"
+# Reuse the 'default' instance dir if it exists and is empty (the typical
+# fresh-install state — `cortextos install` always creates default/ with an
+# empty enabled-agents.json). Otherwise pick the next free `cortextosN` slot.
+if [ -d "${HOME}/.cortextos/default" ] && \
+   [ "$(cat "${HOME}/.cortextos/default/config/enabled-agents.json" 2>/dev/null | tr -d '[:space:]')" = "{}" ]; then
+  INSTANCE_ID="default"
+else
+  INSTANCE_NUM=1
+  while [ -d "${HOME}/.cortextos/cortextos${INSTANCE_NUM}" ]; do
+    INSTANCE_NUM=$((INSTANCE_NUM + 1))
+  done
+  INSTANCE_ID="cortextos${INSTANCE_NUM}"
+fi
 ```
 
-**Note on environment variables:** `CTX_INSTANCE_ID`, `CTX_ROOT`, `CTX_ORG`, and `CTX_AGENT_NAME` are set automatically by the framework based on where commands are run from. You do not need to set these manually - they are referenced in the examples below for clarity.
+**IMPORTANT:** Every `node dist/cli.js <subcommand>` call below MUST include
+`--instance "${INSTANCE_ID}"` (and `--org "${ORG_NAME}"` where the command
+takes one). The CLI subcommands default the instance to literal `'default'` if
+neither the flag nor the `CTX_INSTANCE_ID` env var is set. Forgetting the flag
+silently writes to the wrong instance dir, splitting the agent registration
+across multiple `~/.cortextos/<instance>/` trees. Always pass the flags.
 
-Set variables for the rest of onboarding:
+Also export the env vars so any indirect subprocess (e.g. PM2 reading `ecosystem.config.js`) inherits them:
+
 ```bash
-CTX_ROOT="${HOME}/.cortextos/${INSTANCE_ID}"
+export CTX_INSTANCE_ID="${INSTANCE_ID}"
+export CTX_ROOT="${HOME}/.cortextos/${INSTANCE_ID}"
 ```
 
 ---
@@ -275,9 +289,11 @@ Walk through step by step:
 
 After token paste:
 
-7. "Now send any message to your new bot on Telegram (just 'hi' is fine). This lets me detect your chat ID so that only you can message your agent. You can configure other chat IDs later so other members of your team can use cortextOS as well."
+7. Tell the user: "Now send any message to your new bot on Telegram (just 'hi' is fine). This lets me detect your chat ID so that only you can message your agent. You can configure other chat IDs later so other members of your team can use cortextOS as well."
 
-Wait for confirmation, then auto-detect. Use long polling (timeout=30) so Telegram holds the connection open until a message arrives instead of returning empty immediately. This is critical for newly created bots where there's propagation delay:
+**CRITICAL — BUG-033 fix**: Do NOT wait for the user to type a confirmation in chat before running the polling curl below. Start the long-poll IMMEDIATELY after delivering the instruction. The poll uses `timeout=30` which blocks for up to 30 seconds waiting for a Telegram message — that IS the user's confirmation. If you wait for typed confirmation first, the poll starts too late and may miss the very first message a user sends to a brand-new bot (Telegram's `getUpdates` first-message-lost trap, BUG-023). The correct sequence is: deliver the instruction, then immediately run the curl loop in the same response.
+
+Use long polling (timeout=30) so Telegram holds the connection open until a message arrives instead of returning empty immediately. This is critical for newly created bots where there's propagation delay:
 
 ```bash
 ORCH_BOT_TOKEN="<pasted token>"
@@ -297,7 +313,7 @@ If ORCH_CHAT_ID is empty after 3 retries, tell user to send another message and 
 ### 6b. Create Agent Directory
 
 ```bash
-node dist/cli.js add-agent "${ORCH_NAME}" --template orchestrator --org "${ORG_NAME}"
+node dist/cli.js add-agent "${ORCH_NAME}" --template orchestrator --org "${ORG_NAME}" --instance "${INSTANCE_ID}"
 ```
 
 Write `.env` with credentials:
@@ -330,7 +346,7 @@ jq --arg model "claude-opus-4-6" '.model = $model' "${ORCH_CONFIG}" > "${TMPDIR:
 ### 6d. Enable Orchestrator
 
 ```bash
-node dist/cli.js enable "${ORCH_NAME}" --org "${ORG_NAME}"
+node dist/cli.js enable "${ORCH_NAME}" --org "${ORG_NAME}" --instance "${INSTANCE_ID}"
 ```
 
 Verify:
@@ -467,7 +483,7 @@ Everything is configured. Now start the agents.
 ### 9a. Generate PM2 config and start
 
 ```bash
-node dist/cli.js ecosystem
+node dist/cli.js ecosystem --instance "${INSTANCE_ID}" --org "${ORG_NAME}"
 pm2 start ecosystem.config.js
 ```
 
@@ -477,19 +493,23 @@ Wait 5-10 seconds for the daemon to initialize, then save:
 pm2 save
 ```
 
-### 9b. Set up auto-start (survives reboots)
+### 9b. Capture reboot-survival command (BUG-021 — DEFERRED, NOT mid-flow)
+
+**IMPORTANT — BUG-021 fix**: Run `pm2 startup` and capture its output, but DO NOT prompt the user to do anything mid-flow. The sudo paste step is friction in the critical path. Save the captured command for the end-of-onboarding summary in Phase 10 instead. The user can run it later (or never — cortextOS works fine without reboot persistence).
 
 ```bash
-pm2 startup 2>&1
+PM2_STARTUP_OUTPUT=$(pm2 startup 2>&1)
+echo "$PM2_STARTUP_OUTPUT"
 ```
 
-If the output contains "already configured" or an existing launch daemon, skip:
-> "PM2 auto-start is already configured."
+Then extract the sudo command if present (it starts with `sudo env PATH=`):
+```bash
+PM2_SUDO_CMD=$(echo "$PM2_STARTUP_OUTPUT" | grep -E '^sudo env PATH=' | head -1)
+```
 
-If it outputs a `sudo env PATH=...` command:
-> "One more step - PM2 needs to register itself so your agents survive reboots. It printed a command below. Copy it, open a new terminal, paste it, and hit Enter."
->
-> "It will ask for your Mac password (the one you use to log in). When you type it, nothing appears on screen - that's normal. Just type and press Enter. This is a one-time setup."
+- If `PM2_SUDO_CMD` is non-empty: stash it for the end of onboarding (Phase 10's summary). DO NOT prompt the user.
+- If the output says "already configured" or contains an existing launch daemon: log "PM2 auto-start is already configured" and continue.
+- Either way: do NOT block or prompt the user.
 
 ### 9c. Verify and hand off to Telegram
 
@@ -513,6 +533,24 @@ Deliver verbatim:
 > "Go to Telegram and wait for your Orchestrator to message you. It will walk you through its personality, goals, crons, and creating your Analyst agent."
 >
 > "If anything breaks, come back here and run `pm2 logs cortextos-daemon --lines 30`."
+
+### BUG-021 fix — Optional reboot survival (DEFERRED — non-blocking)
+
+If `PM2_SUDO_CMD` from Phase 9b is non-empty, deliver this verbatim AT THE END (not mid-flow):
+
+> "**OPTIONAL — enable reboot survival**:
+>
+> Your daemon is running fine right now, but it won't auto-restart after a reboot of your machine. If you want reboot persistence (recommended for any real production use), run this command in another terminal:
+>
+> ```
+> <PM2_SUDO_CMD>
+> ```
+>
+> It will ask for your Mac password (the one you use to log in). When you type it, nothing appears on screen — that's normal. Just type and press Enter. This is a one-time setup. cortextOS works fine without it; you can do this anytime."
+
+If `PM2_SUDO_CMD` is empty (PM2 startup is already configured, or the system doesn't need it), skip this section silently.
+
+**DO NOT block onboarding waiting for the user to run this command.** The whole point of BUG-021's fix is to keep the user moving forward. They can do reboot setup later when they're not in the middle of onboarding.
 
 ---
 

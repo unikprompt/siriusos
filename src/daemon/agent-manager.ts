@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, existsSync } from 'fs';
+import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentConfig, AgentStatus, CtxEnv, BusPaths, WorkerStatus } from '../types/index.js';
 import { AgentProcess } from './agent-process.js';
@@ -39,12 +39,43 @@ export class AgentManager {
    */
   async discoverAndStart(): Promise<void> {
     const agentDirs = this.discoverAgents();
+
+    // BUG-028: read instance-level enabled-agents.json so the daemon respects
+    // the user's explicit enable/disable choices written by the CLI
+    // (`cortextos enable`/`disable`) and the dashboard. Without this read, those
+    // commands have no effect across daemon restarts — the daemon would
+    // re-discover and re-start any agent dir on disk regardless of user intent.
+    const instanceEnabled = this.readInstanceEnableList();
+
     for (const { name, dir, config } of agentDirs) {
+      // Per-agent config.json `enabled: false` (existing behavior, unchanged)
       if (config.enabled === false) {
-        console.log(`[agent-manager] Skipping disabled agent: ${name}`);
+        console.log(`[agent-manager] Skipping disabled agent: ${name} (per-agent config.json)`);
+        continue;
+      }
+      // Instance-level enabled-agents.json `enabled: false` (BUG-028 fix)
+      const entry = instanceEnabled[name];
+      if (entry && entry.enabled === false) {
+        console.log(`[agent-manager] Skipping disabled agent: ${name} (enabled-agents.json)`);
         continue;
       }
       await this.startAgent(name, dir, config);
+    }
+  }
+
+  /**
+   * Read the instance-level enabled-agents.json registry.
+   * Returns an empty object if the file is missing or unreadable —
+   * agents not present in the file default to enabled, matching the existing
+   * default-on behavior of `discoverAndStart`.
+   */
+  private readInstanceEnableList(): Record<string, { enabled?: boolean; org?: string; status?: string }> {
+    const enabledFile = join(this.ctxRoot, 'config', 'enabled-agents.json');
+    if (!existsSync(enabledFile)) return {};
+    try {
+      return JSON.parse(readFileSync(enabledFile, 'utf-8'));
+    } catch {
+      return {}; // corrupt or unreadable — fall through to default-enabled
     }
   }
 
@@ -53,10 +84,21 @@ export class AgentManager {
    */
   async startAgent(name: string, agentDir: string, config?: AgentConfig): Promise<void> {
     if (this.agents.has(name)) {
-      // Agent is registered but may be mid-stop (race: restart-all sends stop+start simultaneously).
-      // Queue the start so stopAgent() will re-launch it once cleanup finishes.
+      // BUG-031: this branch was the workaround for the BUG-011 PTY race
+      // (restart-all could send stop+start simultaneously, and the new
+      // start would arrive while the old stop's PTY exit was still in
+      // flight). PR #11 closed BUG-011 by making `AgentProcess.stop()`
+      // await the actual PTY exit before resolving — which means this
+      // branch should NEVER fire under normal restart paths.
+      //
+      // We log a regression warning here instead of deleting the branch
+      // entirely, so we'll know IMMEDIATELY if BUG-011 ever regresses
+      // (a future change accidentally breaks the exit-await). Phase 4 of
+      // the core stability test plan + cycle 2 of PR #13 both confirmed
+      // this branch is dormant. Once we have weeks of zero-warning
+      // production data, we can delete the queue mechanism entirely.
+      console.warn(`[agent-manager] BUG-011 REGRESSION CHECK: ${name} still in registry during startAgent — pendingRestarts queueing engaged. This should not happen with PR #11 in place.`);
       this.pendingRestarts.add(name);
-      console.log(`[agent-manager] Agent ${name} is stopping — queued restart`);
       return;
     }
 
@@ -313,8 +355,13 @@ export class AgentManager {
     await entry.process.stop();
     this.agents.delete(name);
 
-    // Honor any restart that was queued while we were stopping.
+    // BUG-031: honor any restart that was queued while we were stopping.
+    // After PR #11 (BUG-011 fix) this branch should never fire — see the
+    // matching warning comment in startAgent(). The honor logic is preserved
+    // as a safety net in case BUG-011 regresses; the warn line tells us
+    // immediately if it ever does.
     if (this.pendingRestarts.has(name)) {
+      console.warn(`[agent-manager] BUG-011 REGRESSION CHECK: pendingRestarts fired for ${name} — race condition leaked through. Honoring queued restart as safety net.`);
       this.pendingRestarts.delete(name);
       console.log(`[agent-manager] Honoring queued restart for ${name}`);
       this.startAgent(name, '').catch(err =>
@@ -325,28 +372,56 @@ export class AgentManager {
 
   /**
    * Restart a specific agent.
+   *
+   * Delegates to stopAgent + startAgent to guarantee a full teardown and
+   * rebuild of every per-agent resource: AgentProcess, FastChecker, TelegramAPI,
+   * TelegramPoller, crash callback, and slash-command registration. Fresh
+   * credentials are re-read from {agentDir}/.env on each restart.
+   *
+   * agentDir is auto-discovered by startAgent() from frameworkRoot/orgs/{org}/agents/{name}.
+   * Participates in the pendingRestarts race protection used by restart-all.
    */
   async restartAgent(name: string): Promise<void> {
-    const entry = this.agents.get(name);
-    if (!entry) return;
-
-    entry.checker.stop();
-    try {
-      await entry.process.stop();
-    } catch (err) {
-      console.error(`[agent-manager] Error stopping ${name} during restart:`, err);
+    if (!this.agents.has(name)) {
+      console.log(`[agent-manager] Agent ${name} not found — cannot restart`);
+      return;
     }
-    await entry.process.start();
-    entry.checker.start().catch((err) => {
-      console.error(`[agent-manager] Fast checker error for ${name}:`, err);
-    });
+    console.log(`[agent-manager] Restarting ${name}`);
+    await this.stopAgent(name);
+    await this.startAgent(name, '');
+    console.log(`[agent-manager] Restart complete for ${name}`);
   }
 
   /**
    * Stop all agents.
+   *
+   * BUG-034 partial fix: writes a `.daemon-stop` marker file in each agent's
+   * state dir BEFORE stopping it. The SessionEnd crash-alert hook
+   * (src/hooks/hook-crash-alert.ts) reads this marker and reports a clean
+   * `🛑 daemon shutdown` notification instead of a false `🚨 CRASH` alarm.
+   * Without this, every `pm2 restart cortextos-daemon` (or `pm2 stop`)
+   * generates a false crash alarm per agent — trust-destroying.
+   *
+   * Pattern matches src/cli/bus.ts:1283-1289 and PR #12 (BUG-036). Markers
+   * are written synchronously before the async stop loop starts, so by the
+   * time `pty.kill()` runs, every agent already has its marker on disk.
    */
   async stopAll(): Promise<void> {
     const names = [...this.agents.keys()];
+
+    for (const name of names) {
+      try {
+        const stateDir = join(this.ctxRoot, 'state', name);
+        mkdirSync(stateDir, { recursive: true });
+        writeFileSync(join(stateDir, '.daemon-stop'), 'daemon shutdown (SIGTERM)');
+      } catch (err) {
+        // Don't block shutdown on marker-write failure — worst case the user
+        // gets a false crash alarm (the bug we're fixing), best case they get
+        // the correct daemon-stop notification.
+        console.error(`[agent-manager] Failed to write .daemon-stop marker for ${name}: ${err}`);
+      }
+    }
+
     for (const name of names) {
       try {
         await this.stopAgent(name);
