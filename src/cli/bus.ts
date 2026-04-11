@@ -777,6 +777,149 @@ busCommand
   });
 
 busCommand
+  .command('estimate-burn')
+  .description('Estimate token burn for a brief before dispatching it to an agent')
+  .argument('[path]', 'Path to a brief file (omit to read from stdin)')
+  .option('--budget <n>', 'Token budget to compare against; exit 1 if total exceeds it', (v) => parseInt(v, 10))
+  .option('--factor <n>', 'Execution multiplier for projected agent response (default 3)', (v) => parseFloat(v), 3)
+  .option('--json', 'Output JSON instead of human-readable text')
+  .action((path: string | undefined, opts: { budget?: number; factor: number; json?: boolean }) => {
+    let text = '';
+    try {
+      if (path) {
+        if (!existsSync(path)) {
+          console.error(`Error: file not found: ${path}`);
+          process.exit(2);
+        }
+        text = readFileSync(path, 'utf-8');
+      } else {
+        // Read from stdin
+        const chunks: Buffer[] = [];
+        const fd = 0;
+        const buf = Buffer.alloc(65536);
+        let bytes = 0;
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const fs = require('fs');
+          while ((bytes = fs.readSync(fd, buf, 0, buf.length, null)) > 0) {
+            chunks.push(Buffer.from(buf.slice(0, bytes)));
+          }
+        } catch {
+          // EAGAIN / no stdin available — leave text empty
+        }
+        text = Buffer.concat(chunks).toString('utf-8');
+      }
+    } catch (err: any) {
+      console.error(`Error reading input: ${err.message || err}`);
+      process.exit(2);
+    }
+
+    if (!text || text.trim().length === 0) {
+      console.error('Error: empty input. Pass a file path or pipe text via stdin.');
+      process.exit(2);
+    }
+
+    // Heuristic: ~4 characters per token for English/Spanish prose.
+    const chars = text.length;
+    const briefTokens = Math.ceil(chars / 4);
+    const factor = isNaN(opts.factor) ? 3 : opts.factor;
+    const executionTokens = Math.ceil(briefTokens * factor);
+    const total = briefTokens + executionTokens;
+    const budget = typeof opts.budget === 'number' && !isNaN(opts.budget) ? opts.budget : null;
+    const exceedsBudget = budget !== null && total > budget;
+
+    if (opts.json) {
+      console.log(JSON.stringify({
+        chars,
+        brief_tokens: briefTokens,
+        factor,
+        execution_tokens_projected: executionTokens,
+        total,
+        budget,
+        exceeds_budget: exceedsBudget,
+      }, null, 2));
+    } else {
+      console.log(`Chars del input: ${chars}`);
+      console.log(`Brief tokens estimados: ${briefTokens}`);
+      console.log(`Execution proyectado (${factor}x factor): ${executionTokens}`);
+      console.log(`Total: ${total}`);
+      if (budget === null) {
+        console.log(`Budget actual: N/A (pasa --budget flag para comparar)`);
+      } else {
+        console.log(`Budget actual: ${budget}`);
+        if (exceedsBudget) {
+          console.log(`Status: EXCEEDS BUDGET (${total} > ${budget}, +${total - budget})`);
+        } else {
+          console.log(`Status: OK (${total} <= ${budget}, ${budget - total} restantes)`);
+        }
+      }
+    }
+
+    process.exit(exceedsBudget ? 1 : 0);
+  });
+
+busCommand
+  .command('send-telegram-safe')
+  .description('Send a Telegram message in plain text (no Markdown parsing — safe for any chars)')
+  .argument('<chat-id>', 'Telegram chat ID')
+  .argument('<message>', 'Message text (sent as plain text, no Markdown)')
+  .option('--image <path>', 'Send a photo with caption')
+  .option('--file <path>', 'Send a document/file with caption (any file type)')
+  .action(async (chatId: string, message: string, opts: { image?: string; file?: string }) => {
+    // Resolve bot token: agent .env first, then process.env
+    const env = resolveEnv();
+    let botToken = '';
+
+    if (env.agentDir) {
+      const { readFileSync, existsSync } = require('fs');
+      const { join } = require('path');
+      const agentEnv = join(env.agentDir, '.env');
+      if (existsSync(agentEnv)) {
+        const content = readFileSync(agentEnv, 'utf-8');
+        const match = content.match(/^BOT_TOKEN=(.+)$/m);
+        if (match && match[1].trim()) botToken = match[1].trim();
+      }
+    }
+
+    if (!botToken) {
+      botToken = process.env.BOT_TOKEN || '';
+    }
+
+    if (!botToken) {
+      console.error('Error: BOT_TOKEN not set. Set it in your agent .env file or as an environment variable.');
+      process.exit(1);
+    }
+
+    const api = new TelegramAPI(botToken);
+    try {
+      let sentMessageId = 0;
+      if (opts.image) {
+        // Photo captions are already plain (no parse_mode set in sendPhoto)
+        const result = await api.sendPhoto(chatId, opts.image, message);
+        sentMessageId = result?.result?.message_id ?? 0;
+      } else if (opts.file) {
+        const result = await api.sendDocument(chatId, opts.file, message);
+        sentMessageId = result?.result?.message_id ?? 0;
+      } else {
+        // Force plain text — no Markdown parsing
+        const result = await api.sendMessage(chatId, message, undefined, 'none');
+        sentMessageId = result?.result?.message_id ?? 0;
+      }
+
+      const env2 = resolveEnv();
+      if (env2.agentName && env2.ctxRoot) {
+        logOutboundMessage(env2.ctxRoot, env2.agentName, chatId, message, sentMessageId);
+        cacheLastSent(env2.ctxRoot, env2.agentName, chatId, message);
+      }
+
+      console.log('Message sent');
+    } catch (err: any) {
+      console.error(`Failed to send: ${err.message || err}`);
+      process.exit(1);
+    }
+  });
+
+busCommand
   .command('create-approval')
   .description('Request human approval for a high-stakes action')
   .argument('<title>', 'What you are requesting approval for')

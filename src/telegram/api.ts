@@ -25,31 +25,40 @@ export class TelegramAPI {
 
   /**
    * Send a text message. Splits long messages at 4096 chars.
+   *
+   * When `parseMode === 'none'`, the message is sent as plain text:
+   * Telegram receives no `parse_mode` field, so no character has special
+   * meaning. Use this for content that contains underscores, asterisks,
+   * brackets, backticks, or any combination Markdown v1 might choke on.
    */
   async sendMessage(
     chatId: string | number,
     text: string,
     replyMarkup?: object,
+    parseMode: 'Markdown' | 'none' = 'Markdown',
   ): Promise<any> {
-    const sanitized = this.sanitizeMarkdown(text);
+    // In plain-text mode, do not strip backslash escapes — they are literal.
+    const body = parseMode === 'none' ? text : this.sanitizeMarkdown(text);
     // Rate limit: 1 message per second per chat
     await this.rateLimit(String(chatId));
 
+    const parseModeField = parseMode === 'none' ? {} : { parse_mode: 'Markdown' };
+
     // Split long messages
     const maxLen = 4096;
-    if (sanitized.length <= maxLen) {
+    if (body.length <= maxLen) {
       return this.post('sendMessage', {
         chat_id: chatId,
-        text: sanitized,
-        parse_mode: 'Markdown',
+        text: body,
+        ...parseModeField,
         ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
       });
     }
 
     // Split into chunks
     const chunks: string[] = [];
-    for (let i = 0; i < sanitized.length; i += maxLen) {
-      chunks.push(sanitized.slice(i, i + maxLen));
+    for (let i = 0; i < body.length; i += maxLen) {
+      chunks.push(body.slice(i, i + maxLen));
     }
 
     let result: any;
@@ -57,7 +66,7 @@ export class TelegramAPI {
       result = await this.post('sendMessage', {
         chat_id: chatId,
         text: chunk,
-        parse_mode: 'Markdown',
+        ...parseModeField,
       });
     }
     return result;
