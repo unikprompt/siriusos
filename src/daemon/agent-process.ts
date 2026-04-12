@@ -26,6 +26,22 @@ export class AgentProcess {
   private sessionStart: Date | null = null;
   private status: AgentStatus['status'] = 'stopped';
   private stopping: boolean = false;
+  // BUG-040 fix: persists across stop() return until handleExit clears it.
+  // Required because BUG-032's CRLF + 5s wait can cause graceful shutdown to
+  // exceed the 5s Promise.race timeout in stop(), which would otherwise reset
+  // `stopping=false` BEFORE the PTY actually exits, then handleExit would fire
+  // with stopping=false and trigger spurious crash recovery (a partial regression
+  // of BUG-011). stopRequested survives the timeout and is only cleared either
+  // by handleExit when an intentional exit fires, or by start() at the beginning
+  // of a new lifecycle.
+  private stopRequested: boolean = false;
+  // BUG-040 fix: monotonic generation counter incremented on each successful
+  // start(). Each PTY's onExit closure captures the generation at spawn time
+  // and bails out if the generation doesn't match — i.e. a NEW PTY has been
+  // spawned since this old one was created. Without this guard, a late exit
+  // from an old PTY can race past stopRequested and trigger crash recovery on
+  // the new agent.
+  private lifecycleGeneration: number = 0;
   // BUG-011 fix: stop() awaits this promise (resolved by the onExit handler in start())
   // to guarantee the PTY exit has fired before stopping=false is reset. Without
   // this, the exit handler can fire after stopping=false and trigger spurious
@@ -77,6 +93,16 @@ export class AgentProcess {
     this.log(`Starting in ${mode} mode`);
     this.status = 'starting';
 
+    // BUG-040 fix: clear any stale stop request from a previous lifecycle
+    // (e.g. if the previous stop() timed out before the PTY actually exited).
+    // We're starting fresh — the new PTY has no pending stop.
+    this.stopRequested = false;
+    // BUG-040 fix: bump generation. The onExit closure below captures THIS
+    // value and uses it to detect "I'm an old PTY whose exit fired after a
+    // new lifecycle began" — in which case it bails out without touching
+    // handleExit, preventing spurious crash recovery on the new agent.
+    const myGeneration = ++this.lifecycleGeneration;
+
     // Create PTY
     const logPath = join(this.env.ctxRoot, 'logs', this.name, 'stdout.log');
     ensureDir(join(this.env.ctxRoot, 'logs', this.name));
@@ -92,6 +118,14 @@ export class AgentProcess {
 
     // Handle exit
     this.pty.onExit((exitCode, signal) => {
+      // BUG-040 fix: if the lifecycle has moved on (a new start() incremented
+      // the generation since this PTY was spawned), this is an old PTY's late
+      // exit. Ignore it entirely — we don't want it to trigger handleExit on
+      // the current PTY's state.
+      if (myGeneration !== this.lifecycleGeneration) {
+        this.log(`Ignoring late exit from previous lifecycle gen ${myGeneration} (current: ${this.lifecycleGeneration})`);
+        return;
+      }
       this.log(`Exited with code ${exitCode} signal ${signal}`);
       this.handleExit(exitCode);
       // Signal anyone awaiting this PTY's exit (e.g. stop() — BUG-011 fix)
@@ -122,6 +156,10 @@ export class AgentProcess {
   async stop(): Promise<void> {
     if (this.stopping) return;
     this.stopping = true;
+    // BUG-040 fix: stopRequested persists ACROSS stop()'s return until
+    // handleExit clears it. This is the safety net for the case where the
+    // PTY exits later than the Promise.race timeout below.
+    this.stopRequested = true;
     this.log('Stopping...');
     this.clearSessionTimer();
 
@@ -150,23 +188,34 @@ export class AgentProcess {
       } catch {
         // Ignore write errors during shutdown
       }
-      try {
-        pty.kill();
-      } catch {
-        // PTY may have already exited — ignore
+      // BUG-032 follow-up: only kill the PTY if the process is still alive.
+      // After /exit + 5s wait, the child has usually exited cleanly. Calling
+      // pty.kill() on an already-exited PTY tears down the file descriptor,
+      // which can send SIGHUP (exit code 129) to a process that was in the
+      // middle of flushing. Polling first eliminates the remaining SIGHUP risk.
+      if (pty.isAlive()) {
+        try {
+          pty.kill();
+        } catch {
+          // PTY may have exited between the check and the kill — ignore
+        }
       }
 
       // BUG-011 fix: AWAIT the exit handler before resolving stop().
-      // Without this, stop() returns while the PTY exit is still in flight,
-      // and the exit handler may fire AFTER stopping=false (set below),
-      // triggering spurious crash recovery for an agent we just stopped.
-      // 5-second timeout guards against a hung PTY.
+      // BUG-040 fix: bumped timeout from 5s to 15s to give the PTY plenty of
+      // time to exit cleanly even when BUG-032's slow graceful shutdown stacks
+      // on top of pty.kill() lag. The functional correctness no longer depends
+      // on this timeout (stopRequested handles late exits), but a generous
+      // timeout reduces "Ignoring late exit from previous lifecycle" log noise.
       if (exitPromise) {
-        await Promise.race([exitPromise, sleep(5000)]);
+        await Promise.race([exitPromise, sleep(15000)]);
       }
     }
 
     this.stopping = false;
+    // NOTE: this.stopRequested is intentionally NOT cleared here. It is
+    // cleared by handleExit when the intentional exit fires (or by start()
+    // when a new lifecycle begins). See BUG-040 fix in handleExit().
     this.status = 'stopped';
     this.notifyStatusChange();
     this.log('Stopped');
@@ -260,8 +309,22 @@ export class AgentProcess {
     this.pty = null;
     this.clearSessionTimer();
 
-    // If stop() is in progress, this exit was intentional — skip crash recovery.
-    if (this.stopping) return;
+    // BUG-040 fix: check stopRequested instead of (only) stopping. The
+    // stopping flag is cleared inside stop() after a 15s timeout window —
+    // which means a slow PTY shutdown can fire handleExit AFTER stopping is
+    // already false, leading to spurious crash recovery. stopRequested is
+    // set by stop() at the START of the shutdown sequence and persists across
+    // stop()'s return until handleExit clears it (right here). This guarantees
+    // that the FIRST exit after a stop() call is treated as intentional, no
+    // matter how delayed it is.
+    //
+    // Also keep the legacy `stopping` check for in-progress detection during
+    // the (most common) case where the exit fires while stop() is still
+    // awaiting. Either flag short-circuits crash recovery.
+    if (this.stopRequested || this.stopping) {
+      this.stopRequested = false;
+      return;
+    }
 
     // Check crash limit
     this.crashCount++;
@@ -405,6 +468,101 @@ export class AgentProcess {
   private notifyStatusChange(): void {
     if (this.onStatusChange) {
       this.onStatusChange(this.getStatus());
+    }
+  }
+
+  /**
+   * Schedule a background cron verification check.
+   *
+   * Waits for the agent to finish its startup sequence (detected via the
+   * last_idle.flag written by the Stop hook after the agent's first turn
+   * completes), then injects a lightweight prompt asking the agent to
+   * verify its crons match config.json and restore any that are missing.
+   *
+   * Safe for both fresh starts and --continue restarts: the idle-wait
+   * ensures we never inject mid-conversation.
+   *
+   * Fire-and-forget: errors are logged but never propagated.
+   */
+  scheduleCronVerification(): void {
+    const crons = this.config.crons;
+    if (!crons || crons.length === 0) return;
+
+    const recurringNames = crons
+      .filter(c => c.type !== 'once')
+      .map(c => c.name);
+    if (recurringNames.length === 0) return;
+
+    const generation = this.lifecycleGeneration;
+
+    // Run in background — don't block startup
+    this.verifyCronsAfterIdle(recurringNames, generation).catch(err => {
+      this.log(`Cron verification failed (non-fatal): ${err}`);
+    });
+  }
+
+  private async verifyCronsAfterIdle(
+    expectedCrons: string[],
+    generation: number,
+  ): Promise<void> {
+    const stateDir = join(this.env.ctxRoot, 'state', this.name);
+    const flagPath = join(stateDir, 'last_idle.flag');
+
+    // Record the idle flag timestamp at boot so we can detect the NEXT idle
+    // (i.e. after the agent has finished processing its startup prompt).
+    let bootIdleTs = 0;
+    try {
+      if (existsSync(flagPath)) {
+        bootIdleTs = parseInt(readFileSync(flagPath, 'utf-8').trim(), 10);
+      }
+    } catch { /* ignore */ }
+
+    // Wait up to 10 minutes for the agent to finish its startup turn.
+    // Poll every 15s. Bail if the agent stopped or a new lifecycle started.
+    const maxWaitMs = 10 * 60 * 1000;
+    const pollMs = 15_000;
+    const startTime = Date.now();
+    let foundIdle = false;
+
+    while (Date.now() - startTime < maxWaitMs) {
+      // Bail if this lifecycle is stale (agent restarted or stopped)
+      if (generation !== this.lifecycleGeneration || this.status !== 'running') {
+        return;
+      }
+
+      await sleep(pollMs);
+
+      try {
+        if (existsSync(flagPath)) {
+          const currentIdleTs = parseInt(readFileSync(flagPath, 'utf-8').trim(), 10);
+          if (currentIdleTs > bootIdleTs) {
+            // Agent has gone idle after boot — safe to inject
+            foundIdle = true;
+            break;
+          }
+        }
+      } catch { /* ignore read errors, keep polling */ }
+    }
+
+    // If the loop timed out without detecting an idle transition, do not inject:
+    // the agent never finished its startup turn (e.g. stuck on a very long boot).
+    if (!foundIdle) {
+      this.log('Cron verification: timed out waiting for idle flag, skipping injection');
+      return;
+    }
+
+    // Final stale check
+    if (generation !== this.lifecycleGeneration || this.status !== 'running') {
+      return;
+    }
+
+    // Inject the verification prompt
+    const cronList = expectedCrons.join(', ');
+    const verifyPrompt = `[SYSTEM] Cron verification: your config.json defines these recurring crons: ${cronList}. Run CronList now. If any are missing, restore them from config.json using /loop. This is an automated safety check.`;
+
+    this.log(`Injecting cron verification (expecting: ${cronList})`);
+    if (this.pty) {
+      injectMessage((data) => this.pty!.write(data), verifyPrompt);
     }
   }
 }
