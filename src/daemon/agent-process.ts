@@ -276,6 +276,7 @@ export class AgentProcess {
       sessionStart: this.sessionStart?.toISOString(),
       crashCount: this.crashCount,
       model: this.config.model,
+      provider: this.config.provider ?? 'anthropic',
     };
   }
 

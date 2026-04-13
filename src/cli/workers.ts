@@ -9,15 +9,20 @@ export const spawnWorkerCommand = new Command('spawn-worker')
   .requiredOption('--dir <path>', 'Working directory for the worker session')
   .requiredOption('--prompt <text>', 'Task prompt to inject at session start')
   .option('--parent <agent>', 'Parent agent name (for bus reply routing)')
-  .option('--model <model>', 'Claude model to use (defaults to org default)')
-  .action(async (name: string, opts: { dir: string; prompt: string; parent?: string; model?: string }) => {
+  .option('--model <model>', 'Model to use (defaults to org default)')
+  .option('--provider <provider>', 'Backend provider: anthropic | openai (defaults to anthropic)')
+  .action(async (name: string, opts: { dir: string; prompt: string; parent?: string; model?: string; provider?: string }) => {
+    if (opts.provider && opts.provider !== 'anthropic' && opts.provider !== 'openai') {
+      console.error(`Error: --provider must be 'anthropic' or 'openai'`);
+      process.exit(1);
+    }
     const env = resolveEnv();
     const client = new IPCClient(env.instanceId);
     const dir = resolve(opts.dir);
 
     const response = await client.send({
       type: 'spawn-worker',
-      data: { name, dir, prompt: opts.prompt, parent: opts.parent, model: opts.model },
+      data: { name, dir, prompt: opts.prompt, parent: opts.parent, model: opts.model, provider: opts.provider },
     });
 
     if (response.success) {

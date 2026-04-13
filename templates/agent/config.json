@@ -6,6 +6,7 @@
   "max_crashes_per_day": 10,
   "working_directory": "",
   "timezone": "",
+  "provider": "anthropic",
   "crons": [
     {
       "name": "heartbeat",

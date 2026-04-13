@@ -1,8 +1,11 @@
 import { join } from 'path';
-import { existsSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { platform } from 'os';
 import type { AgentConfig, CtxEnv } from '../types/index.js';
 import { OutputBuffer } from './output-buffer.js';
+import { anthropicStrategy } from './providers/anthropic.js';
+import { openaiStrategy } from './providers/openai.js';
+import type { ProviderStrategy, ProviderSpawnOptions } from './providers/types.js';
 
 // node-pty types
 interface IPty {
@@ -136,14 +139,24 @@ export class AgentPTY {
       } catch { /* leave unset if context.json is missing or malformed */ }
     }
 
-    // Spawn claude directly (no shell wrapper) — cross-platform, no shell escaping needed.
-    // env is passed natively via node-pty options; no bash export commands required.
-    // On Windows, npm global installs create .cmd wrappers, not .exe binaries.
-    // node-pty's CreateProcess requires the exact wrapper name to resolve correctly.
-    const claudeArgs = this.buildClaudeArgs(mode, prompt);
-    const claudeCmd = platform() === 'win32' ? 'claude.cmd' : 'claude';
+    // Spawn backend CLI directly (no shell wrapper) — cross-platform, no shell escaping needed.
+    // Strategy selected by config.provider: 'anthropic' (claude) or 'openai' (codex).
+    // Default is anthropic when unset, preserving legacy behavior for existing agents.
+    const strategy: ProviderStrategy =
+      this.config.provider === 'openai' ? openaiStrategy : anthropicStrategy;
+    const spawnOpts: ProviderSpawnOptions = {
+      mode,
+      prompt,
+      config: this.config,
+      agentDir: this.env.agentDir,
+    };
+    if (strategy.prepareWorkspace) {
+      await strategy.prepareWorkspace(spawnOpts);
+    }
+    const backendCmd = strategy.command();
+    const backendArgs = strategy.buildArgs(spawnOpts);
 
-    this.pty = this.spawnFn!(claudeCmd, claudeArgs, {
+    this.pty = this.spawnFn!(backendCmd, backendArgs, {
       name: 'xterm-256color',
       cols: 200,
       rows: 50,
@@ -186,51 +199,6 @@ export class AgentPTY {
         }
       }
     }, 8000);
-  }
-
-  /**
-   * Build the claude CLI argument array.
-   * Returns args suitable for passing directly to node-pty spawn (no shell escaping needed).
-   */
-  private buildClaudeArgs(mode: 'fresh' | 'continue', prompt: string): string[] {
-    const args: string[] = [];
-
-    if (mode === 'continue') {
-      args.push('--continue');
-    }
-
-    args.push('--dangerously-skip-permissions');
-
-    if (this.config.model) {
-      args.push('--model', this.config.model);
-    }
-
-    // Local override pattern (feat #20): concatenate {agentDir}/local/*.md files
-    // and append as system prompt. The local/ dir is gitignored so users can customize
-    // agent behavior without merge conflicts on framework updates.
-    const agentDir = this.env.agentDir;
-    if (agentDir) {
-      const localDir = join(agentDir, 'local');
-      if (existsSync(localDir)) {
-        try {
-          const mdFiles = readdirSync(localDir)
-            .filter(f => f.endsWith('.md'))
-            .sort()
-            .map(f => join(localDir, f));
-          if (mdFiles.length > 0) {
-            const localContent = mdFiles
-              .map(f => readFileSync(f, 'utf-8'))
-              .join('\n\n');
-            args.push('--append-system-prompt', localContent);
-          }
-        } catch { /* ignore read errors */ }
-      }
-    }
-
-    // Pass prompt as a plain string — no shell escaping needed when using node-pty directly
-    args.push(prompt);
-
-    return args;
   }
 
   /**

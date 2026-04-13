@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join, relative } from 'path';
-import type { AgentConfig, AgentStatus, CtxEnv, BusPaths, WorkerStatus, TelegramMessage } from '../types/index.js';
+import type { AgentConfig, AgentStatus, CtxEnv, BusPaths, WorkerStatus, TelegramMessage, Provider } from '../types/index.js';
 import { AgentProcess } from './agent-process.js';
 import { WorkerProcess } from './worker-process.js';
 import { FastChecker } from './fast-checker.js';
@@ -538,7 +538,14 @@ export class AgentManager {
   /**
    * Spawn an ephemeral worker session for a parallelized task.
    */
-  async spawnWorker(name: string, dir: string, prompt: string, parent?: string, model?: string): Promise<void> {
+  async spawnWorker(
+    name: string,
+    dir: string,
+    prompt: string,
+    parent?: string,
+    model?: string,
+    provider?: Provider,
+  ): Promise<void> {
     if (this.workers.has(name)) {
       throw new Error(`Worker "${name}" is already running`);
     }
@@ -559,7 +566,9 @@ export class AgentManager {
       projectRoot: this.frameworkRoot,
     };
 
-    const config = model ? { model } : {};
+    const config: Partial<AgentConfig> = {};
+    if (model) config.model = model;
+    if (provider) config.provider = provider;
 
     this.workers.set(name, worker);
 
@@ -573,7 +582,7 @@ export class AgentManager {
       }, 30_000); // keep for 30s after exit
     });
 
-    await worker.spawn({ ...env, ...(model ? {} : {}) }, prompt);
+    await worker.spawn(env, prompt, config);
   }
 
   /**

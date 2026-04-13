@@ -118,6 +118,8 @@ export interface Approval {
 
 // Agent Config Types (config.json)
 
+export type Provider = 'anthropic' | 'openai';
+
 export interface EcosystemFeatureConfig {
   enabled?: boolean;
 }
@@ -137,6 +139,7 @@ export interface AgentConfig {
   startup_delay?: number;
   max_session_seconds?: number;
   max_crashes_per_day?: number;
+  provider?: Provider;
   model?: string;
   working_directory?: string;
   enabled?: boolean;
@@ -372,4 +375,5 @@ export interface AgentStatus {
   sessionStart?: string;
   crashCount?: number;
   model?: string;
+  provider?: Provider;
 }
