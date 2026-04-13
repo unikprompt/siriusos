@@ -39,10 +39,13 @@ describe('openaiStrategy', () => {
     expect(args[args.length - 1]).toBe('hola');
   });
 
-  it('continue mode: emits resume --last before flags', () => {
+  it('continue mode: does NOT emit resume (Codex resume unreliable in interactive mode)', () => {
     const args = openaiStrategy.buildArgs(makeOpts({ mode: 'continue' }));
-    expect(args[0]).toBe('resume');
-    expect(args[1]).toBe('--last');
+    expect(args).not.toContain('resume');
+    expect(args).not.toContain('--last');
+    // Continue-mode args look identical to fresh-mode args; prompt still flows via argv
+    expect(args).toContain('--sandbox');
+    expect(args[args.length - 1]).toBe('hola');
   });
 
   it('model: passed via --model when set', () => {

@@ -14,10 +14,12 @@ export const openaiStrategy: ProviderStrategy = {
   buildArgs(opts: ProviderSpawnOptions): string[] {
     const args: string[] = [];
 
-    if (opts.mode === 'continue') {
-      args.push('resume', '--last');
-    }
-
+    // NOTE: Codex CLI resume is not reliable in interactive mode with our flow.
+    // `codex resume --last <prompt>` gets misparsed (codex treats the prompt as
+    // the session UUID), crashing with "No saved session found with ID ...".
+    // So we always start a fresh codex session regardless of mode. The
+    // continuation prompt still flows through via argv, and the agent re-reads
+    // its bootstrap files on every spawn — close enough for now.
     args.push('--sandbox', 'danger-full-access');
     args.push('--ask-for-approval', 'never');
 

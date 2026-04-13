@@ -6,6 +6,26 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type Provider = 'anthropic' | 'openai';
 
+const MODELS_BY_PROVIDER: Record<Provider, string[]> = {
+  anthropic: [
+    'claude-opus-4-6',
+    'claude-opus-4-6[1m]',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5',
+  ],
+  openai: [
+    'gpt-5.4',
+    'gpt-5.3-codex',
+    'gpt-5.2-codex',
+    'gpt-5.1-codex',
+  ],
+};
+
+const DEFAULT_MODEL: Record<Provider, string> = {
+  anthropic: 'claude-sonnet-4-6',
+  openai: 'gpt-5.4',
+};
+
 interface AgentConfig {
   timezone?: string;
   day_mode_start?: string;
@@ -324,7 +344,19 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
             <label className="text-xs text-muted-foreground">Provider</label>
             <select
               value={config.provider || 'anthropic'}
-              onChange={e => setConfig(p => ({ ...p, provider: e.target.value as Provider }))}
+              onChange={e => {
+                const nextProvider = e.target.value as Provider;
+                setConfig(p => {
+                  const knownModels = MODELS_BY_PROVIDER[nextProvider];
+                  const currentModel = p.model || '';
+                  const keepModel = knownModels.includes(currentModel);
+                  return {
+                    ...p,
+                    provider: nextProvider,
+                    model: keepModel ? currentModel : DEFAULT_MODEL[nextProvider],
+                  };
+                });
+              }}
               className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
             >
               <option value="anthropic">Anthropic (Claude Code CLI)</option>
@@ -337,21 +369,44 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
             </p>
           </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground">Model</label>
-            <input
-              type="text"
-              value={config.model || ''}
-              onChange={e => setConfig(p => ({ ...p, model: e.target.value }))}
-              placeholder={config.provider === 'openai' ? 'gpt-5.4' : 'claude-sonnet-4-6'}
-              className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-            />
-            {config.provider === 'openai' && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Suggested: <code className="rounded bg-muted px-1">gpt-5.4</code> or <code className="rounded bg-muted px-1">gpt-5.3-codex</code>
-              </p>
-            )}
-          </div>
+          {(() => {
+            const provider: Provider = config.provider || 'anthropic';
+            const knownModels = MODELS_BY_PROVIDER[provider];
+            const currentModel = config.model || '';
+            const isCustom = currentModel !== '' && !knownModels.includes(currentModel);
+            const selectValue = isCustom ? '__custom__' : currentModel || DEFAULT_MODEL[provider];
+            return (
+              <div>
+                <label className="text-xs text-muted-foreground">Model</label>
+                <select
+                  value={selectValue}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v === '__custom__') {
+                      setConfig(p => ({ ...p, model: '' }));
+                    } else {
+                      setConfig(p => ({ ...p, model: v }));
+                    }
+                  }}
+                  className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+                >
+                  {knownModels.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                  <option value="__custom__">Custom...</option>
+                </select>
+                {(isCustom || selectValue === '__custom__') && (
+                  <input
+                    type="text"
+                    value={config.model || ''}
+                    onChange={e => setConfig(p => ({ ...p, model: e.target.value }))}
+                    placeholder={`Custom ${provider} model ID`}
+                    className="mt-2 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+                  />
+                )}
+              </div>
+            );
+          })()}
 
           <div className="grid grid-cols-3 gap-3">
             <div>

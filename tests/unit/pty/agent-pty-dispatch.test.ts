@@ -89,7 +89,7 @@ describe('AgentPTY provider dispatch', () => {
     expect(capturedArgs[capturedArgs.length - 1]).toBe('hola');
   });
 
-  it('openai continue mode: emits resume --last', async () => {
+  it('openai continue mode: does NOT emit resume (starts fresh to avoid codex argparse bug)', async () => {
     const config: AgentConfig = { provider: 'openai', model: 'gpt-5.3-codex' };
     const pty = new AgentPTY(makeEnv(), config);
 
@@ -101,8 +101,10 @@ describe('AgentPTY provider dispatch', () => {
 
     await pty.spawn('continue', 'resumed');
 
-    expect(capturedArgs[0]).toBe('resume');
-    expect(capturedArgs[1]).toBe('--last');
+    expect(capturedArgs).not.toContain('resume');
+    expect(capturedArgs).not.toContain('--last');
+    expect(capturedArgs).toContain('--sandbox');
+    expect(capturedArgs[capturedArgs.length - 1]).toBe('resumed');
   });
 
   it('anthropic continue mode: emits --continue', async () => {
