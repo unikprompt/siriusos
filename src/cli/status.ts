@@ -89,7 +89,7 @@ function displayStatuses(statuses: AgentStatus[]): void {
   console.log('\n  Agent Status\n');
 
   // Table header
-  const header = '  Name              Status      PID       Uptime      Model';
+  const header = '  Name              Status      PID       Uptime      Provider    Model';
   const separator = '  ' + '-'.repeat(header.length - 2);
   console.log(header);
   console.log(separator);
@@ -99,8 +99,9 @@ function displayStatuses(statuses: AgentStatus[]): void {
     const status = s.status.padEnd(12);
     const pid = (s.pid?.toString() || '-').padEnd(10);
     const uptime = s.uptime ? formatUptime(s.uptime).padEnd(12) : '-'.padEnd(12);
+    const provider = (s.provider || 'anthropic').padEnd(12);
     const model = s.model || '-';
-    console.log(`  ${name}${status}${pid}${uptime}${model}`);
+    console.log(`  ${name}${status}${pid}${uptime}${provider}${model}`);
   }
 
   console.log('');

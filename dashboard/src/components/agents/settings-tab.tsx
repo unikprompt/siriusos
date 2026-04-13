@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { IconDeviceFloppy, IconSettings } from '@tabler/icons-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
+type Provider = 'anthropic' | 'openai';
+
 interface AgentConfig {
   timezone?: string;
   day_mode_start?: string;
@@ -13,6 +15,7 @@ interface AgentConfig {
     always_ask?: string[];
     never_ask?: string[];
   };
+  provider?: Provider;
   model?: string;
   max_session_seconds?: number;
   max_crashes_per_day?: number;
@@ -44,13 +47,18 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
   // Section 2: Agent Config
   const [agSaving, setAgSaving] = useState(false);
   const [agMessage, setAgMessage] = useState<MessageState>(null);
+  const [initialProvider, setInitialProvider] = useState<Provider>('anthropic');
+  const [restarting, setRestarting] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     fetch(`/api/agents/${encodeURIComponent(agentName)}/config`, { signal: controller.signal })
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(d => {
-        if (!controller.signal.aborted && d.config) setConfig(d.config);
+        if (!controller.signal.aborted && d.config) {
+          setConfig(d.config);
+          setInitialProvider((d.config.provider as Provider) || 'anthropic');
+        }
         if (!controller.signal.aborted) setLoading(false);
       })
       .catch(err => { if (err.name !== 'AbortError') setLoading(false); });
@@ -141,6 +149,7 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
   const saveAgConfig = () =>
     saveSection(
       {
+        provider: config.provider,
         model: config.model,
         max_session_seconds: config.max_session_seconds,
         max_crashes_per_day: config.max_crashes_per_day,
@@ -149,6 +158,29 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
       setAgSaving,
       setAgMessage,
     );
+
+  const restartAgent = async () => {
+    setRestarting(true);
+    setAgMessage(null);
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(agentName)}/lifecycle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'restart' }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setAgMessage({ type: 'error', text: d.error || 'Restart failed' });
+      } else {
+        setAgMessage({ type: 'success', text: 'Agent restarted. New backend now active.' });
+        setInitialProvider((config.provider as Provider) || 'anthropic');
+      }
+    } catch {
+      setAgMessage({ type: 'error', text: 'Network error during restart' });
+    } finally {
+      setRestarting(false);
+    }
+  };
 
   if (loading) {
     return <div className="p-6 text-muted-foreground">Loading settings...</div>;
@@ -289,14 +321,36 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
+            <label className="text-xs text-muted-foreground">Provider</label>
+            <select
+              value={config.provider || 'anthropic'}
+              onChange={e => setConfig(p => ({ ...p, provider: e.target.value as Provider }))}
+              className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+            >
+              <option value="anthropic">Anthropic (Claude Code CLI)</option>
+              <option value="openai">OpenAI (Codex CLI via ChatGPT)</option>
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {config.provider === 'openai'
+                ? 'Uses your ChatGPT Plus subscription via `codex login`. Requires codex CLI installed.'
+                : 'Uses your Anthropic subscription via `claude` CLI (default).'}
+            </p>
+          </div>
+
+          <div>
             <label className="text-xs text-muted-foreground">Model</label>
             <input
               type="text"
               value={config.model || ''}
               onChange={e => setConfig(p => ({ ...p, model: e.target.value }))}
-              placeholder="claude-sonnet-4-5"
+              placeholder={config.provider === 'openai' ? 'gpt-5.4' : 'claude-sonnet-4-6'}
               className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
             />
+            {config.provider === 'openai' && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Suggested: <code className="rounded bg-muted px-1">gpt-5.4</code> or <code className="rounded bg-muted px-1">gpt-5.3-codex</code>
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -338,14 +392,29 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
             </div>
           )}
 
-          <button
-            onClick={saveAgConfig}
-            disabled={agSaving}
-            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          >
-            <IconDeviceFloppy size={14} />
-            {agSaving ? 'Saving...' : 'Save Agent Config'}
-          </button>
+          {(config.provider || 'anthropic') !== initialProvider && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+              Provider changed from <strong>{initialProvider}</strong> to <strong>{config.provider || 'anthropic'}</strong>. Save and restart the agent for the change to take effect.
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={saveAgConfig}
+              disabled={agSaving}
+              className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            >
+              <IconDeviceFloppy size={14} />
+              {agSaving ? 'Saving...' : 'Save Agent Config'}
+            </button>
+            <button
+              onClick={restartAgent}
+              disabled={restarting || agSaving}
+              className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
+            >
+              {restarting ? 'Restarting...' : 'Restart Agent'}
+            </button>
+          </div>
         </CardContent>
       </Card>
     </div>
