@@ -406,12 +406,31 @@ export class AgentProcess {
 
     const nowUtc = new Date().toISOString();
     const reminderBlock = this.buildReminderBlock();
+
+    // Codex runtime: lightweight bootstrap. Codex has tight 5-hour message quotas
+    // on ChatGPT Plus and a single heavy bootstrap (12+ files, /loop, CronCreate)
+    // can burn 5-10% of the weekly cap per restart. We also skip cron setup here
+    // because Codex does not expose /loop or CronCreate — cortextos manages crons
+    // externally for openai-provider agents.
+    if (this.config.provider === 'openai') {
+      return `You are starting a new session. Current UTC time: ${nowUtc}. Read ONLY these three files to orient yourself: IDENTITY.md, CLAUDE.md, AGENTS.md. Do not read the other bootstrap files (SOUL.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md) unless a specific task later requires them — read them lazily on demand. Do NOT try to call /loop, CronCreate, or CronList: this runtime does not expose them; crons in config.json are managed by the cortextos daemon, not by you. Check your inbox with \`cortextos bus check-inbox\` and update your heartbeat with \`cortextos bus update-heartbeat "online"\`.${reminderBlock} Then send one short Telegram message to the user saying you are back online and ready.${onboardingAppend}`;
+    }
+
     return `You are starting a new session. Current UTC time: ${nowUtc}. Read AGENTS.md and all bootstrap files listed there. Then restore your crons from config.json: for each entry with type "recurring" (or no type field), call /loop {interval} {prompt}; for each entry with type "once", compare fire_at against the current UTC time above — if fire_at is still in the future recreate the CronCreate, if fire_at is in the past delete that entry from config.json. Run CronList first to avoid duplicates.${reminderBlock} After setting up crons, send a Telegram message to the user saying you are back online.${onboardingAppend}`;
   }
 
   private buildContinuePrompt(): string {
     const nowUtc = new Date().toISOString();
     const reminderBlock = this.buildReminderBlock();
+
+    // Codex runtime: lightweight continuation prompt. Codex does not actually resume
+    // the prior session transcript (our strategy spawns fresh every time — see
+    // src/pty/providers/openai.ts for why), so the "history is preserved" line
+    // would be a lie. Keep the prompt short and re-orient only with the essentials.
+    if (this.config.provider === 'openai') {
+      return `Your CLI process was restarted to reload configs. Current UTC time: ${nowUtc}. Re-read ONLY these three files: IDENTITY.md, CLAUDE.md, AGENTS.md. Do not re-read the other bootstrap files unless a specific task requires them. Do NOT try to call /loop, CronCreate, or CronList — not exposed in this runtime; crons are daemon-managed. Check inbox with \`cortextos bus check-inbox\` and update heartbeat with \`cortextos bus update-heartbeat "online"\`.${reminderBlock} Send one short Telegram message saying you are back online.`;
+    }
+
     return `SESSION CONTINUATION: Your CLI process was restarted with --continue to reload configs. Current UTC time: ${nowUtc}. Your full conversation history is preserved. Re-read AGENTS.md and ALL bootstrap files listed there. Restore your crons from config.json: recurring entries use /loop, once entries use CronCreate only if fire_at is still in the future (delete expired ones from config.json). Run CronList first — no duplicates.${reminderBlock} Check inbox. Resume normal operations. After restoring crons and checking inbox, send a Telegram message to the user saying you are back online.`;
   }
 
