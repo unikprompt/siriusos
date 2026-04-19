@@ -165,6 +165,32 @@ describe('FastChecker', () => {
       // Should not throw
       await expect(sendTyping(api, '12345')).resolves.toBeUndefined();
     });
+
+    it('sends typing immediately when a Telegram message is injected', async () => {
+      vi.useFakeTimers();
+      try {
+        const agent = createMockAgent();
+        const api = createMockTelegramApi();
+        const checker = new FastChecker(agent, paths, '/tmp/framework', {
+          telegramApi: api,
+          chatId: '12345',
+        });
+
+        checker.queueTelegramMessage('=== TELEGRAM from [USER: Test] (chat_id:12345) ===\nHi\n');
+
+        const pollPromise = (checker as any).pollCycle();
+        await vi.advanceTimersByTimeAsync(0);
+
+        expect(agent.injectMessage).toHaveBeenCalledTimes(1);
+        expect(api.sendChatAction).toHaveBeenCalledTimes(1);
+        expect(api.sendChatAction).toHaveBeenCalledWith('12345', 'typing');
+
+        await vi.advanceTimersByTimeAsync(5000);
+        await pollPromise;
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe('formatTelegramTextMessage', () => {

@@ -163,6 +163,12 @@ export class FastChecker {
         // restart the typing indicator after Stop has cleared it.
         if (hasTelegramMessage) {
           this.lastMessageInjectedAt = Date.now();
+          // Send typing immediately so Telegram shows an active conversation
+          // even when the agent replies quickly. The existing end-of-cycle
+          // refresh below still keeps typing alive for longer responses.
+          if (this.chatId && this.telegramApi) {
+            await this.sendTyping(this.telegramApi, this.chatId);
+          }
         }
         // Cooldown after injection
         await sleep(5000);
