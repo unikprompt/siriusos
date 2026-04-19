@@ -30,8 +30,8 @@ describe('TelegramAPI.sendMessage', () => {
     expect(body.text).toBe('hello world');
   });
 
-  it('omits parse_mode when parseMode is none', async () => {
-    await api.sendMessage('123', 'hello world', undefined, 'none');
+  it('omits parse_mode when parseMode is null', async () => {
+    await api.sendMessage('123', 'hello world', undefined, { parseMode: null });
     const body = lastBody();
     expect(body).not.toHaveProperty('parse_mode');
     expect(body.text).toBe('hello world');
@@ -39,7 +39,7 @@ describe('TelegramAPI.sendMessage', () => {
 
   it('keeps special chars literal in plain-text mode', async () => {
     const tricky = 'snake_case * [link](url) `code` ! - ?';
-    await api.sendMessage('123', tricky, undefined, 'none');
+    await api.sendMessage('123', tricky, undefined, { parseMode: null });
     const body = lastBody();
     expect(body.text).toBe(tricky);
     expect(body).not.toHaveProperty('parse_mode');
@@ -49,13 +49,13 @@ describe('TelegramAPI.sendMessage', () => {
     // In Markdown mode, sanitizeMarkdown removes backslashes from non-special chars.
     // In plain-text mode, backslashes are passed through literally.
     const text = 'a\\b c\\!d';
-    await api.sendMessage('123', text, undefined, 'none');
+    await api.sendMessage('123', text, undefined, { parseMode: null });
     expect(lastBody().text).toBe(text);
   });
 
-  it('preserves replyMarkup with parseMode none', async () => {
+  it('preserves replyMarkup with parseMode null', async () => {
     const keyboard = { inline_keyboard: [[{ text: 'yes', callback_data: 'y' }]] };
-    await api.sendMessage('123', 'pick one', keyboard, 'none');
+    await api.sendMessage('123', 'pick one', keyboard, { parseMode: null });
     const body = lastBody();
     expect(body.reply_markup).toEqual(keyboard);
     expect(body).not.toHaveProperty('parse_mode');
@@ -63,7 +63,7 @@ describe('TelegramAPI.sendMessage', () => {
 
   it('splits long messages and omits parse_mode in every chunk (plain-text)', async () => {
     const long = 'x'.repeat(4096 * 2 + 10); // 3 chunks
-    await api.sendMessage('123', long, undefined, 'none');
+    await api.sendMessage('123', long, undefined, { parseMode: null });
     expect(fetchSpy).toHaveBeenCalledTimes(3);
     for (const call of fetchSpy.mock.calls) {
       const body = JSON.parse(call[1].body as string);
@@ -80,4 +80,42 @@ describe('TelegramAPI.sendMessage', () => {
       expect(body.parse_mode).toBe('Markdown');
     }
   }, 10000);
+});
+
+describe('TelegramAPI fetch timeout', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it('throws a timeout error when fetch hangs indefinitely', async () => {
+    globalThis.fetch = vi.fn(
+      (_input: any, init?: any) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            const err = new Error('aborted');
+            err.name = 'AbortError';
+            reject(err);
+          });
+        }),
+    ) as any;
+
+    const api = new TelegramAPI('123:TEST');
+    await expect(api.getUpdates(0, 1)).rejects.toThrow(/timed out after 15s/);
+  }, 20000);
+
+  it('succeeds on normal fetch response', async () => {
+    globalThis.fetch = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, result: [] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    ) as any;
+
+    const api = new TelegramAPI('123:TEST');
+    const res = await api.getUpdates(0, 1);
+    expect(res.ok).toBe(true);
+  });
 });
