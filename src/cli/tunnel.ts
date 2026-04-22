@@ -14,8 +14,24 @@ interface TunnelConfig {
   tunnelId?: string;
   tunnelName?: string;
   tunnelUrl?: string;
+  hostname?: string;
   port?: number;
   createdAt?: string;
+}
+
+function bindHostnameRoute(tunnelId: string, hostname: string): boolean {
+  try {
+    execSync(`cloudflared tunnel route dns --overwrite-dns ${tunnelId} ${hostname}`, {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      timeout: 15000,
+    });
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`  warning: failed to bind DNS hostname ${hostname}: ${msg.split('\n')[0]}`);
+    return false;
+  }
 }
 
 function getTunnelConfigPath(instance: string): string {
@@ -203,6 +219,8 @@ function writePlist(instance: string, port: number): void {
     <key>ProgramArguments</key>
     <array>
         <string>${cfPath}</string>
+        <string>--config</string>
+        <string>${CLOUDFLARED_CONFIG}</string>
         <string>tunnel</string>
         <string>--no-autoupdate</string>
         <string>run</string>
@@ -300,8 +318,9 @@ function unloadService(): void {
 const startCommand = new Command('start')
   .option('--instance <id>', 'Instance ID', 'default')
   .option('--port <port>', 'Dashboard port', '3000')
+  .option('--hostname <hostname>', 'Public hostname to bind (e.g. dashboard.example.com). Requires the zone to be managed by your Cloudflare account.')
   .description('Create (or reuse) the Cloudflare tunnel and start it as a launchd service')
-  .action(async (options: { instance: string; port: string }) => {
+  .action(async (options: { instance: string; port: string; hostname?: string }) => {
     const port = parseInt(options.port, 10);
 
     checkPlatform();
@@ -325,11 +344,22 @@ const startCommand = new Command('start')
       console.log(`  Tunnel: ${tunnel.name} (${tunnel.id}) — created`);
     }
 
-    const tunnelUrl = `https://${tunnel.id}.cfargotunnel.com`;
+    const savedConfig = readTunnelConfig(options.instance);
+    const hostname = options.hostname ?? savedConfig.hostname;
+    const tunnelUrl = hostname
+      ? `https://${hostname}`
+      : `https://${tunnel.id}.cfargotunnel.com`;
 
     // 4. Write cloudflared config.yaml
     writeCloudflaredConfig(tunnel.id, port);
     console.log(`  Config: ${CLOUDFLARED_CONFIG}`);
+
+    // 4b. Bind DNS hostname (only when --hostname was passed this run)
+    if (options.hostname) {
+      if (bindHostnameRoute(tunnel.id, options.hostname)) {
+        console.log(`  DNS route: ${options.hostname} → ${tunnel.id}`);
+      }
+    }
 
     // 5. Write launchd plist
     writePlist(options.instance, port);
@@ -370,11 +400,17 @@ const startCommand = new Command('start')
       tunnelId: tunnel.id,
       tunnelName: tunnel.name,
       tunnelUrl,
+      hostname: hostname ?? undefined,
       port,
-      createdAt: new Date().toISOString(),
+      createdAt: savedConfig.createdAt ?? new Date().toISOString(),
     });
 
     console.log(`\n  Dashboard URL: ${tunnelUrl}`);
+    if (!hostname) {
+      console.log(`  Note: this URL only responds after a public hostname is bound.`);
+      console.log(`        Re-run with --hostname <subdomain.your-domain> to create the DNS route,`);
+      console.log(`        or run manually: cloudflared tunnel route dns ${tunnel.id} <subdomain.your-domain>`);
+    }
     console.log(`  TUNNEL_URL saved to: ${getTunnelConfigPath(options.instance)}\n`);
     console.log(`  The tunnel will restart automatically after reboot.`);
     console.log(`  Start the dashboard with: cortextos dashboard\n`);
