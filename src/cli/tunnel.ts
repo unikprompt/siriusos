@@ -7,6 +7,8 @@ import { homedir } from 'os';
 const TUNNEL_NAME = 'cortextos';
 const PLIST_LABEL = 'com.cortextos.tunnel';
 const PLIST_PATH = join(homedir(), 'Library', 'LaunchAgents', `${PLIST_LABEL}.plist`);
+const WATCHDOG_PLIST_LABEL = 'com.cortextos.tunnel-watchdog';
+const WATCHDOG_PLIST_PATH = join(homedir(), 'Library', 'LaunchAgents', `${WATCHDOG_PLIST_LABEL}.plist`);
 const CLOUDFLARED_CERT = join(homedir(), '.cloudflared', 'cert.pem');
 const CLOUDFLARED_CONFIG = join(homedir(), '.cloudflared', 'config.yaml');
 
@@ -319,8 +321,9 @@ const startCommand = new Command('start')
   .option('--instance <id>', 'Instance ID', 'default')
   .option('--port <port>', 'Dashboard port', '3000')
   .option('--hostname <hostname>', 'Public hostname to bind (e.g. dashboard.example.com). Requires the zone to be managed by your Cloudflare account.')
+  .option('--watchdog', 'Also install the watchdog launchd agent that restarts the tunnel on edge drops')
   .description('Create (or reuse) the Cloudflare tunnel and start it as a launchd service')
-  .action(async (options: { instance: string; port: string; hostname?: string }) => {
+  .action(async (options: { instance: string; port: string; hostname?: string; watchdog?: boolean }) => {
     const port = parseInt(options.port, 10);
 
     checkPlatform();
@@ -414,6 +417,17 @@ const startCommand = new Command('start')
     console.log(`  TUNNEL_URL saved to: ${getTunnelConfigPath(options.instance)}\n`);
     console.log(`  The tunnel will restart automatically after reboot.`);
     console.log(`  Start the dashboard with: cortextos dashboard\n`);
+
+    // 9. Optional watchdog
+    if (options.watchdog) {
+      if (!hostname) {
+        console.warn(`  warning: --watchdog requires a hostname. Skipping watchdog install.`);
+      } else {
+        console.log(`  Installing watchdog...`);
+        installWatchdog(options.instance, hostname, 30, 2);
+        console.log('');
+      }
+    }
   });
 
 const stopCommand = new Command('stop')
@@ -489,6 +503,335 @@ const urlCommand = new Command('url')
     process.stdout.write(config.tunnelUrl + '\n');
   });
 
+// ─── Watchdog ─────────────────────────────────────────────────────────────────
+
+function getWatchdogLogPath(instance: string): string {
+  return join(homedir(), '.cortextos', instance, 'logs', 'tunnel', 'watchdog.log');
+}
+
+function isWatchdogServiceLoaded(): boolean {
+  return spawnSync('launchctl', ['list', WATCHDOG_PLIST_LABEL], { stdio: 'pipe' }).status === 0;
+}
+
+function getCortextosBinary(): string {
+  try {
+    const p = execSync('which cortextos', { encoding: 'utf-8', stdio: 'pipe' }).trim();
+    if (p) return p;
+  } catch { /* fall through */ }
+  return 'cortextos';
+}
+
+function writeWatchdogPlist(instance: string, hostname: string, intervalSec: number, failThreshold: number): void {
+  const cortextosBin = getCortextosBinary();
+  const nodeBinDir = detectNodePath();
+  const logDir = join(homedir(), '.cortextos', instance, 'logs', 'tunnel');
+  const ctxRoot = join(homedir(), '.cortextos', instance);
+
+  mkdirSync(logDir, { recursive: true });
+
+  const launchdPath = [
+    nodeBinDir,
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    '/usr/bin',
+    '/bin',
+  ]
+    .filter((p, i, arr) => arr.indexOf(p) === i)
+    .join(':');
+
+  const plist = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>${WATCHDOG_PLIST_LABEL}</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>${cortextosBin}</string>
+        <string>tunnel</string>
+        <string>watchdog</string>
+        <string>run</string>
+        <string>--instance</string>
+        <string>${instance}</string>
+        <string>--hostname</string>
+        <string>${hostname}</string>
+        <string>--interval</string>
+        <string>${intervalSec}</string>
+        <string>--threshold</string>
+        <string>${failThreshold}</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>${logDir}/watchdog.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>${logDir}/watchdog.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>${homedir()}</string>
+        <key>PATH</key>
+        <string>${launchdPath}</string>
+        <key>CTX_ROOT</key>
+        <string>${ctxRoot}</string>
+    </dict>
+</dict>
+</plist>
+`;
+
+  mkdirSync(join(homedir(), 'Library', 'LaunchAgents'), { recursive: true });
+  writeFileSync(WATCHDOG_PLIST_PATH, plist, 'utf-8');
+  chmodSync(WATCHDOG_PLIST_PATH, 0o644);
+}
+
+function loadWatchdogService(): void {
+  const uid = getUid();
+  spawnSync('launchctl', ['bootout', `gui/${uid}/${WATCHDOG_PLIST_LABEL}`], { stdio: 'pipe' });
+
+  const result = spawnSync('launchctl', ['bootstrap', `gui/${uid}`, WATCHDOG_PLIST_PATH], {
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+
+  if (result.status !== 0) {
+    const legacy = spawnSync('launchctl', ['load', '-w', WATCHDOG_PLIST_PATH], {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+    });
+    if (legacy.status !== 0) {
+      throw new Error(`Failed to load watchdog service: ${legacy.stderr || legacy.stdout}`);
+    }
+  }
+}
+
+function unloadWatchdogService(): void {
+  const uid = getUid();
+  const result = spawnSync('launchctl', ['bootout', `gui/${uid}/${WATCHDOG_PLIST_LABEL}`], {
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+  if (result.status !== 0) {
+    spawnSync('launchctl', ['unload', '-w', WATCHDOG_PLIST_PATH], { stdio: 'pipe' });
+  }
+}
+
+function checkTunnelHealth(hostname: string): { ok: boolean; status: number; detail: string } {
+  const { spawnSync: ssync } = require('child_process');
+  const result = ssync('curl', [
+    '-sS', '-o', '/dev/null',
+    '-w', '%{http_code}',
+    '--max-time', '10',
+    `https://${hostname}`,
+  ], { encoding: 'utf-8', stdio: 'pipe' });
+
+  if (result.status !== 0) {
+    const stderr = (result.stderr ?? '').toString().trim().split('\n').pop() || 'curl failed';
+    return { ok: false, status: 0, detail: stderr };
+  }
+
+  const code = parseInt((result.stdout ?? '').toString().trim(), 10);
+  if (isNaN(code)) {
+    return { ok: false, status: 0, detail: 'unparseable status' };
+  }
+
+  // 2xx/3xx/4xx = dashboard answered (including 307 to /login, 401, etc.)
+  // 5xx = tunnel or backend issue — treat as failure (Cloudflare's 1033 arrives as 530).
+  if (code >= 500) return { ok: false, status: code, detail: `status=${code}` };
+  return { ok: true, status: code, detail: `status=${code}` };
+}
+
+function kickstartTunnel(): { ok: boolean; detail: string } {
+  const uid = getUid();
+  const result = spawnSync('launchctl', ['kickstart', '-k', `gui/${uid}/${PLIST_LABEL}`], {
+    encoding: 'utf-8',
+    stdio: 'pipe',
+  });
+  if (result.status !== 0) {
+    return { ok: false, detail: (result.stderr ?? '').toString().trim() || `exit ${result.status}` };
+  }
+  return { ok: true, detail: 'kickstart ok' };
+}
+
+async function runWatchdog(instance: string, hostname: string, intervalSec: number, failThreshold: number, cooldownSec: number): Promise<void> {
+  // Structured log lines go to stdout (launchd redirects to watchdog.log).
+  const log = (event: string, extra: Record<string, string | number> = {}): void => {
+    const kv = Object.entries(extra).map(([k, v]) => `${k}=${v}`).join(' ');
+    process.stdout.write(`${new Date().toISOString()} ${event}${kv ? ' ' + kv : ''}\n`);
+  };
+
+  log('WATCHDOG_START', { hostname, interval: intervalSec, threshold: failThreshold, cooldown: cooldownSec });
+
+  let consecutiveFails = 0;
+  let lastRestartAt = 0;
+
+  // Loop runs until the process is terminated by launchd.
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const res = checkTunnelHealth(hostname);
+
+    if (res.ok) {
+      if (consecutiveFails > 0) {
+        log('RECOVERED', { status: res.status, previous_fails: consecutiveFails });
+      } else {
+        log('OK', { status: res.status });
+      }
+      consecutiveFails = 0;
+    } else {
+      consecutiveFails += 1;
+      log('FAIL', { detail: res.detail, consecutive: consecutiveFails });
+
+      if (consecutiveFails >= failThreshold) {
+        const since = (Date.now() - lastRestartAt) / 1000;
+        if (since < cooldownSec) {
+          log('RESTART_SKIPPED', { reason: 'cooldown', since_last_restart: Math.round(since) });
+        } else {
+          const kick = kickstartTunnel();
+          lastRestartAt = Date.now();
+          log(kick.ok ? 'RESTART_TRIGGERED' : 'RESTART_ERROR', { detail: kick.detail });
+          consecutiveFails = 0;
+        }
+      }
+    }
+
+    await new Promise((r) => setTimeout(r, intervalSec * 1000));
+  }
+}
+
+function installWatchdog(instance: string, hostname: string, intervalSec: number, failThreshold: number): void {
+  writeWatchdogPlist(instance, hostname, intervalSec, failThreshold);
+  if (isWatchdogServiceLoaded()) {
+    console.log(`  Watchdog: already running — reloading`);
+  }
+  loadWatchdogService();
+  console.log(`  Watchdog: loaded (auto-starts on login)`);
+  console.log(`  Plist: ${WATCHDOG_PLIST_PATH}`);
+  console.log(`  Log: ${getWatchdogLogPath(instance)}`);
+}
+
+// ─── Watchdog subcommands ─────────────────────────────────────────────────────
+
+const watchdogInstallCommand = new Command('install')
+  .option('--instance <id>', 'Instance ID', 'default')
+  .option('--hostname <hostname>', 'Public hostname to health-check (defaults to value saved by tunnel start)')
+  .option('--interval <seconds>', 'Check interval', '30')
+  .option('--threshold <count>', 'Consecutive failures before restart', '2')
+  .description('Install and start the watchdog launchd service')
+  .action(async (options: { instance: string; hostname?: string; interval: string; threshold: string }) => {
+    checkPlatform();
+    console.log('\ncortextOS Tunnel Watchdog — install\n');
+
+    const saved = readTunnelConfig(options.instance);
+    const hostname = options.hostname ?? saved.hostname;
+    if (!hostname) {
+      console.error('  No hostname configured. Pass --hostname or run `cortextos tunnel start --hostname <host>` first.');
+      process.exit(1);
+    }
+
+    const intervalSec = Math.max(10, parseInt(options.interval, 10) || 30);
+    const failThreshold = Math.max(1, parseInt(options.threshold, 10) || 2);
+
+    console.log(`  Host: ${hostname}`);
+    console.log(`  Interval: ${intervalSec}s`);
+    console.log(`  Threshold: ${failThreshold} consecutive fails → kickstart tunnel`);
+    console.log('');
+
+    installWatchdog(options.instance, hostname, intervalSec, failThreshold);
+    console.log('');
+  });
+
+const watchdogUninstallCommand = new Command('uninstall')
+  .option('--instance <id>', 'Instance ID', 'default')
+  .description('Stop and remove the watchdog launchd service')
+  .action(async (_options: { instance: string }) => {
+    checkPlatform();
+
+    if (!existsSync(WATCHDOG_PLIST_PATH)) {
+      console.log('  Watchdog is not installed.');
+      return;
+    }
+
+    if (isWatchdogServiceLoaded()) {
+      unloadWatchdogService();
+      console.log('  Watchdog: stopped');
+    }
+
+    try {
+      const { unlinkSync } = require('fs');
+      unlinkSync(WATCHDOG_PLIST_PATH);
+      console.log(`  Removed: ${WATCHDOG_PLIST_PATH}\n`);
+    } catch (err) {
+      console.warn(`  warning: could not remove plist file: ${err instanceof Error ? err.message : err}`);
+    }
+  });
+
+const watchdogRunCommand = new Command('run')
+  .option('--instance <id>', 'Instance ID', 'default')
+  .option('--hostname <hostname>', 'Public hostname to health-check')
+  .option('--interval <seconds>', 'Check interval', '30')
+  .option('--threshold <count>', 'Consecutive failures before restart', '2')
+  .option('--cooldown <seconds>', 'Minimum seconds between restarts', '90')
+  .description('Run the watchdog loop in the foreground (invoked by launchd; not usually called directly)')
+  .action(async (options: { instance: string; hostname?: string; interval: string; threshold: string; cooldown: string }) => {
+    const saved = readTunnelConfig(options.instance);
+    const hostname = options.hostname ?? saved.hostname;
+    if (!hostname) {
+      process.stderr.write('No hostname configured. Pass --hostname or configure via `cortextos tunnel start --hostname <host>`.\n');
+      process.exit(1);
+    }
+    const intervalSec = Math.max(10, parseInt(options.interval, 10) || 30);
+    const failThreshold = Math.max(1, parseInt(options.threshold, 10) || 2);
+    const cooldownSec = Math.max(30, parseInt(options.cooldown, 10) || 90);
+    await runWatchdog(options.instance, hostname, intervalSec, failThreshold, cooldownSec);
+  });
+
+const watchdogStatusCommand = new Command('status')
+  .option('--instance <id>', 'Instance ID', 'default')
+  .description('Show watchdog running status and recent log lines')
+  .action(async (options: { instance: string }) => {
+    checkPlatform();
+    console.log('\ncortextOS Tunnel Watchdog Status\n');
+
+    const installed = existsSync(WATCHDOG_PLIST_PATH);
+    console.log(`  Installed: ${installed ? 'yes' : 'no'}`);
+    if (!installed) {
+      console.log('  (run: cortextos tunnel watchdog install)\n');
+      return;
+    }
+
+    console.log(`  Service: ${isWatchdogServiceLoaded() ? 'running' : 'stopped'}`);
+
+    const logPath = getWatchdogLogPath(options.instance);
+    console.log(`  Log: ${logPath}`);
+
+    if (existsSync(logPath)) {
+      try {
+        const content = readFileSync(logPath, 'utf-8');
+        const lines = content.split('\n').filter(Boolean).slice(-10);
+        console.log('\n  Recent events:');
+        for (const line of lines) console.log(`    ${line}`);
+      } catch { /* ignore */ }
+    }
+    console.log('');
+  });
+
+const watchdogCommand = new Command('watchdog')
+  .description('Health-check the tunnel and restart it when Cloudflare edge connectivity drops')
+  .addCommand(watchdogInstallCommand)
+  .addCommand(watchdogUninstallCommand)
+  .addCommand(watchdogRunCommand)
+  .addCommand(watchdogStatusCommand);
+
 // ─── Parent command ───────────────────────────────────────────────────────────
 
 export const tunnelCommand = new Command('tunnel')
@@ -496,7 +839,8 @@ export const tunnelCommand = new Command('tunnel')
   .addCommand(startCommand)
   .addCommand(stopCommand)
   .addCommand(statusCommand)
-  .addCommand(urlCommand);
+  .addCommand(urlCommand)
+  .addCommand(watchdogCommand);
 
 // Default action: run start when `cortextos tunnel` is called with no subcommand
 tunnelCommand.action(async () => {
