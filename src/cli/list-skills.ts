@@ -74,8 +74,9 @@ function scanSkillsDir(dir: string, source: string): SkillInfo[] {
 export const listSkillsCommand = new Command('list-skills')
   .option('--format <format>', 'Output format (json|text)', 'text')
   .option('--agent-dir <dir>', 'Agent directory to scan')
+  .option('--filter <pattern>', 'Case-insensitive substring match against skill name or description')
   .description('List available skills for the current agent')
-  .action(async (options: { format: string; agentDir?: string }) => {
+  .action(async (options: { format: string; agentDir?: string; filter?: string }) => {
     const agentDir = options.agentDir || process.cwd();
     const skillMap = new Map<string, SkillInfo>();
 
@@ -116,7 +117,14 @@ export const listSkillsCommand = new Command('list-skills')
       skillMap.set(skill.name, skill);
     }
 
-    const skills = Array.from(skillMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+    let skills = Array.from(skillMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+
+    if (options.filter) {
+      const needle = options.filter.toLowerCase();
+      skills = skills.filter(s =>
+        s.name.toLowerCase().includes(needle) || s.description.toLowerCase().includes(needle),
+      );
+    }
 
     if (options.format === 'json') {
       console.log(JSON.stringify(skills, null, 2));

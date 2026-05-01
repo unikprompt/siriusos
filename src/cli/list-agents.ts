@@ -6,12 +6,22 @@ import { listAgents } from '../bus/agents.js';
 export const listAgentsCommand = new Command('list-agents')
   .description('List all agents in the system')
   .option('--org <org>', 'Filter by organization')
+  .option('--filter <pattern>', 'Case-insensitive substring match against agent name, display name, or role')
   .option('--format <format>', 'Output format: json or text', 'text')
   .option('--instance <id>', 'Instance ID')
-  .action((options: { org?: string; format: string; instance?: string }) => {
+  .action((options: { org?: string; filter?: string; format: string; instance?: string }) => {
     const instanceId = options.instance || process.env.CTX_INSTANCE_ID || 'default';
     const ctxRoot = join(homedir(), '.cortextos', instanceId);
-    const agents = listAgents(ctxRoot, options.org);
+    let agents = listAgents(ctxRoot, options.org);
+
+    if (options.filter) {
+      const needle = options.filter.toLowerCase();
+      agents = agents.filter(a =>
+        a.name.toLowerCase().includes(needle)
+        || (a.display_name || '').toLowerCase().includes(needle)
+        || (a.role || '').toLowerCase().includes(needle),
+      );
+    }
 
     if (options.format === 'json') {
       console.log(JSON.stringify(agents, null, 2));
