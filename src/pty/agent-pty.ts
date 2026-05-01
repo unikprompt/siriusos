@@ -40,10 +40,10 @@ export class AgentPTY {
   private onExitHandler: ((exitCode: number, signal?: number) => void) | null = null;
   private spawnFn: SpawnFn | null = null;
 
-  constructor(env: CtxEnv, config: AgentConfig, logPath?: string) {
+  constructor(env: CtxEnv, config: AgentConfig, logPath?: string, bootstrapPattern?: string) {
     this.env = env;
     this.config = config;
-    this.outputBuffer = new OutputBuffer(1000, logPath);
+    this.outputBuffer = new OutputBuffer(1000, logPath, bootstrapPattern);
   }
 
   /**

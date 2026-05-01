@@ -10,7 +10,8 @@ module.exports = {
         "CTX_ROOT": "/Users/mariosmacstudio/.cortextos/default",
         "CTX_FRAMEWORK_ROOT": "/Users/mariosmacstudio/cortextos",
         "CTX_PROJECT_ROOT": "/Users/mariosmacstudio/cortextos",
-        "CTX_ORG": "unikprompt"
+        "CTX_ORG": "unikprompt",
+        "CTX_DEBUG_ALLOW_CRASH_TRIGGER": "0"
       },
       "max_restarts": 10,
       "restart_delay": 5000,
