@@ -27,6 +27,9 @@ agents/*/local/
 agents/*/telegram-images/
 agents/*/memory/
 
+# Repo-root runtime state (created when running cortextos from the source tree)
+/state/
+
 # macOS metadata
 .DS_Store
 

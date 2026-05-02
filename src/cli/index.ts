@@ -26,6 +26,7 @@ import { setProviderCommand } from './set-provider.js';
 import { purgeCommand } from './purge.js';
 import { obsidianCommand } from './obsidian.js';
 import { skillSuggestionsCommand } from './skill-suggestions.js';
+import { costBudgetCommand } from './cost-budget.js';
 
 const program = new Command();
 
@@ -63,6 +64,7 @@ program.addCommand(purgeCommand);
 program.addCommand(obsidianCommand);
 busCommand.addCommand(obsidianCommand);
 busCommand.addCommand(skillSuggestionsCommand);
+busCommand.addCommand(costBudgetCommand);
 
 // crash-alert: SessionEnd hook — cross-platform replacement for crash-alert.sh
 const crashAlertCommand = new Command('crash-alert')
