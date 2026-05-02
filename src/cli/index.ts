@@ -24,6 +24,7 @@ import { setupCommand } from './setup.js';
 import { spawnWorkerCommand, terminateWorkerCommand, listWorkersCommand, injectWorkerCommand } from './workers.js';
 import { setProviderCommand } from './set-provider.js';
 import { purgeCommand } from './purge.js';
+import { obsidianCommand } from './obsidian.js';
 
 const program = new Command();
 
@@ -58,6 +59,7 @@ program.addCommand(listWorkersCommand);
 program.addCommand(injectWorkerCommand);
 program.addCommand(setProviderCommand);
 program.addCommand(purgeCommand);
+program.addCommand(obsidianCommand);
 
 // crash-alert: SessionEnd hook — cross-platform replacement for crash-alert.sh
 const crashAlertCommand = new Command('crash-alert')
