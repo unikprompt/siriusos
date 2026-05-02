@@ -83,11 +83,19 @@ export const listSkillsCommand = new Command('list-skills')
     // Find framework template dir
     const templateRoot = findTemplateRoot();
 
-    // Scan in priority order (framework → template → agent)
+    // Scan in priority order (framework → community → template → agent)
     // Framework-level skills
     if (templateRoot) {
       const frameworkSkills = join(templateRoot, '..', 'skills');
       for (const skill of scanSkillsDir(frameworkSkills, 'framework')) {
+        skillMap.set(skill.name, skill);
+      }
+    }
+
+    // Community-level skills (sibling of templates/ in the repo)
+    if (templateRoot) {
+      const communitySkills = join(templateRoot, '..', 'community', 'skills');
+      for (const skill of scanSkillsDir(communitySkills, 'community')) {
         skillMap.set(skill.name, skill);
       }
     }

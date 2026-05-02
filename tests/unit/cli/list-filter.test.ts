@@ -52,8 +52,10 @@ describe('list-skills --filter', () => {
       'node', 'cli', '--agent-dir', agentDir, '--format', 'json', '--filter', 'CRON',
     ]);
     const last = logSpy.mock.calls.flat().join('\n');
-    const parsed = JSON.parse(last) as Array<{ name: string }>;
-    expect(parsed.map(s => s.name)).toEqual(['cron-management']);
+    const parsed = JSON.parse(last) as Array<{ name: string; source: string }>;
+    // Scope to agent-level skills — the in-process test runs against the real
+    // cortextos cwd, so framework/community skills also surface and may match.
+    expect(parsed.filter(s => s.source === 'agent').map(s => s.name)).toEqual(['cron-management']);
   });
 
   it('matches against skill description', async () => {
@@ -61,8 +63,8 @@ describe('list-skills --filter', () => {
       'node', 'cli', '--agent-dir', agentDir, '--format', 'json', '--filter', 'telegram',
     ]);
     const last = logSpy.mock.calls.flat().join('\n');
-    const parsed = JSON.parse(last) as Array<{ name: string }>;
-    expect(parsed.map(s => s.name)).toEqual(['comms']);
+    const parsed = JSON.parse(last) as Array<{ name: string; source: string }>;
+    expect(parsed.filter(s => s.source === 'agent').map(s => s.name)).toEqual(['comms']);
   });
 
   it('returns an empty list when nothing matches', async () => {

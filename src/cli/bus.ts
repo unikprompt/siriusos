@@ -1608,9 +1608,10 @@ busCommand
       return map;
     }
 
-    // Merge in priority order: framework < template < agent (agent wins)
+    // Merge in priority order: framework < community < template < agent (agent wins)
     const merged = new Map<string, SkillInfo>();
     for (const [k, v] of scanSkillsDir(join(frameworkRoot, '.claude', 'skills'), 'framework')) merged.set(k, v);
+    for (const [k, v] of scanSkillsDir(join(frameworkRoot, 'community', 'skills'), 'community')) merged.set(k, v);
     if (template) {
       for (const [k, v] of scanSkillsDir(join(frameworkRoot, 'templates', template, '.claude', 'skills'), `template:${template}`)) merged.set(k, v);
     }
