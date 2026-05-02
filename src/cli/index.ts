@@ -29,6 +29,7 @@ import { skillSuggestionsCommand } from './skill-suggestions.js';
 import { costBudgetCommand } from './cost-budget.js';
 import { anomalyDetectionCommand } from './anomaly-detection.js';
 import { browserCommand } from './browser.js';
+import { routineRunsCommand } from './routine-runs.js';
 
 const program = new Command();
 
@@ -69,6 +70,7 @@ busCommand.addCommand(skillSuggestionsCommand);
 busCommand.addCommand(costBudgetCommand);
 busCommand.addCommand(anomalyDetectionCommand);
 busCommand.addCommand(browserCommand);
+busCommand.addCommand(routineRunsCommand);
 
 // crash-alert: SessionEnd hook — cross-platform replacement for crash-alert.sh
 const crashAlertCommand = new Command('crash-alert')
