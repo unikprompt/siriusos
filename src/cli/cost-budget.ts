@@ -18,12 +18,15 @@ interface BaseOpts {
 interface SetOpts extends BaseOpts {
   weeklyBudget?: string;
   thresholds?: string;
+  sonnetBudget?: string;
+  sonnetThresholds?: string;
   chatId?: string;
   resetDow?: string;
   resetHour?: string;
   timezone?: string;
   enable?: boolean;
   disable?: boolean;
+  clearSonnet?: boolean;
 }
 
 interface CheckOpts extends BaseOpts {
@@ -67,8 +70,11 @@ export const costBudgetCommand = new Command('cost-budget').description(
 addBaseOptions(
   costBudgetCommand
     .command('set')
-    .option('--weekly-budget <usd>', 'Weekly budget in USD (e.g. 100)')
+    .option('--weekly-budget <usd>', 'All-models weekly budget in USD (e.g. 100)')
     .option('--thresholds <list>', 'Comma-separated alert thresholds in percent (e.g. 50,80,100)')
+    .option('--sonnet-budget <usd>', 'Sonnet-only weekly budget in USD; enables dual-quota tracking')
+    .option('--sonnet-thresholds <list>', 'Override thresholds for the Sonnet quota only (defaults to --thresholds)')
+    .option('--clear-sonnet', 'Remove the Sonnet quota (revert to single all-models budget)')
     .option('--chat-id <id>', 'Telegram chat ID to notify')
     .option('--reset-dow <day>', 'Day of week the period resets (sunday..saturday)')
     .option('--reset-hour <h>', 'Hour of day (0-23) the period resets in --timezone')
@@ -93,6 +99,20 @@ addBaseOptions(
       const parts = opts.thresholds.split(',').map((s) => Number(s.trim())).filter((n) => !isNaN(n));
       if (parts.length === 0) fail(opts.format, 1, 'invalid --thresholds');
       cfg.thresholds_pct = parts.sort((a, b) => a - b);
+    }
+    if (opts.sonnetBudget !== undefined) {
+      const n = Number(opts.sonnetBudget);
+      if (!isFinite(n) || n <= 0) fail(opts.format, 1, 'invalid --sonnet-budget');
+      cfg.sonnet_weekly_budget_usd = n;
+    }
+    if (opts.sonnetThresholds !== undefined) {
+      const parts = opts.sonnetThresholds.split(',').map((s) => Number(s.trim())).filter((n) => !isNaN(n));
+      if (parts.length === 0) fail(opts.format, 1, 'invalid --sonnet-thresholds');
+      cfg.sonnet_thresholds_pct = parts.sort((a, b) => a - b);
+    }
+    if (opts.clearSonnet) {
+      delete cfg.sonnet_weekly_budget_usd;
+      delete cfg.sonnet_thresholds_pct;
     }
     if (opts.chatId !== undefined) cfg.notify_chat_id = opts.chatId;
     if (opts.resetDow !== undefined) {
@@ -131,13 +151,16 @@ addBaseOptions(
         `Cost budget — instance ${opts.instance}`,
         `  enabled: ${result.enabled}`,
         `  period start (UTC): ${result.period_start}`,
-        `  weekly budget: $${result.weekly_budget_usd.toFixed(2)}`,
-        `  spent so far: $${result.spent_usd.toFixed(2)} (${result.pct.toFixed(1)}%)`,
         `  days into period: ${result.days_into_period.toFixed(1)} / ${result.days_in_period}`,
-        `  projected end-of-week: $${result.projected_eow_usd.toFixed(2)} (${result.projected_pct.toFixed(1)}%)`,
-        `  thresholds: ${result.thresholds_pct.join(', ')}%`,
-        `  fired this period: ${result.fired_thresholds_pct.join(', ') || '(none)'}`,
       ];
+      const renderQuota = (label: string, q: { weekly_budget_usd: number; spent_usd: number; pct: number; projected_eow_usd: number; projected_pct: number; thresholds_pct: number[]; fired_thresholds_pct: number[] }) => {
+        lines.push('');
+        lines.push(`  ${label}: $${q.spent_usd.toFixed(2)} / $${q.weekly_budget_usd.toFixed(2)} (${q.pct.toFixed(1)}%)`);
+        lines.push(`    projected EOW: $${q.projected_eow_usd.toFixed(2)} (${q.projected_pct.toFixed(1)}%)`);
+        lines.push(`    thresholds: ${q.thresholds_pct.join(', ')}% — fired: ${q.fired_thresholds_pct.join(', ') || '(none)'}`);
+      };
+      renderQuota('All-models', result.quotas.all);
+      if (result.quotas.sonnet) renderQuota('Sonnet', result.quotas.sonnet);
       emit('text', lines.join('\n'));
     } else {
       emit('json', result);
@@ -147,14 +170,19 @@ addBaseOptions(
   }
 });
 
-function buildAlertMessage(threshold: number, result: ReturnType<typeof runCheck>): string {
+function buildAlertMessage(
+  quotaLabel: string,
+  threshold: number,
+  q: { weekly_budget_usd: number; spent_usd: number; pct: number; projected_eow_usd: number; projected_pct: number },
+  result: ReturnType<typeof runCheck>,
+): string {
   const severity = threshold >= 100 ? 'EMERGENCIA' : threshold >= 80 ? 'CRÍTICO' : 'AVISO';
   const lines = [
-    `${severity} — Cost budget cruzó ${threshold}%`,
+    `${severity} ${quotaLabel} — Cost budget cruzó ${threshold}%`,
     ``,
-    `Spent: $${result.spent_usd.toFixed(2)} de $${result.weekly_budget_usd.toFixed(2)} (${result.pct.toFixed(1)}%)`,
+    `Spent: $${q.spent_usd.toFixed(2)} de $${q.weekly_budget_usd.toFixed(2)} (${q.pct.toFixed(1)}%)`,
     `Días: ${result.days_into_period.toFixed(1)} / ${result.days_in_period}`,
-    `Proyectado fin-de-semana: $${result.projected_eow_usd.toFixed(2)} (${result.projected_pct.toFixed(1)}%)`,
+    `Proyectado fin-de-semana: $${q.projected_eow_usd.toFixed(2)} (${q.projected_pct.toFixed(1)}%)`,
     `Período arranca: ${result.period_start}`,
   ];
   return lines.join('\n');
@@ -172,26 +200,31 @@ addBaseOptions(
     if (!cfg) fail(opts.format, 1, 'cost-budget config not set');
     const result = runCheck({ cfg, ctxRoot });
 
-    const notified: Array<{ threshold: number; sent: boolean; error?: string }> = [];
+    const notified: Array<{ quota: string; threshold: number; sent: boolean; error?: string }> = [];
     const shouldNotify = cfg.enabled && opts.notify !== false && cfg.notify_chat_id;
     if (shouldNotify) {
-      for (const t of result.newly_fired_thresholds_pct) {
-        const msg = buildAlertMessage(t, result);
-        const r = spawnSync(
-          'cortextos',
-          ['bus', 'send-telegram', cfg.notify_chat_id, msg, '--plain-text'],
-          { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' },
-        );
-        if (r.status === 0) {
-          notified.push({ threshold: t, sent: true });
-        } else {
-          notified.push({
-            threshold: t,
-            sent: false,
-            error: (r.stderr || '').trim() || `exit ${r.status}`,
-          });
+      const fireFor = (quotaLabel: string, q: typeof result.quotas.all) => {
+        for (const t of q.newly_fired_thresholds_pct) {
+          const msg = buildAlertMessage(quotaLabel, t, q, result);
+          const r = spawnSync(
+            'cortextos',
+            ['bus', 'send-telegram', cfg.notify_chat_id, msg, '--plain-text'],
+            { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' },
+          );
+          if (r.status === 0) {
+            notified.push({ quota: quotaLabel, threshold: t, sent: true });
+          } else {
+            notified.push({
+              quota: quotaLabel,
+              threshold: t,
+              sent: false,
+              error: (r.stderr || '').trim() || `exit ${r.status}`,
+            });
+          }
         }
-      }
+      };
+      fireFor('All-models', result.quotas.all);
+      if (result.quotas.sonnet) fireFor('Sonnet', result.quotas.sonnet);
     }
 
     emit(opts.format, { ...result, notified });

@@ -14,6 +14,7 @@ import {
   sumSpent,
   project,
   runCheck,
+  isSonnetModel,
   DEFAULT_BUDGET,
   type CostBudgetConfig,
   type DailyEntry,
@@ -209,5 +210,253 @@ describe('runCheck', () => {
     });
     expect(r.days_into_period).toBeCloseTo(2.0, 0);
     expect(r.projected_eow_usd).toBeCloseTo(70, 0);
+  });
+});
+
+describe('isSonnetModel', () => {
+  it('matches all known sonnet variants and rejects others', () => {
+    expect(isSonnetModel('claude-sonnet-4-6')).toBe(true);
+    expect(isSonnetModel('claude-3-5-sonnet-20241022')).toBe(true);
+    expect(isSonnetModel('SONNET-thing')).toBe(true);
+    expect(isSonnetModel('claude-opus-4-7')).toBe(false);
+    expect(isSonnetModel('claude-haiku-4-5-20251001')).toBe(false);
+    expect(isSonnetModel('')).toBe(false);
+  });
+});
+
+describe('sumSpent — model filter (sonnet)', () => {
+  const periodStartIso = '2026-04-24T05:00:00Z';
+  const dailyMixed: DailyEntry[] = [
+    {
+      date: '2026-04-24',
+      totalCost: 30,
+      totalTokens: 1000,
+      modelBreakdowns: [
+        { modelName: 'claude-opus-4-7', cost: 20 },
+        { modelName: 'claude-sonnet-4-6', cost: 10 },
+      ],
+    },
+    {
+      date: '2026-04-25',
+      totalCost: 50,
+      totalTokens: 2000,
+      modelBreakdowns: [
+        { modelName: 'claude-opus-4-7', cost: 30 },
+        { modelName: 'claude-sonnet-4-6', cost: 15 },
+        { modelName: 'claude-haiku-4-5-20251001', cost: 5 },
+      ],
+    },
+    // No breakdowns: sonnet filter ignores this day, all-models still counts it.
+    { date: '2026-04-26', totalCost: 8, totalTokens: 100 },
+  ];
+
+  it('sums all-models when no filter passed', () => {
+    expect(
+      sumSpent(dailyMixed, periodStartIso, new Date('2026-04-27T00:00:00Z')),
+    ).toBe(30 + 50 + 8);
+  });
+
+  it('sums only Sonnet model entries when filter=sonnet', () => {
+    expect(
+      sumSpent(dailyMixed, periodStartIso, new Date('2026-04-27T00:00:00Z'), 'sonnet'),
+    ).toBe(10 + 15);
+  });
+});
+
+describe('runCheck — dual-quota tracking', () => {
+  const cfgDual: CostBudgetConfig = {
+    ...baseCfg,
+    weekly_budget_usd: 100,
+    sonnet_weekly_budget_usd: 40,
+    thresholds_pct: [50, 80, 100],
+  };
+
+  it('emits both quotas, fires each independently, persists per-quota state', () => {
+    saveConfig(ctxRoot, cfgDual);
+
+    // Day 1: $30 all (30%) and $25 sonnet (62.5%) → only Sonnet crosses 50
+    let r = runCheck({
+      cfg: cfgDual,
+      ctxRoot,
+      now: new Date('2026-04-25T12:00:00Z'),
+      dailyOverride: [
+        {
+          date: '2026-04-24',
+          totalCost: 30,
+          totalTokens: 1,
+          modelBreakdowns: [
+            { modelName: 'claude-opus-4-7', cost: 5 },
+            { modelName: 'claude-sonnet-4-6', cost: 25 },
+          ],
+        },
+      ],
+    });
+    expect(r.quotas.all.spent_usd).toBe(30);
+    expect(r.quotas.all.pct).toBe(30);
+    expect(r.quotas.all.newly_fired_thresholds_pct).toEqual([]);
+    expect(r.quotas.sonnet?.spent_usd).toBe(25);
+    expect(r.quotas.sonnet?.pct).toBeCloseTo(62.5, 1);
+    expect(r.quotas.sonnet?.newly_fired_thresholds_pct).toEqual([50]);
+
+    // Top-level legacy fields mirror `quotas.all`
+    expect(r.spent_usd).toBe(30);
+    expect(r.pct).toBe(30);
+    expect(r.fired_thresholds_pct).toEqual([]);
+
+    // Day 2: $90 all (90%) and $36 sonnet (90%) → all crosses 50+80, sonnet crosses 80
+    r = runCheck({
+      cfg: cfgDual,
+      ctxRoot,
+      now: new Date('2026-04-26T12:00:00Z'),
+      dailyOverride: [
+        {
+          date: '2026-04-24',
+          totalCost: 30,
+          totalTokens: 1,
+          modelBreakdowns: [
+            { modelName: 'claude-opus-4-7', cost: 5 },
+            { modelName: 'claude-sonnet-4-6', cost: 25 },
+          ],
+        },
+        {
+          date: '2026-04-26',
+          totalCost: 60,
+          totalTokens: 1,
+          modelBreakdowns: [
+            { modelName: 'claude-opus-4-7', cost: 49 },
+            { modelName: 'claude-sonnet-4-6', cost: 11 },
+          ],
+        },
+      ],
+    });
+    expect(r.quotas.all.newly_fired_thresholds_pct).toEqual([50, 80]);
+    expect(r.quotas.sonnet?.newly_fired_thresholds_pct).toEqual([80]);
+    expect(r.quotas.sonnet?.fired_thresholds_pct).toEqual([50, 80]);
+    expect(r.quotas.all.fired_thresholds_pct).toEqual([50, 80]);
+
+    // Re-running same day must not re-fire either quota
+    r = runCheck({
+      cfg: cfgDual,
+      ctxRoot,
+      now: new Date('2026-04-26T13:00:00Z'),
+      dailyOverride: [
+        {
+          date: '2026-04-24',
+          totalCost: 30,
+          totalTokens: 1,
+          modelBreakdowns: [
+            { modelName: 'claude-opus-4-7', cost: 5 },
+            { modelName: 'claude-sonnet-4-6', cost: 25 },
+          ],
+        },
+        {
+          date: '2026-04-26',
+          totalCost: 60,
+          totalTokens: 1,
+          modelBreakdowns: [
+            { modelName: 'claude-opus-4-7', cost: 49 },
+            { modelName: 'claude-sonnet-4-6', cost: 11 },
+          ],
+        },
+      ],
+    });
+    expect(r.quotas.all.newly_fired_thresholds_pct).toEqual([]);
+    expect(r.quotas.sonnet?.newly_fired_thresholds_pct).toEqual([]);
+  });
+
+  it('period rollover resets fired thresholds for both quotas', () => {
+    saveConfig(ctxRoot, cfgDual);
+    // Pre-period: fire thresholds in both
+    runCheck({
+      cfg: cfgDual,
+      ctxRoot,
+      now: new Date('2026-04-26T12:00:00Z'),
+      dailyOverride: [
+        {
+          date: '2026-04-25',
+          totalCost: 90,
+          totalTokens: 1,
+          modelBreakdowns: [{ modelName: 'claude-sonnet-4-6', cost: 35 }, { modelName: 'claude-opus-4-7', cost: 55 }],
+        },
+      ],
+    });
+    // After Friday 1am ET reset
+    const r = runCheck({
+      cfg: cfgDual,
+      ctxRoot,
+      now: new Date('2026-05-01T06:00:00Z'),
+      dailyOverride: [
+        {
+          date: '2026-05-01',
+          totalCost: 60,
+          totalTokens: 1,
+          modelBreakdowns: [{ modelName: 'claude-sonnet-4-6', cost: 25 }, { modelName: 'claude-opus-4-7', cost: 35 }],
+        },
+      ],
+    });
+    expect(r.period_start).toBe('2026-05-01T05:00:00.000Z');
+    // 60% of 100 → fires 50; 25/40 = 62.5% → fires 50 for sonnet
+    expect(r.quotas.all.newly_fired_thresholds_pct).toEqual([50]);
+    expect(r.quotas.sonnet?.newly_fired_thresholds_pct).toEqual([50]);
+  });
+
+  it('honors per-quota threshold override (sonnet_thresholds_pct)', () => {
+    const cfg: CostBudgetConfig = {
+      ...cfgDual,
+      sonnet_thresholds_pct: [25, 75],
+    };
+    saveConfig(ctxRoot, cfg);
+    const r = runCheck({
+      cfg,
+      ctxRoot,
+      now: new Date('2026-04-25T12:00:00Z'),
+      dailyOverride: [
+        {
+          date: '2026-04-24',
+          totalCost: 12,
+          totalTokens: 1,
+          modelBreakdowns: [
+            { modelName: 'claude-opus-4-7', cost: 0 },
+            { modelName: 'claude-sonnet-4-6', cost: 12 }, // 12/40 = 30% → fires sonnet 25, NOT all-models 50 (12/100=12%)
+          ],
+        },
+      ],
+    });
+    expect(r.quotas.all.newly_fired_thresholds_pct).toEqual([]);
+    expect(r.quotas.sonnet?.thresholds_pct).toEqual([25, 75]);
+    expect(r.quotas.sonnet?.newly_fired_thresholds_pct).toEqual([25]);
+  });
+});
+
+describe('loadState — backward-compat migration', () => {
+  it('migrates legacy fired_thresholds_pct array to fired_thresholds.all', () => {
+    mkdirSync(join(ctxRoot, 'state'), { recursive: true });
+    require('fs').writeFileSync(
+      statePath(ctxRoot),
+      JSON.stringify({
+        current_period_start: '2026-04-24T05:00:00Z',
+        fired_thresholds_pct: [50, 80],
+        last_check_at: '2026-04-26T12:00:00Z',
+      }),
+    );
+    const s = loadState(ctxRoot);
+    expect(s.fired_thresholds.all).toEqual([50, 80]);
+    expect(s.fired_thresholds.sonnet).toEqual([]);
+    expect(s.fired_thresholds_pct).toEqual([50, 80]);
+  });
+
+  it('reads new shape correctly when present', () => {
+    mkdirSync(join(ctxRoot, 'state'), { recursive: true });
+    require('fs').writeFileSync(
+      statePath(ctxRoot),
+      JSON.stringify({
+        current_period_start: '2026-04-24T05:00:00Z',
+        fired_thresholds: { all: [50], sonnet: [50, 80] },
+        last_check_at: '2026-04-26T12:00:00Z',
+      }),
+    );
+    const s = loadState(ctxRoot);
+    expect(s.fired_thresholds.all).toEqual([50]);
+    expect(s.fired_thresholds.sonnet).toEqual([50, 80]);
   });
 });
