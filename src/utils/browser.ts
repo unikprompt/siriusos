@@ -226,7 +226,7 @@ async function runStep(
       return { selector: step.selector };
     }
     case 'extract': {
-      await page.waitForSelector(step.selector!, { timeout });
+      await page.waitForSelector(step.selector!, { timeout, state: 'attached' });
       const text = await page.locator(step.selector!).first().textContent();
       return { selector: step.selector, text: text?.trim() ?? '' };
     }
