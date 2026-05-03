@@ -44,13 +44,16 @@ cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 
 Stale tasks are visible on the dashboard. They make you look broken.
 
-## Step 4: Log heartbeat event
+## Step 4: Log heartbeat event + record cron fire
 
 Full reference: `.claude/skills/event-logging/SKILL.md`
 
 ```bash
 cortextos bus log-event heartbeat agent_heartbeat info --meta '{"agent":"'$CTX_AGENT_NAME'"}'
+cortextos bus update-cron-fire heartbeat --interval 4h
 ```
+
+The second call updates `state/<agent>/cron-state.json` so the daemon's gap-detection loop knows the cron actually fired. Skipping it triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min. Adjust `--interval` to match your config.json.
 
 ## Step 5: Write daily memory
 

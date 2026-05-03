@@ -36,11 +36,14 @@ cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 - In-progress tasks older than 2 hours: complete them or update status with a note
 - No tasks: check GOALS.md for objectives, then check with orchestrator
 
-## Step 4: Log heartbeat event
+## Step 4: Log heartbeat event + record cron fire
 
 ```bash
 cortextos bus log-event heartbeat agent_heartbeat info --meta '{"agent":"'$CTX_AGENT_NAME'"}'
+cortextos bus update-cron-fire heartbeat --interval 4h
 ```
+
+The second call updates `state/<agent>/cron-state.json` so the daemon's gap-detection loop knows the cron actually fired. Skipping it triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min. Adjust `--interval` to match your config.json.
 
 ## Step 5: Write daily memory
 
