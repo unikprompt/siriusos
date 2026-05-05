@@ -3,10 +3,12 @@
 This runs on your heartbeat cron (every 4 hours). Execute EVERY step in order.
 Skipping steps = broken system.
 
-## Step 1: Update heartbeat (DO THIS FIRST)
+## Step 1: Liveness ping (DO THIS FIRST)
+
+Quick `update-heartbeat` so the dashboard sees you alive. The full structured update happens in Step 4.
 
 ```bash
-cortextos bus update-heartbeat "<1-sentence summary of current work>"
+cortextos bus update-heartbeat "starting heartbeat cycle"
 ```
 
 If this fails, your agent shows as DEAD on the dashboard. Fix it before anything else.
@@ -36,45 +38,38 @@ cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 - In-progress tasks older than 2 hours: complete them or update status with a note
 - No tasks: check GOALS.md for objectives, then check with orchestrator
 
-## Step 4: Log heartbeat event + record cron fire
+## Step 4: Close the cycle (heartbeat-respond)
+
+Single structured call that wraps update-heartbeat + log-event + update-cron-fire + memory append. Each substep runs independently and partial failures are surfaced in the output.
 
 ```bash
-cortextos bus log-event heartbeat agent_heartbeat info --meta '{"agent":"'$CTX_AGENT_NAME'"}'
-cortextos bus update-cron-fire heartbeat --interval 4h
+cortextos bus heartbeat-respond \
+  --status ok \
+  --inbox-count <N from Step 2> \
+  --tasks-count <N from Step 3> \
+  --task "<task_id or empty>" \
+  --next "<what you will do next>" \
+  --note "<1-line cycle summary>" \
+  --cron-interval <match config.json, e.g. 4h>
 ```
 
-The second call updates `state/<agent>/cron-state.json` so the daemon's gap-detection loop knows the cron actually fired. Skipping it triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min. Adjust `--interval` to match your config.json.
+Exit code is 1 if any substep failed. If you see `PARTIAL`, re-run only the failed substep (`update-heartbeat`, `log-event`, `update-cron-fire`, or manual memory append). Skipping cron-fire triggers `Cron gap detected` nudges.
 
-## Step 5: Write daily memory
-
-```bash
-TODAY=$(date -u +%Y-%m-%d)
-mkdir -p memory
-cat >> "memory/$TODAY.md" << MEMORY
-
-## Heartbeat Update - $(date -u +%H:%M)
-- WORKING ON: <task_id or "none">
-- Status: <healthy/working/blocked>
-- Inbox: <N messages processed>
-- Next action: <what you will do next>
-MEMORY
-```
-
-## Step 6: Re-index memory to KB
+## Step 5: Re-index memory to KB
 
 ```bash
 cortextos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
-  --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private --collection memory-$CTX_AGENT_NAME --force
+  --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private --force
 ```
 
-## Step 7: Check GOALS.md
+## Step 6: Check GOALS.md
 
 Read GOALS.md for any new objectives. If goals changed, create tasks:
 ```bash
 cortextos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME
 ```
 
-## Step 8: Resume work
+## Step 7: Resume work
 
 Pick your highest priority task and work on it.
 

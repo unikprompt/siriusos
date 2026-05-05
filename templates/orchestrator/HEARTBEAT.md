@@ -3,10 +3,12 @@
 This runs on your heartbeat cron (every 4 hours). Execute EVERY step in order.
 Skipping steps = broken system. The dashboard monitors your compliance.
 
-## Step 1: Update heartbeat (DO THIS FIRST)
+## Step 1: Liveness ping (DO THIS FIRST)
+
+Quick `update-heartbeat` so the dashboard sees you alive while you do the rest of the cycle. The full structured update happens in Step 4.
 
 ```bash
-cortextos bus update-heartbeat "<1-sentence summary of current work>"
+cortextos bus update-heartbeat "starting heartbeat cycle"
 ```
 
 If this fails, your agent shows as DEAD on the dashboard. Fix it before anything else.
@@ -70,39 +72,39 @@ cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 - If you have in_progress tasks older than 2 hours: either complete them NOW or update their status with a note
 - If you have NO tasks: check GOALS.md for objectives, generate tasks for specialist agents
 
-Stale tasks are visible on the dashboard. They make you look broken.
+Stale tasks are visible on the dashboard. They make you look broken. Remember the count for Step 4 (`--tasks-count`) and the current task ID (`--task`).
 
-## Step 4: Log heartbeat event + record cron fire
+## Step 4: Close the cycle (heartbeat-respond)
 
-Full reference: `.claude/skills/event-logging/SKILL.md`
+Single structured call that wraps update-heartbeat + log-event + update-cron-fire + memory append. Each substep runs independently and partial failures are reported in the output (the wrap never silently swallows a failed step).
 
-```bash
-cortextos bus log-event heartbeat agent_heartbeat info --meta '{"agent":"'$CTX_AGENT_NAME'"}'
-cortextos bus update-cron-fire heartbeat --interval 4h
-```
-
-The second call updates `state/<agent>/cron-state.json` so the daemon's gap-detection loop knows the cron actually fired. Skipping it triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min. Adjust `--interval` to match your config.json.
-
-## Step 5: Write daily memory
-
-Full reference: `.claude/skills/memory/SKILL.md`
+Full reference: `cortextos bus heartbeat-respond --help`
 
 ```bash
-TODAY=$(date -u +%Y-%m-%d)
-LOCAL_TIME=$(date +'%-I:%M %p %Z' 2>/dev/null || date)
-MEMORY_DIR="$(pwd)/memory"
-mkdir -p "$MEMORY_DIR"
-cat >> "$MEMORY_DIR/$TODAY.md" << MEMORY
-
-## Heartbeat Update - $(date -u +%H:%M UTC) / $LOCAL_TIME
-- WORKING ON: <task_id or "none">
-- Status: <healthy/working/blocked>
-- Inbox: <N messages processed>
-- Next action: <what you will do next>
-MEMORY
+cortextos bus heartbeat-respond \
+  --status ok \
+  --inbox-count <N from Step 2> \
+  --tasks-count <N from Step 3b> \
+  --task "<task_id or empty>" \
+  --next "<what you will do next>" \
+  --note "<1-line summary of fleet + own work this cycle>" \
+  --cron-interval <match your config.json, e.g. 4h>
 ```
 
-## Step 6: Check org goals state
+`--status` accepts `ok | degraded | blocked`. Use `degraded` if some agents in the fleet are unhealthy or some substeps in your work failed; `blocked` if you cannot proceed without human input.
+
+Exit code is 1 if any substep (heartbeat / event / cron-fire / memory) failed. If you see `PARTIAL`, read the per-line output to see which one failed and re-run the individual command:
+
+| Substep failed | Re-run |
+|----------------|--------|
+| `heartbeat: FAIL` | `cortextos bus update-heartbeat "<status>"` |
+| `event: FAIL`     | `cortextos bus log-event heartbeat agent_heartbeat info --meta '{...}'` |
+| `cron-fire: FAIL` | `cortextos bus update-cron-fire heartbeat --interval <i>` |
+| `memory: FAIL`    | manually append to `memory/$(date -u +%Y-%m-%d).md` |
+
+Skipping cron-fire triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min — that is why partial-failure visibility matters here.
+
+## Step 5: Check org goals state
 
 Full reference: `.claude/skills/goal-management/SKILL.md`
 
@@ -116,7 +118,7 @@ cat $CTX_FRAMEWORK_ROOT/orgs/$CTX_ORG/goals.json
 
 Also read your own GOALS.md for any manual overrides or notes you left yourself.
 
-## Step 7: Resume work
+## Step 6: Resume work
 
 Full reference: `.claude/skills/tasks/SKILL.md`
 
@@ -132,7 +134,7 @@ When done:
 cortextos bus complete-task "<task_id>" --result "<summary of what was produced>"
 ```
 
-## Step 8: Guardrail self-check
+## Step 7: Guardrail self-check
 
 Full reference: `.claude/skills/guardrails-reference/SKILL.md`
 
@@ -145,7 +147,7 @@ cortextos bus log-event action guardrail_triggered info --meta '{"guardrail":"<w
 
 If you discovered a new pattern that should be a guardrail, add it to GUARDRAILS.md now.
 
-## Step 9: Update long-term memory (if applicable)
+## Step 8: Update long-term memory (if applicable)
 
 Full reference: `.claude/skills/memory/SKILL.md`
 
@@ -155,7 +157,7 @@ If you learned something this cycle that should persist across sessions:
 - System behaviors noted
 - Append to MEMORY.md
 
-## Step 10: Re-ingest memory to knowledge base
+## Step 9: Re-ingest memory to knowledge base
 
 Full reference: `.claude/skills/knowledge-base/SKILL.md`
 
@@ -163,13 +165,13 @@ Keep your memory collection searchable and current:
 
 ```bash
 cortextos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
-  --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private --collection memory-$CTX_AGENT_NAME --force
+  --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private --force
 ```
 
-This runs automatically on every heartbeat cycle. It ensures past experiences, user preferences, and learned patterns are semantically searchable for future tasks. Skip if GEMINI_API_KEY is not configured.
+This runs on every heartbeat cycle. It ensures past experiences, user preferences, and learned patterns are semantically searchable for future tasks. Skip if Gemini/KB is not configured for the org.
 
 ---
 
 REMINDER: A heartbeat with 0 events logged and 0 memory updates means you did nothing visible.
-Target: >= 2 events and >= 1 memory update per heartbeat cycle.
+Target: >= 2 events and >= 1 memory update per heartbeat cycle. `heartbeat-respond` already produces 1 event + 1 memory entry, so meeting the target only requires you to log work events too.
 Invisible work is wasted work.

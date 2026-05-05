@@ -3,10 +3,12 @@
 This runs on your heartbeat cron (every 4 hours). Execute EVERY step in order.
 Skipping steps = broken system. The dashboard monitors your compliance.
 
-## Step 1: Update heartbeat (DO THIS FIRST)
+## Step 1: Liveness ping (DO THIS FIRST)
+
+Quick `update-heartbeat` so the dashboard sees you alive while you do the rest of the cycle. The full structured update happens in Step 4.
 
 ```bash
-cortextos bus update-heartbeat "<1-sentence summary of current work>"
+cortextos bus update-heartbeat "starting heartbeat cycle"
 ```
 
 If this fails, your agent shows as DEAD on the dashboard. Fix it before anything else.
@@ -62,33 +64,37 @@ cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 
 Stale tasks are visible on the dashboard. They make you look broken.
 
-## Step 4: Log heartbeat event + record cron fire
+## Step 4: Close the cycle (heartbeat-respond)
+
+Single structured call that wraps update-heartbeat + log-event + update-cron-fire + memory append. Each substep runs independently and partial failures are reported in the output (the wrap never silently swallows a failed step).
+
+Full reference: `cortextos bus heartbeat-respond --help`
 
 ```bash
-cortextos bus log-event heartbeat agent_heartbeat info --meta '{"agent":"'$CTX_AGENT_NAME'"}'
-cortextos bus update-cron-fire heartbeat --interval 4h
+cortextos bus heartbeat-respond \
+  --status ok \
+  --inbox-count <N from Step 2> \
+  --tasks-count <N from Step 3b> \
+  --task "<task_id or empty>" \
+  --next "<what you will do next>" \
+  --note "<1-line summary of system health + own work this cycle>" \
+  --cron-interval <match your config.json, e.g. 4h>
 ```
 
-The second call updates `state/<agent>/cron-state.json` so the daemon's gap-detection loop knows the cron actually fired. Skipping it triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min. Adjust `--interval` to match your config.json.
+`--status` accepts `ok | degraded | blocked`. Use `degraded` if some monitored agents are unhealthy or some substeps failed; `blocked` if you cannot proceed without human input.
 
-## Step 5: Write daily memory
+Exit code is 1 if any substep (heartbeat / event / cron-fire / memory) failed. If you see `PARTIAL`, read the per-line output to see which one failed and re-run the individual command:
 
-```bash
-TODAY=$(date -u +%Y-%m-%d)
-LOCAL_TIME=$(date +'%-I:%M %p %Z' 2>/dev/null || date)
-MEMORY_DIR="$(pwd)/memory"
-mkdir -p "$MEMORY_DIR"
-cat >> "$MEMORY_DIR/$TODAY.md" << MEMORY
+| Substep failed | Re-run |
+|----------------|--------|
+| `heartbeat: FAIL` | `cortextos bus update-heartbeat "<status>"` |
+| `event: FAIL`     | `cortextos bus log-event heartbeat agent_heartbeat info --meta '{...}'` |
+| `cron-fire: FAIL` | `cortextos bus update-cron-fire heartbeat --interval <i>` |
+| `memory: FAIL`    | manually append to `memory/$(date -u +%Y-%m-%d).md` |
 
-## Heartbeat Update - $(date -u +%H:%M UTC) / $LOCAL_TIME
-- WORKING ON: <task_id or "none">
-- Status: <healthy/working/blocked>
-- Inbox: <N messages processed>
-- Next action: <what you will do next>
-MEMORY
-```
+Skipping cron-fire triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min — that is why partial-failure visibility matters here.
 
-## Step 6: Check GOALS.md
+## Step 5: Check GOALS.md
 
 Read GOALS.md for any new objectives from the user.
 If goals changed since last check, create tasks to address them:
@@ -97,7 +103,7 @@ If goals changed since last check, create tasks to address them:
 cortextos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME --priority normal
 ```
 
-## Step 7: Resume work
+## Step 6: Resume work
 
 Pick your highest priority task and work on it.
 
@@ -111,7 +117,7 @@ When done:
 cortextos bus complete-task "<task_id>" "<summary of what was produced>"
 ```
 
-## Step 8: Update long-term memory (if applicable)
+## Step 7: Update long-term memory (if applicable)
 
 If you learned something this cycle that should persist across sessions:
 - Patterns that work/don't work
