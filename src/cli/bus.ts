@@ -10,7 +10,8 @@ import { logEvent } from '../bus/event.js';
 import { updateHeartbeat, readAllHeartbeats } from '../bus/heartbeat.js';
 import { heartbeatRespond, type HeartbeatRespondStatus } from '../bus/heartbeat-respond.js';
 import { selfRestart, hardRestart, autoCommit, checkGoalStaleness, postActivity } from '../bus/system.js';
-import { createExperiment, runExperiment, evaluateExperiment, listExperiments, gatherContext, manageCycle, loadExperimentConfig } from '../bus/experiment.js';
+import { createExperiment, runExperiment, evaluateExperiment, listExperiments, gatherContext, manageCycle, loadExperimentConfig, setExperimentApprovalId, findAgedLowRiskExperiments, markExperimentAutoApproved } from '../bus/experiment.js';
+import type { ExperimentRiskLevel } from '../bus/experiment.js';
 import { browseCatalog, installCommunityItem, prepareSubmission, submitCommunityItem } from '../bus/catalog.js';
 import { collectMetrics, parseUsageOutput, storeUsageData, checkUpstream, collectTelegramCommands, registerTelegramCommands } from '../bus/metrics.js';
 import { createApproval, updateApproval } from '../bus/approval.js';
@@ -820,13 +821,23 @@ busCommand
   .option('--surface <path>', 'Surface file path')
   .option('--direction <dir>', 'Direction: higher or lower', 'higher')
   .option('--window <dur>', 'Measurement window', '24h')
-  .action(async (metric: string, hypothesis: string, opts: { surface?: string; direction?: string; window?: string }) => {
+  .option('--risk-level <level>', 'Risk level: low or high (default: classified from surface)')
+  .action(async (metric: string, hypothesis: string, opts: { surface?: string; direction?: string; window?: string; riskLevel?: string }) => {
     const env = resolveEnv();
     const agentDir = env.agentDir || process.cwd();
+    let riskLevel: ExperimentRiskLevel | undefined;
+    if (opts.riskLevel) {
+      if (opts.riskLevel !== 'low' && opts.riskLevel !== 'high') {
+        console.error(`Invalid --risk-level '${opts.riskLevel}'. Must be 'low' or 'high'.`);
+        process.exit(1);
+      }
+      riskLevel = opts.riskLevel as ExperimentRiskLevel;
+    }
     const id = createExperiment(agentDir, env.agentName, metric, hypothesis, {
       surface: opts.surface,
       direction: opts.direction as 'higher' | 'lower',
       window: opts.window,
+      risk_level: riskLevel,
     });
     console.log(id);
 
@@ -843,6 +854,9 @@ busCommand
         `Experiment ID: ${id}\nMetric: ${metric}\nHypothesis: ${hypothesis}`,
         env.frameworkRoot,
       );
+      // Persist approval_id on the experiment so aging-based auto-approval can
+      // find the matching pending approval without scanning every approval file.
+      setExperimentApprovalId(agentDir, id, approvalId);
       console.log(`approval_required: ${approvalId}`);
     }
   });
@@ -874,6 +888,83 @@ busCommand
       justification: opts.justification,
     });
     console.log(JSON.stringify(experiment, null, 2));
+  });
+
+busCommand
+  .command('auto-approve-experiments')
+  .description('Auto-approve aged low-risk experiments per experiments/config.json policy')
+  .option('--agent <name>', 'Target agent (default: current agent)')
+  .option('--threshold-hours <n>', 'Override the configured threshold (for testing)')
+  .option('--dry-run', 'Report aged experiments without applying approvals')
+  .option('--no-notify', 'Skip Telegram notification')
+  .action(async (opts: { agent?: string; thresholdHours?: string; dryRun?: boolean; notify?: boolean }) => {
+    const env = resolveEnv();
+    const agentName = opts.agent || env.agentName;
+    const agentDir = opts.agent && env.frameworkRoot
+      ? join(env.frameworkRoot, 'orgs', env.org, 'agents', opts.agent)
+      : (env.agentDir || process.cwd());
+    const paths = resolvePaths(agentName, env.instanceId, env.org);
+    const pendingDir = join(paths.approvalDir, 'pending');
+
+    const aged = findAgedLowRiskExperiments(agentDir, pendingDir, {
+      thresholdHoursOverride: opts.thresholdHours ? parseFloat(opts.thresholdHours) : undefined,
+      agent: agentName,
+    });
+
+    if (opts.dryRun) {
+      console.log(JSON.stringify({ dry_run: true, aged }, null, 2));
+      return;
+    }
+
+    const applied: Array<{ experiment_id: string; approval_id: string; age_hours: number }> = [];
+    const config = loadExperimentConfig(agentDir);
+    const thresholdHours = opts.thresholdHours
+      ? parseFloat(opts.thresholdHours)
+      : (config.auto_approve_low_risk_after_hours ?? 0);
+    for (const item of aged) {
+      try {
+        updateApproval(
+          paths,
+          item.approval_id,
+          'approved',
+          `auto-approved by policy after ${thresholdHours}h without human response`,
+        );
+        markExperimentAutoApproved(agentDir, item.experiment_id);
+        applied.push({
+          experiment_id: item.experiment_id,
+          approval_id: item.approval_id,
+          age_hours: Math.round(item.age_hours * 10) / 10,
+        });
+      } catch (err: any) {
+        console.error(`auto-approve failed for ${item.experiment_id}: ${err?.message || err}`);
+      }
+    }
+
+    // Best-effort Telegram notification. Skipped on --no-notify, when no items
+    // were applied, or when the agent has no Telegram configured. Notification
+    // failures must not fail the command (the approvals already happened).
+    const shouldNotify = opts.notify !== false && applied.length > 0;
+    const chatId = process.env.CTX_TELEGRAM_CHAT_ID;
+    const botToken = process.env.CTX_TELEGRAM_BOT_TOKEN;
+    if (shouldNotify && chatId && botToken) {
+      const lines = [
+        `Auto-approved ${applied.length} experiment(s) by policy (>${thresholdHours}h sin respuesta):`,
+      ];
+      for (const a of applied) {
+        const exp = aged.find((x) => x.experiment_id === a.experiment_id);
+        if (exp) {
+          lines.push(`- ${a.experiment_id}: ${exp.metric} — ${exp.hypothesis.slice(0, 80)} (aged ${a.age_hours}h)`);
+        }
+      }
+      try {
+        const tg = new TelegramAPI(botToken);
+        await tg.sendMessage(chatId, lines.join('\n'));
+      } catch (err: any) {
+        console.error(`Telegram notify failed (non-fatal): ${err?.message || err}`);
+      }
+    }
+
+    console.log(JSON.stringify({ applied, count: applied.length }, null, 2));
   });
 
 busCommand

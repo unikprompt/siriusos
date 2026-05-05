@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, readFileSync, mkdirSync, rmSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import {
@@ -9,6 +9,10 @@ import {
   listExperiments,
   gatherContext,
   manageCycle,
+  classifyRiskLevel,
+  setExperimentApprovalId,
+  findAgedLowRiskExperiments,
+  markExperimentAutoApproved,
 } from '../src/bus/experiment.js';
 
 describe('Sprint 3: Experiment Framework', () => {
@@ -333,6 +337,189 @@ describe('Sprint 3: Experiment Framework', () => {
 
     it('throws when creating without required fields', () => {
       expect(() => manageCycle(testDir, 'create', { name: 'x' })).toThrow('requires');
+    });
+  });
+
+  describe('risk classification', () => {
+    it('classifies experiments/surfaces/* as low', () => {
+      expect(classifyRiskLevel('experiments/surfaces/briefing/current.md')).toBe('low');
+      expect(classifyRiskLevel('orgs/x/agents/y/experiments/surfaces/foo.md')).toBe('low');
+    });
+
+    it('classifies SOUL/GUARDRAILS/IDENTITY/publish as high', () => {
+      expect(classifyRiskLevel('SOUL.md')).toBe('high');
+      expect(classifyRiskLevel('agents/foo/GUARDRAILS.md')).toBe('high');
+      expect(classifyRiskLevel('IDENTITY.md')).toBe('high');
+      expect(classifyRiskLevel('src/cli/publish.ts')).toBe('high');
+    });
+
+    it('defaults to high for unknown surfaces and empty string', () => {
+      expect(classifyRiskLevel('')).toBe('high');
+      expect(classifyRiskLevel('some/random/path.md')).toBe('high');
+    });
+
+    it('high-risk surface beats experiments/surfaces/ prefix', () => {
+      expect(classifyRiskLevel('experiments/surfaces/SOUL.md')).toBe('high');
+    });
+
+    it('createExperiment defaults risk_level from surface', () => {
+      const lowId = createExperiment(testDir, 'bot', 'm', 'h', { surface: 'experiments/surfaces/x.md' });
+      const highId = createExperiment(testDir, 'bot', 'm', 'h', { surface: 'SOUL.md' });
+      const noSurfaceId = createExperiment(testDir, 'bot', 'm', 'h');
+      const list = listExperiments(testDir);
+      const map = new Map(list.map((e) => [e.id, e]));
+      expect(map.get(lowId)!.risk_level).toBe('low');
+      expect(map.get(highId)!.risk_level).toBe('high');
+      expect(map.get(noSurfaceId)!.risk_level).toBe('high');
+    });
+
+    it('createExperiment honors explicit risk_level override', () => {
+      const id = createExperiment(testDir, 'bot', 'm', 'h', {
+        surface: 'experiments/surfaces/x.md',
+        risk_level: 'high',
+      });
+      const exp = listExperiments(testDir).find((e) => e.id === id)!;
+      expect(exp.risk_level).toBe('high');
+    });
+
+    it('createExperiment initializes approval_id null and auto_approved false', () => {
+      const id = createExperiment(testDir, 'bot', 'm', 'h');
+      const exp = listExperiments(testDir).find((e) => e.id === id)!;
+      expect(exp.approval_id).toBeNull();
+      expect(exp.auto_approved).toBe(false);
+    });
+  });
+
+  describe('auto-approve aging', () => {
+    let pendingDir: string;
+
+    beforeEach(() => {
+      pendingDir = join(testDir, 'approvals-pending');
+      mkdirSync(pendingDir, { recursive: true });
+      mkdirSync(join(testDir, 'experiments'), { recursive: true });
+      writeFileSync(
+        join(testDir, 'experiments', 'config.json'),
+        JSON.stringify({ approval_required: true, auto_approve_low_risk_after_hours: 48 }),
+      );
+    });
+
+    function seedExperiment(opts: {
+      surface: string;
+      ageHours: number;
+      approvalPending: boolean;
+      riskLevel?: 'low' | 'high';
+    }): { id: string; approvalId: string } {
+      const id = createExperiment(testDir, 'bot', 'metric_x', 'hyp', {
+        surface: opts.surface,
+        risk_level: opts.riskLevel,
+      });
+      const expFile = join(testDir, 'experiments', 'history', `${id}.json`);
+      const exp = JSON.parse(readFileSync(expFile, 'utf-8'));
+      exp.created_at = new Date(Date.now() - opts.ageHours * 3600000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      writeFileSync(expFile, JSON.stringify(exp));
+
+      const approvalId = `approval_${Math.floor(Date.now() / 1000)}_${id.slice(-5)}`;
+      setExperimentApprovalId(testDir, id, approvalId);
+      if (opts.approvalPending) {
+        writeFileSync(
+          join(pendingDir, `${approvalId}.json`),
+          JSON.stringify({ id: approvalId, status: 'pending' }),
+        );
+      }
+      return { id, approvalId };
+    }
+
+    it('returns aged low-risk pending experiments', () => {
+      const { id, approvalId } = seedExperiment({
+        surface: 'experiments/surfaces/x.md',
+        ageHours: 50,
+        approvalPending: true,
+      });
+
+      const aged = findAgedLowRiskExperiments(testDir, pendingDir);
+      expect(aged).toHaveLength(1);
+      expect(aged[0].experiment_id).toBe(id);
+      expect(aged[0].approval_id).toBe(approvalId);
+      expect(aged[0].age_hours).toBeGreaterThan(48);
+    });
+
+    it('skips experiments below the threshold', () => {
+      seedExperiment({ surface: 'experiments/surfaces/x.md', ageHours: 10, approvalPending: true });
+      expect(findAgedLowRiskExperiments(testDir, pendingDir)).toEqual([]);
+    });
+
+    it('skips high-risk experiments even when aged', () => {
+      seedExperiment({
+        surface: 'experiments/surfaces/x.md',
+        ageHours: 100,
+        approvalPending: true,
+        riskLevel: 'high',
+      });
+      expect(findAgedLowRiskExperiments(testDir, pendingDir)).toEqual([]);
+    });
+
+    it('respects human decisions: skips when approval is no longer pending', () => {
+      const { approvalId } = seedExperiment({
+        surface: 'experiments/surfaces/x.md',
+        ageHours: 100,
+        approvalPending: true,
+      });
+      // Mario resolved it (file moved out of pending/)
+      unlinkSync(join(pendingDir, `${approvalId}.json`));
+      expect(findAgedLowRiskExperiments(testDir, pendingDir)).toEqual([]);
+    });
+
+    it('skips experiments without an approval_id', () => {
+      const id = createExperiment(testDir, 'bot', 'm', 'h', { surface: 'experiments/surfaces/x.md' });
+      // Force age past threshold but never call setExperimentApprovalId
+      const expFile = join(testDir, 'experiments', 'history', `${id}.json`);
+      const exp = JSON.parse(readFileSync(expFile, 'utf-8'));
+      exp.created_at = new Date(Date.now() - 100 * 3600000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      writeFileSync(expFile, JSON.stringify(exp));
+      expect(findAgedLowRiskExperiments(testDir, pendingDir)).toEqual([]);
+    });
+
+    it('skips already auto-approved experiments (idempotent)', () => {
+      const { id } = seedExperiment({
+        surface: 'experiments/surfaces/x.md',
+        ageHours: 100,
+        approvalPending: true,
+      });
+      markExperimentAutoApproved(testDir, id);
+      expect(findAgedLowRiskExperiments(testDir, pendingDir)).toEqual([]);
+    });
+
+    it('returns nothing when auto_approve_low_risk_after_hours is missing or zero', () => {
+      writeFileSync(
+        join(testDir, 'experiments', 'config.json'),
+        JSON.stringify({ approval_required: true }),
+      );
+      seedExperiment({ surface: 'experiments/surfaces/x.md', ageHours: 100, approvalPending: true });
+      expect(findAgedLowRiskExperiments(testDir, pendingDir)).toEqual([]);
+
+      writeFileSync(
+        join(testDir, 'experiments', 'config.json'),
+        JSON.stringify({ auto_approve_low_risk_after_hours: 0 }),
+      );
+      expect(findAgedLowRiskExperiments(testDir, pendingDir)).toEqual([]);
+    });
+
+    it('threshold override beats config value', () => {
+      // Config says 48h, override says 200h — 100h-old experiment should NOT match
+      seedExperiment({ surface: 'experiments/surfaces/x.md', ageHours: 100, approvalPending: true });
+      expect(findAgedLowRiskExperiments(testDir, pendingDir, { thresholdHoursOverride: 200 })).toEqual([]);
+      expect(findAgedLowRiskExperiments(testDir, pendingDir, { thresholdHoursOverride: 1 })).toHaveLength(1);
+    });
+
+    it('markExperimentAutoApproved sets the flag', () => {
+      const { id } = seedExperiment({
+        surface: 'experiments/surfaces/x.md',
+        ageHours: 100,
+        approvalPending: true,
+      });
+      markExperimentAutoApproved(testDir, id);
+      const exp = listExperiments(testDir).find((e) => e.id === id)!;
+      expect(exp.auto_approved).toBe(true);
     });
   });
 });

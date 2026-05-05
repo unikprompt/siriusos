@@ -5,6 +5,8 @@ import { randomString } from '../utils/random.js';
 
 // --- Types ---
 
+export type ExperimentRiskLevel = 'low' | 'high';
+
 export interface Experiment {
   id: string;
   agent: string;
@@ -25,6 +27,9 @@ export interface Experiment {
   started_at: string | null;
   completed_at: string | null;
   changes_description: string | null;
+  risk_level: ExperimentRiskLevel;
+  approval_id: string | null;
+  auto_approved: boolean;
 }
 
 export interface ExperimentCreateOptions {
@@ -33,6 +38,7 @@ export interface ExperimentCreateOptions {
   window?: string;
   measurement?: string;
   approval_required?: boolean;
+  risk_level?: ExperimentRiskLevel;
 }
 
 export interface ExperimentEvaluateOptions {
@@ -80,6 +86,7 @@ export interface ExperimentCycle {
 
 export interface ExperimentConfig {
   approval_required?: boolean;
+  auto_approve_low_risk_after_hours?: number;
   cycles?: ExperimentCycle[];
   theta_wave?: {
     enabled?: boolean;
@@ -137,6 +144,27 @@ function saveConfig(agentDir: string, config: ExperimentConfig): void {
 
 // --- Public API ---
 
+// High-risk surfaces: identity/policy files and production publish logic.
+// Anything not matching this and that lives under experiments/surfaces/ is low.
+// Anything else defaults to high (safer default).
+const HIGH_RISK_SURFACE_PATTERNS = [
+  /\bSOUL\.md\b/i,
+  /\bGUARDRAILS\.md\b/i,
+  /\bIDENTITY\.md\b/i,
+  /\bpublish\b/i,
+];
+
+export function classifyRiskLevel(surface: string): ExperimentRiskLevel {
+  if (!surface) return 'high';
+  for (const pat of HIGH_RISK_SURFACE_PATTERNS) {
+    if (pat.test(surface)) return 'high';
+  }
+  if (surface.startsWith('experiments/surfaces/') || surface.includes('/experiments/surfaces/')) {
+    return 'low';
+  }
+  return 'high';
+}
+
 /**
  * Create a new experiment proposal.
  */
@@ -151,12 +179,15 @@ export function createExperiment(
   const rand = randomString(5);
   const id = `exp_${epoch}_${rand}`;
 
+  const surface = options?.surface || '';
+  const riskLevel: ExperimentRiskLevel = options?.risk_level ?? classifyRiskLevel(surface);
+
   const experiment: Experiment = {
     id,
     agent: agentName,
     metric,
     hypothesis,
-    surface: options?.surface || '',
+    surface,
     direction: options?.direction || 'higher',
     window: options?.window || '24h',
     measurement: options?.measurement || '',
@@ -171,11 +202,29 @@ export function createExperiment(
     started_at: null,
     completed_at: null,
     changes_description: null,
+    risk_level: riskLevel,
+    approval_id: null,
+    auto_approved: false,
   };
 
   saveExperiment(agentDir, experiment);
 
   return id;
+}
+
+/**
+ * Attach an approval id to an experiment after the bus create-approval step.
+ * Stored on the experiment so aging-based auto-approval can find the matching
+ * pending approval without scanning every approval file.
+ */
+export function setExperimentApprovalId(
+  agentDir: string,
+  experimentId: string,
+  approvalId: string,
+): void {
+  const experiment = loadExperiment(agentDir, experimentId);
+  experiment.approval_id = approvalId;
+  saveExperiment(agentDir, experiment);
 }
 
 /**
@@ -500,4 +549,96 @@ export function manageCycle(
     default:
       throw new Error(`Unknown cycle action: ${action}`);
   }
+}
+
+// --- Auto-approve aging policy ---
+
+export interface AutoApproveResult {
+  experiment_id: string;
+  approval_id: string;
+  age_hours: number;
+  metric: string;
+  hypothesis: string;
+}
+
+export interface AutoApproveOptions {
+  /**
+   * Override the threshold from config. Used by tests; production callers
+   * should rely on `auto_approve_low_risk_after_hours` in experiments/config.json.
+   */
+  thresholdHoursOverride?: number;
+  /** Override "now" for deterministic tests. */
+  nowMs?: number;
+  /** Filter to a single agent's experiments (default: all in agentDir). */
+  agent?: string;
+}
+
+/**
+ * Find proposed low-risk experiments whose pending approval has aged past the
+ * threshold and return them. Does NOT mutate state — callers must apply the
+ * approval (via updateApproval) and mark the experiment as auto_approved.
+ *
+ * The split (find vs apply) lets callers decide order: notify Mario before or
+ * after applying, batch-then-fan-out, etc. It also keeps this module free of
+ * approval/path/Telegram dependencies (kept in CLI layer).
+ *
+ * Behaviour notes:
+ *  - Skip silently if `auto_approve_low_risk_after_hours` is missing/zero.
+ *  - Skip experiments without an `approval_id` (created before the wiring).
+ *  - Skip experiments where the approval file is no longer in `pendingDir`
+ *    (Mario already approved/denied — respect the human decision).
+ *  - Skip high-risk experiments unconditionally.
+ */
+export function findAgedLowRiskExperiments(
+  agentDir: string,
+  pendingApprovalDir: string,
+  options?: AutoApproveOptions,
+): AutoApproveResult[] {
+  const config = loadConfig(agentDir);
+  const thresholdHours = options?.thresholdHoursOverride ?? config.auto_approve_low_risk_after_hours;
+  if (!thresholdHours || thresholdHours <= 0) return [];
+
+  const now = options?.nowMs ?? Date.now();
+  const thresholdMs = thresholdHours * 3600 * 1000;
+
+  const experiments = listExperiments(agentDir, {
+    status: 'proposed',
+    agent: options?.agent,
+  });
+
+  const aged: AutoApproveResult[] = [];
+  for (const exp of experiments) {
+    if (exp.risk_level !== 'low') continue;
+    if (!exp.approval_id) continue;
+    if (exp.auto_approved) continue;
+
+    const ageMs = now - new Date(exp.created_at).getTime();
+    if (ageMs < thresholdMs) continue;
+
+    // Approval must still be in pending — if Mario already resolved it, the
+    // file moved to resolved/ and we must respect that decision.
+    const pendingFile = join(pendingApprovalDir, `${exp.approval_id}.json`);
+    if (!existsSync(pendingFile)) continue;
+
+    aged.push({
+      experiment_id: exp.id,
+      approval_id: exp.approval_id,
+      age_hours: ageMs / 3600000,
+      metric: exp.metric,
+      hypothesis: exp.hypothesis,
+    });
+  }
+
+  return aged;
+}
+
+/**
+ * Mark an experiment as auto-approved by the aging policy. Idempotent.
+ * Caller must have already moved the approval to resolved (via updateApproval).
+ */
+export function markExperimentAutoApproved(agentDir: string, experimentId: string): Experiment {
+  const exp = loadExperiment(agentDir, experimentId);
+  exp.auto_approved = true;
+  saveExperiment(agentDir, exp);
+  return exp;
 }
