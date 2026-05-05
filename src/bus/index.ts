@@ -5,6 +5,13 @@ export { sendMessage, checkInbox, ackInbox } from './message.js';
 export { createTask, updateTask, completeTask, listTasks } from './task.js';
 export { logEvent } from './event.js';
 export { updateHeartbeat, readAllHeartbeats } from './heartbeat.js';
+export {
+  heartbeatRespond,
+  type HeartbeatRespondOptions,
+  type HeartbeatRespondResult,
+  type HeartbeatRespondStatus,
+  type SubstepResult,
+} from './heartbeat-respond.js';
 export { createApproval, updateApproval, listPendingApprovals } from './approval.js';
 export {
   selfRestart,

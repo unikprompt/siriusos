@@ -8,6 +8,7 @@ import { createTask, updateTask, completeTask, claimTask, readTaskAudit, checkTa
 import { saveOutput } from '../bus/save-output.js';
 import { logEvent } from '../bus/event.js';
 import { updateHeartbeat, readAllHeartbeats } from '../bus/heartbeat.js';
+import { heartbeatRespond, type HeartbeatRespondStatus } from '../bus/heartbeat-respond.js';
 import { selfRestart, hardRestart, autoCommit, checkGoalStaleness, postActivity } from '../bus/system.js';
 import { createExperiment, runExperiment, evaluateExperiment, listExperiments, gatherContext, manageCycle, loadExperimentConfig } from '../bus/experiment.js';
 import { browseCatalog, installCommunityItem, prepareSubmission, submitCommunityItem } from '../bus/catalog.js';
@@ -472,6 +473,125 @@ busCommand
       // Non-fatal: heartbeat write already succeeded
     }
     console.log(`Heartbeat updated: ${env.agentName}`);
+  });
+
+busCommand
+  .command('heartbeat-respond')
+  .description('Single-call heartbeat wrap: update-heartbeat + log-event + update-cron-fire + memory append. Each substep runs independently and partial failures are reported (not swallowed).')
+  .requiredOption('--status <status>', 'ok | degraded | blocked')
+  .option('--inbox-count <n>', 'Number of inbox messages processed this cycle')
+  .option('--tasks-count <n>', 'Number of tasks (in_progress + pending)')
+  .option('--next <action>', 'Free-text description of the next planned action')
+  .option('--note <text>', 'Free-text note for the heartbeat event + memory entry')
+  .option('--task <task>', 'Current task description (passed to update-heartbeat)')
+  .option('--cron-name <name>', 'Cron name to mark as fired', 'heartbeat')
+  .option('--cron-interval <interval>', 'Cron interval, e.g. "8h"')
+  .option('--loop-interval <interval>', 'Loop interval label for heartbeat.json')
+  .option('--timezone <tz>', 'Timezone for day/night detection + memory timestamp')
+  .option('--memory-dir <path>', 'Override memory directory (default: <cwd>/memory)')
+  .option('--no-memory', 'Skip the daily-memory append step')
+  .option('--json', 'Output the result as JSON')
+  .action((opts: {
+    status: string;
+    inboxCount?: string;
+    tasksCount?: string;
+    next?: string;
+    note?: string;
+    task?: string;
+    cronName?: string;
+    cronInterval?: string;
+    loopInterval?: string;
+    timezone?: string;
+    memoryDir?: string;
+    memory?: boolean;
+    json?: boolean;
+  }) => {
+    const validStatuses: HeartbeatRespondStatus[] = ['ok', 'degraded', 'blocked'];
+    if (!validStatuses.includes(opts.status as HeartbeatRespondStatus)) {
+      console.error(`Invalid status '${opts.status}'. Must be one of: ${validStatuses.join(', ')}`);
+      process.exit(1);
+    }
+
+    const parseCount = (raw: string | undefined, label: string): number | undefined => {
+      if (raw === undefined) return undefined;
+      const n = parseInt(raw, 10);
+      if (Number.isNaN(n) || n < 0) {
+        console.error(`Invalid --${label} '${raw}'. Must be a non-negative integer.`);
+        process.exit(1);
+      }
+      return n;
+    };
+
+    const env = resolveEnv();
+    const paths = resolvePaths(env.agentName, env.instanceId, env.org);
+
+    // Read display name from IDENTITY.md (mirrors update-heartbeat behaviour
+    // so the dashboard keeps the agent's user-facing name).
+    let displayName: string | undefined;
+    const frameworkRoot = process.env.CTX_FRAMEWORK_ROOT || process.env.CTX_PROJECT_ROOT || '';
+    if (frameworkRoot) {
+      const identityPaths = [
+        join(frameworkRoot, 'orgs', env.org, 'agents', env.agentName, 'IDENTITY.md'),
+        join(frameworkRoot, 'agents', env.agentName, 'IDENTITY.md'),
+      ];
+      for (const idPath of identityPaths) {
+        if (existsSync(idPath)) {
+          try {
+            const lines = readFileSync(idPath, 'utf-8').split('\n');
+            const nameIdx = lines.findIndex(l => l.trim() === '## Name');
+            if (nameIdx >= 0) {
+              for (let i = nameIdx + 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line || line.startsWith('<!--')) continue;
+                if (line.startsWith('#')) break;
+                displayName = line;
+                break;
+              }
+            }
+            if (!displayName) {
+              const h1 = lines.find(l => l.startsWith('# ') && !l.startsWith('## '));
+              if (h1) displayName = h1.replace(/^#\s+/, '').trim();
+            }
+          } catch {
+            // Skip
+          }
+          break;
+        }
+      }
+    }
+
+    const result = heartbeatRespond(paths, env.agentName, env.org, {
+      status: opts.status as HeartbeatRespondStatus,
+      inboxCount: parseCount(opts.inboxCount, 'inbox-count'),
+      tasksCount: parseCount(opts.tasksCount, 'tasks-count'),
+      next: opts.next,
+      note: opts.note,
+      task: opts.task,
+      cronName: opts.cronName,
+      cronInterval: opts.cronInterval,
+      loopInterval: opts.loopInterval,
+      timezone: opts.timezone,
+      memoryDir: opts.memoryDir,
+      // commander stores --no-memory as `memory: false`
+      skipMemory: opts.memory === false,
+      displayName,
+    });
+
+    if (opts.json) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      const mark = (sub: { ok: boolean; error?: string; skipped?: boolean }): string => {
+        if (sub.skipped) return 'skipped';
+        return sub.ok ? 'ok' : `FAIL (${sub.error ?? 'unknown'})`;
+      };
+      console.log(`heartbeat-respond ${result.allOk ? 'OK' : 'PARTIAL'} status=${result.status}`);
+      console.log(`  heartbeat:  ${mark(result.heartbeat)}`);
+      console.log(`  event:      ${mark(result.event)}`);
+      console.log(`  cron-fire:  ${mark(result.cronFire)}`);
+      console.log(`  memory:     ${mark(result.memory)}${result.memory.path ? ` (${result.memory.path})` : ''}`);
+    }
+
+    if (!result.allOk) process.exit(1);
   });
 
 busCommand
