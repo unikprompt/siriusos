@@ -27,7 +27,7 @@
 
 import { homedir } from 'os';
 import { join } from 'path';
-import { parseDurationMs, readCronState } from '../bus/cron-state.js';
+import { parseDurationMs, readCronState, updateCronFire } from '../bus/cron-state.js';
 import { readCronsWithStatus, updateCron } from '../bus/crons.js';
 import type { CronDefinition } from '../types/index.js';
 import { appendExecutionLog } from './cron-execution-log.js';
@@ -188,6 +188,21 @@ async function fireWithRetry(
         duration_ms: Date.now() - start,
         error: null,
       });
+      // Mirror the fire timestamp into cron-state.json so the gap-detector and
+      // catch-up logic see this fire even if the agent's prompt does not call
+      // `bus update-cron-fire` itself. Without this, daemon-fired crons whose
+      // prompts don't end with update-cron-fire (e.g. plain `bus auto-approve-experiments`)
+      // accrue false-positive gap nudges every 10 min past 2x interval.
+      try {
+        const ctxRoot = process.env.CTX_ROOT ||
+          join(homedir(), '.cortextos', process.env.CTX_INSTANCE_ID || 'default');
+        updateCronFire(join(ctxRoot, 'state', agentName), cron.name, cron.schedule);
+      } catch (stateErr) {
+        logger(
+          `[cron-scheduler] cron-state write failed for "${cron.name}" ` +
+          `(non-fatal, fire still recorded in execution log): ${stateErr instanceof Error ? stateErr.message : String(stateErr)}`
+        );
+      }
       return true;
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);

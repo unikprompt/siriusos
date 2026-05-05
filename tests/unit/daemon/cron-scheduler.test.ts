@@ -28,6 +28,21 @@ vi.mock('../../../src/bus/crons.js', () => ({
   updateCron: (...args: unknown[]) => mockUpdateCron(...args),
 }));
 
+// Mock cron-state.ts so post-fire updateCronFire() never touches real disk.
+// readCronState defaults to empty (no historic fires) — tests that need to
+// inject historic fires can override with mockReadCronState.mockReturnValue({...}).
+const mockUpdateCronFire = vi.fn();
+const mockReadCronState  = vi.fn(() => ({ updated_at: new Date().toISOString(), crons: [] }));
+
+vi.mock('../../../src/bus/cron-state.js', async () => {
+  const actual = await vi.importActual<typeof import('../../../src/bus/cron-state.js')>('../../../src/bus/cron-state.js');
+  return {
+    ...actual,
+    updateCronFire: (...args: unknown[]) => mockUpdateCronFire(...args),
+    readCronState:  (...args: unknown[]) => mockReadCronState(...args),
+  };
+});
+
 // ---------------------------------------------------------------------------
 // Imports AFTER mock setup
 // ---------------------------------------------------------------------------
@@ -187,6 +202,9 @@ describe('CronScheduler', () => {
     mockReadCrons.mockReset();
     mockUpdateCron.mockReset();
     mockReadCronsWithStatus.mockReset();
+    mockUpdateCronFire.mockReset();
+    mockReadCronState.mockReset();
+    mockReadCronState.mockReturnValue({ updated_at: new Date().toISOString(), crons: [] });
     // Default: readCronsWithStatus reflects whatever readCrons returns
     // and reports the file as healthy (corrupt: false).
     mockReadCronsWithStatus.mockImplementation((agent: string) => ({
@@ -264,6 +282,53 @@ describe('CronScheduler', () => {
         fire_count: 1,
       })
     );
+  });
+
+  it('mirrors fire timestamp into cron-state.json so gap-detector sees daemon fires', async () => {
+    // Bug: prompts that don't end with `bus update-cron-fire` (e.g. plain
+    // `bus auto-approve-experiments`) accrued false-positive gap nudges
+    // because cron-state.json was never updated. The daemon now records
+    // the fire itself after a successful onFire.
+    mockReadCrons.mockReturnValue([makeCron({ schedule: '1m', name: 'auto-approve-experiments' })]);
+    scheduler.start();
+
+    await vi.advanceTimersByTimeAsync(60_000 + TICK);
+
+    expect(mockUpdateCronFire).toHaveBeenCalled();
+    const [stateDirArg, cronNameArg, scheduleArg] = mockUpdateCronFire.mock.calls[0];
+    expect(stateDirArg).toMatch(/test-agent$/); // ends with the agent name
+    expect(cronNameArg).toBe('auto-approve-experiments');
+    expect(scheduleArg).toBe('1m');
+  });
+
+  it('does NOT call updateCronFire when onFire fails on every attempt', async () => {
+    const failingFire = vi.fn().mockRejectedValue(new Error('PTY unavailable'));
+    const failScheduler = new CronScheduler({
+      agentName: 'test-agent',
+      onFire: failingFire,
+      logger: (msg) => { logs.push(msg); },
+    });
+    mockReadCrons.mockReturnValue([makeCron({ schedule: '1h' })]);
+    failScheduler.start();
+
+    // Advance enough for the first fire + all retry backoffs (1s + 4s + 16s)
+    await vi.advanceTimersByTimeAsync(60 * 60_000 + TICK + 25_000);
+
+    expect(failingFire).toHaveBeenCalled();
+    expect(mockUpdateCronFire).not.toHaveBeenCalled();
+    failScheduler.stop();
+  });
+
+  it('does not crash if cron-state write throws — fire still succeeds', async () => {
+    mockUpdateCronFire.mockImplementationOnce(() => { throw new Error('disk full'); });
+    mockReadCrons.mockReturnValue([makeCron({ schedule: '1m' })]);
+    scheduler.start();
+
+    await vi.advanceTimersByTimeAsync(60_000 + TICK);
+
+    expect(fired).toHaveLength(1);
+    // The fire is logged in execution log + scheduler reports the soft-failure
+    expect(logs.some(l => l.includes('cron-state write failed'))).toBe(true);
   });
 
   // -------------------------------------------------------------------------
