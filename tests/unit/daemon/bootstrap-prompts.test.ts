@@ -42,10 +42,10 @@ describe('AgentProcess bootstrap prompts', () => {
   };
 
   describe('anthropic (default) keeps the full bootstrap', () => {
-    it('startup prompt mentions /loop and CronCreate', () => {
+    it('startup prompt tells agent crons are daemon-managed (no CronCreate)', () => {
       const p = startup({});
-      expect(p).toContain('/loop');
-      expect(p).toContain('CronCreate');
+      expect(p).toContain('External crons are auto-loaded by the daemon');
+      expect(p).toContain('do NOT call CronCreate');
       expect(p).toContain('AGENTS.md and all bootstrap files');
     });
 
@@ -53,7 +53,7 @@ describe('AgentProcess bootstrap prompts', () => {
       const p = cont({});
       expect(p).toContain('SESSION CONTINUATION');
       expect(p).toContain('conversation history is preserved');
-      expect(p).toContain('/loop');
+      expect(p).toContain('External crons are auto-loaded by the daemon');
     });
   });
 
