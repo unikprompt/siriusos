@@ -274,6 +274,7 @@ describe('createApproval — agent-bot Telegram ping (closes 50h+ Repo-B-style s
       'deployment',
       'rationale here',
       frameworkRoot,
+      undefined,
       agentDir,
     );
 
@@ -315,7 +316,7 @@ describe('createApproval — agent-bot Telegram ping (closes 50h+ Repo-B-style s
     mkdirSync(agentDir, { recursive: true });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await createApproval(paths, 'alice', 'TestOrg', 'No env', 'deployment', undefined, frameworkRoot, agentDir);
+    await createApproval(paths, 'alice', 'TestOrg', 'No env', 'deployment', undefined, frameworkRoot, undefined, agentDir);
 
     expect(telegramSendMessageSpy).not.toHaveBeenCalled();
     // No agent-bot warn for this case (the missing-keys case below DOES warn).
@@ -331,7 +332,7 @@ describe('createApproval — agent-bot Telegram ping (closes 50h+ Repo-B-style s
     writeAgentEnv(agentDir, { CHAT_ID: '987654321' });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const id = await createApproval(paths, 'alice', 'TestOrg', 'Missing token', 'deployment', undefined, frameworkRoot, agentDir);
+    const id = await createApproval(paths, 'alice', 'TestOrg', 'Missing token', 'deployment', undefined, frameworkRoot, undefined, agentDir);
 
     expect(telegramSendMessageSpy).not.toHaveBeenCalled();
     const warnCalls = warnSpy.mock.calls.map((c) => c.join(' '));
@@ -344,7 +345,7 @@ describe('createApproval — agent-bot Telegram ping (closes 50h+ Repo-B-style s
     writeAgentEnv(agentDir, { BOT_TOKEN: 'test-token-123' });
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const id = await createApproval(paths, 'alice', 'TestOrg', 'Missing chat', 'deployment', undefined, frameworkRoot, agentDir);
+    const id = await createApproval(paths, 'alice', 'TestOrg', 'Missing chat', 'deployment', undefined, frameworkRoot, undefined, agentDir);
 
     expect(telegramSendMessageSpy).not.toHaveBeenCalled();
     const warnCalls = warnSpy.mock.calls.map((c) => c.join(' '));
@@ -359,7 +360,7 @@ describe('createApproval — agent-bot Telegram ping (closes 50h+ Repo-B-style s
     writeAgentEnv(agentDir, { BOT_TOKEN: 'test-token-123', CHAT_ID: '987654321' });
     telegramSendMessageSpy.mockRejectedValueOnce(new Error('telegram unreachable'));
 
-    const id = await createApproval(paths, 'alice', 'TestOrg', 'Telegram down', 'deployment', undefined, frameworkRoot, agentDir);
+    const id = await createApproval(paths, 'alice', 'TestOrg', 'Telegram down', 'deployment', undefined, frameworkRoot, undefined, agentDir);
 
     const pendingFile = join(paths.approvalDir, 'pending', `${id}.json`);
     expect(existsSync(pendingFile)).toBe(true);
@@ -377,6 +378,7 @@ describe('createApproval — agent-bot Telegram ping (closes 50h+ Repo-B-style s
       'other',
       'detailed context paragraph',
       frameworkRoot,
+      undefined,
       agentDir,
     );
 
