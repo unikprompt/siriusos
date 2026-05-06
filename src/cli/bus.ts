@@ -3,6 +3,7 @@ import { spawnSync, execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { sendMessage, checkInbox, ackInbox } from '../bus/message.js';
+import { notifyAgent } from '../bus/agents.js';
 import { validateAgentName } from '../utils/validate.js';
 import { createTask, updateTask, completeTask, claimTask, readTaskAudit, checkTaskDependencies, compactTasks, listTasks, checkStaleTasks, archiveTasks, checkHumanTasks } from '../bus/task.js';
 import { saveOutput } from '../bus/save-output.js';
@@ -1856,26 +1857,17 @@ busCommand
   .argument('<agent>', 'Target agent name')
   .argument('<message>', 'Urgent message text')
   .action((targetAgent: string, message: string) => {
-    const { mkdirSync, writeFileSync } = require('fs');
     const { join } = require('path');
+    const { homedir } = require('os');
     const env = resolveEnv();
     const paths = resolvePaths(env.agentName, env.instanceId, env.org);
-    const ctxRoot = require('path').join(require('os').homedir(), '.cortextos', env.instanceId);
+    const ctxRoot = join(homedir(), '.cortextos', env.instanceId);
 
-    // Write urgent signal file that fast-checker checks on every poll
-    const signalDir = join(ctxRoot, 'state', targetAgent);
-    mkdirSync(signalDir, { recursive: true });
-    const signal = {
-      from: env.agentName,
-      message,
-      timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
-    };
-    writeFileSync(join(signalDir, '.urgent-signal'), JSON.stringify(signal));
-
-    // Also send via normal message bus for persistence
-    try {
-      sendMessage(paths, env.agentName, targetAgent, 'urgent', message);
-    } catch { /* signal already written */ }
+    // Delegate to the shared helper so the .urgent-signal write, the bus
+    // sendMessage, and the agent_steer telemetry event all happen in one
+    // place. Inlining the logic here in the past meant the bus path
+    // skipped telemetry that the top-level CLI path now also emits.
+    notifyAgent(paths, env.agentName, targetAgent, message, ctxRoot, env.org);
 
     console.log(`Signal sent to ${targetAgent}`);
   });

@@ -229,5 +229,33 @@ describe('Agent Discovery', () => {
 
       expect(existsSync(stateDir)).toBe(true);
     });
+
+    it('does NOT log telemetry when org is omitted', () => {
+      notifyAgent(paths, 'sender', 'target', 'No org here', ctxRoot);
+      const eventsDir = join(paths.analyticsDir, 'events', 'sender');
+      expect(existsSync(eventsDir)).toBe(false);
+    });
+
+    it('logs an agent_steer event when org is provided', () => {
+      notifyAgent(paths, 'sender', 'target', 'with telemetry', ctxRoot, 'acme');
+
+      const eventsDir = join(paths.analyticsDir, 'events', 'sender');
+      expect(existsSync(eventsDir)).toBe(true);
+      const today = new Date().toISOString().split('T')[0];
+      const eventFile = join(eventsDir, `${today}.jsonl`);
+      expect(existsSync(eventFile)).toBe(true);
+      const lines = readFileSync(eventFile, 'utf-8').trim().split('\n');
+      expect(lines.length).toBe(1);
+      const evt = JSON.parse(lines[0]);
+      expect(evt.category).toBe('message');
+      expect(evt.event).toBe('agent_steer');
+      expect(evt.severity).toBe('info');
+      expect(evt.agent).toBe('sender');
+      expect(evt.org).toBe('acme');
+      expect(evt.metadata.to).toBe('target');
+      expect(evt.metadata.from).toBe('sender');
+      expect(evt.metadata.priority).toBe('urgent');
+      expect(typeof evt.metadata.message_id).toBe('string');
+    });
   });
 });

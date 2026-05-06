@@ -3,6 +3,7 @@ import { join } from 'path';
 import type { AgentInfo, AgentConfig, BusPaths } from '../types/index.js';
 import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
 import { sendMessage } from './message.js';
+import { logEvent } from './event.js';
 
 /**
  * List all agents in the system.
@@ -235,6 +236,11 @@ function buildAgentInfo(
  * Send an urgent notification to an agent.
  * Writes .urgent-signal file and sends a bus message.
  * Mirrors bash notify-agent.sh behavior.
+ *
+ * If `org` is provided, also logs a `message`/`agent_steer` event so the
+ * dashboard's Activity feed can show operator/agent interrupts as a
+ * distinct stream from regular inbox traffic. Without `org`, the urgent
+ * signal still fires; only the analytics event is skipped.
  */
 export function notifyAgent(
   paths: BusPaths,
@@ -242,6 +248,7 @@ export function notifyAgent(
   targetAgent: string,
   message: string,
   ctxRoot: string,
+  org?: string,
 ): void {
   // Write signal file to state dir
   const signalDir = join(ctxRoot, 'state', targetAgent);
@@ -256,9 +263,23 @@ export function notifyAgent(
   atomicWriteSync(join(signalDir, '.urgent-signal'), JSON.stringify(signal));
 
   // Also send via normal message bus for persistence
+  let msgId: string | undefined;
   try {
-    sendMessage(paths, from, targetAgent, 'urgent', message);
+    msgId = sendMessage(paths, from, targetAgent, 'urgent', message);
   } catch {
     // Ignore bus send failures - signal file is the primary mechanism
+  }
+
+  if (org) {
+    try {
+      logEvent(paths, from, org, 'message', 'agent_steer', 'info', {
+        to: targetAgent,
+        from,
+        priority: 'urgent',
+        ...(msgId ? { message_id: msgId } : {}),
+      });
+    } catch {
+      // Telemetry failure must not break the urgent-signal path.
+    }
   }
 }
