@@ -856,6 +856,8 @@ busCommand
         'other',
         `Experiment ID: ${id}\nMetric: ${metric}\nHypothesis: ${hypothesis}`,
         env.frameworkRoot,
+        undefined,
+        env.agentDir,
       );
       // Persist approval_id on the experiment so aging-based auto-approval can
       // find the matching pending approval without scanning every approval file.
@@ -1393,7 +1395,7 @@ busCommand
     // orgDir resolves to where activity-channel.env actually lives (the
     // framework repo path, NOT the runtime state path — see
     // src/bus/approval.ts:postApprovalToActivityChannel for the history).
-    const id = await createApproval(paths, env.agentName, env.org, title, category as ApprovalCategory, context || '', env.frameworkRoot, opts.command);
+    const id = await createApproval(paths, env.agentName, env.org, title, category as ApprovalCategory, context || '', env.frameworkRoot, opts.command, env.agentDir);
     console.log(id);
   });
 
