@@ -1,5 +1,5 @@
 /**
- * cortextOS Dashboard - Chart theme configuration.
+ * SiriusOS Dashboard - Chart theme configuration.
  * Gold/mustard palette for all Recharts components.
  */
 

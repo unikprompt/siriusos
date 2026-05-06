@@ -1,4 +1,4 @@
-// cortextOS Dashboard - SQLite database singleton
+// SiriusOS Dashboard - SQLite database singleton
 // Read cache for JSON/JSONL files on disk. WAL mode for concurrent reads.
 
 import Database from 'better-sqlite3';
@@ -8,8 +8,8 @@ import fs from 'fs';
 const instanceId = process.env.CTX_INSTANCE_ID ?? 'default';
 const ctxRoot = process.env.CTX_ROOT;
 const DB_PATH = ctxRoot
-  ? path.join(ctxRoot, 'dashboard', `cortextos-${instanceId}.db`)
-  : path.join(process.cwd(), '.data', `cortextos-${instanceId}.db`);
+  ? path.join(ctxRoot, 'dashboard', `siriusos-${instanceId}.db`)
+  : path.join(process.cwd(), '.data', `siriusos-${instanceId}.db`);
 
 function createDatabase(): Database.Database {
   // Ensure .data directory exists
@@ -178,13 +178,13 @@ function initializeSchema(db: Database.Database): void {
 
 // globalThis singleton survives Next.js hot reload
 const globalForDb = globalThis as unknown as {
-  __cortextos_db: Database.Database | undefined;
+  __siriusos_db: Database.Database | undefined;
 };
 
-export const db = globalForDb.__cortextos_db ?? createDatabase();
+export const db = globalForDb.__siriusos_db ?? createDatabase();
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForDb.__cortextos_db = db;
+  globalForDb.__siriusos_db = db;
 }
 
 /** Re-export for explicit initialization (idempotent - db is created on import) */

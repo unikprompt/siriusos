@@ -165,7 +165,7 @@ tr:hover td {
 }
 
 /* ============================================
-   cortextOS Gold/Mustard Theme - Light Mode
+   SiriusOS Gold/Mustard Theme - Light Mode
    ============================================ */
 :root {
   --background: oklch(1 0 0);                    /* #FFFFFF */
@@ -208,7 +208,7 @@ tr:hover td {
 }
 
 /* ============================================
-   cortextOS Gold/Mustard Theme - Dark Mode
+   SiriusOS Gold/Mustard Theme - Dark Mode
    ============================================ */
 .dark {
   --background: oklch(0.145 0 0);               /* #0F0F0F */

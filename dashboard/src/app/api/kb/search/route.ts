@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 /**
  * GET /api/kb/search?q=<question>&org=<org>&agent=<agent>&scope=<scope>&limit=<n>&threshold=<f>
  *
- * Searches the cortextOS knowledge base via kb-query.sh → mmrag.py → ChromaDB.
+ * Searches the SiriusOS knowledge base via kb-query.sh → mmrag.py → ChromaDB.
  *
  * Response:
  * {
@@ -69,10 +69,10 @@ export async function GET(request: NextRequest) {
   const frameworkRoot = getFrameworkRoot();
   const ctxRoot = getCTXRoot();
 
-  // Derive instance ID from CTX_ROOT (e.g. ~/.cortextos/e2e-phase → "e2e-phase")
+  // Derive instance ID from CTX_ROOT (e.g. ~/.siriusos/e2e-phase → "e2e-phase")
   const instanceId = path.basename(ctxRoot);
 
-  const kbRoot = path.join(os.homedir(), '.cortextos', instanceId, 'orgs', org, 'knowledge-base');
+  const kbRoot = path.join(os.homedir(), '.siriusos', instanceId, 'orgs', org, 'knowledge-base');
   const chromaDir = path.join(kbRoot, 'chromadb');
   const configPath = path.join(kbRoot, 'config.json');
   const isWin = process.platform === 'win32';

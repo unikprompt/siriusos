@@ -1,4 +1,4 @@
-// cortextOS Dashboard - Event data fetcher
+// SiriusOS Dashboard - Event data fetcher
 // Reads from SQLite (synced from JSONL event files on disk).
 
 import { db } from '@/lib/db';

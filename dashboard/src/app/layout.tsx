@@ -17,13 +17,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "cortextOS Dashboard",
-  description: "cortextOS agent orchestration dashboard",
+  title: "SiriusOS Dashboard",
+  description: "SiriusOS agent orchestration dashboard",
   viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "cortextOS",
+    title: "SiriusOS",
   },
 };
 

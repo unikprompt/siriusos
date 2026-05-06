@@ -91,9 +91,9 @@ export interface IPCResponse {
 
 function getIpcPath(instanceId: string = 'default'): string {
   if (process.platform === 'win32') {
-    return `\\\\.\\pipe\\cortextos-${instanceId}`;
+    return `\\\\.\\pipe\\siriusos-${instanceId}`;
   }
-  return join(homedir(), '.cortextos', instanceId, 'daemon.sock');
+  return join(homedir(), '.siriusos', instanceId, 'daemon.sock');
 }
 
 export class IPCClient {
@@ -126,7 +126,7 @@ export class IPCClient {
         if (err.code === 'ECONNREFUSED' || err.code === 'ENOENT') {
           resolve({
             success: false,
-            error: 'Daemon is not running. Start it with: cortextos start',
+            error: 'Daemon is not running. Start it with: siriusos start',
           });
         } else {
           reject(err);

@@ -1,4 +1,4 @@
-// cortextOS Dashboard - Goals data fetcher
+// SiriusOS Dashboard - Goals data fetcher
 // Reads/writes goals.json directly from filesystem (not SQLite).
 
 import fs from 'fs';

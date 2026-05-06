@@ -1,4 +1,4 @@
-// cortextOS Dashboard - Chokidar file watcher singleton
+// SiriusOS Dashboard - Chokidar file watcher singleton
 // Monitors CTX_ROOT for JSON/JSONL changes, syncs to SQLite, emits SSE events.
 
 import { EventEmitter } from 'events';
@@ -13,16 +13,16 @@ import type { SSEEvent } from './types';
 // ---------------------------------------------------------------------------
 
 const globalForWatcher = globalThis as unknown as {
-  __cortextos_emitter: EventEmitter | undefined;
-  __cortextos_watcher: FSWatcher | undefined;
+  __siriusos_emitter: EventEmitter | undefined;
+  __siriusos_watcher: FSWatcher | undefined;
 };
 
 export const emitter: EventEmitter =
-  globalForWatcher.__cortextos_emitter ?? new EventEmitter();
+  globalForWatcher.__siriusos_emitter ?? new EventEmitter();
 emitter.setMaxListeners(100); // support many concurrent SSE clients
 
 if (process.env.NODE_ENV !== 'production') {
-  globalForWatcher.__cortextos_emitter = emitter;
+  globalForWatcher.__siriusos_emitter = emitter;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,8 +126,8 @@ function createWatcher(): FSWatcher {
  * Runs a full sync on first call, then starts watching for incremental changes.
  */
 export function initWatcher(): FSWatcher {
-  if (globalForWatcher.__cortextos_watcher) {
-    return globalForWatcher.__cortextos_watcher;
+  if (globalForWatcher.__siriusos_watcher) {
+    return globalForWatcher.__siriusos_watcher;
   }
 
   console.log('[watcher] Running initial full sync...');
@@ -136,7 +136,7 @@ export function initWatcher(): FSWatcher {
   const watcher = createWatcher();
 
   if (process.env.NODE_ENV !== 'production') {
-    globalForWatcher.__cortextos_watcher = watcher;
+    globalForWatcher.__siriusos_watcher = watcher;
   }
 
   return watcher;
@@ -146,9 +146,9 @@ export function initWatcher(): FSWatcher {
  * Gracefully close the watcher.
  */
 export function stopWatcher(): void {
-  if (globalForWatcher.__cortextos_watcher) {
-    globalForWatcher.__cortextos_watcher.close();
-    globalForWatcher.__cortextos_watcher = undefined;
+  if (globalForWatcher.__siriusos_watcher) {
+    globalForWatcher.__siriusos_watcher.close();
+    globalForWatcher.__siriusos_watcher = undefined;
   }
 }
 
