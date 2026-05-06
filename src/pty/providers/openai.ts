@@ -3,8 +3,8 @@ import { existsSync, readFileSync, readdirSync, writeFileSync } from 'fs';
 import { platform } from 'os';
 import type { ProviderStrategy, ProviderSpawnOptions } from './types.js';
 
-const MARKER_START = '<!-- cortextos:begin -->';
-const MARKER_END = '<!-- cortextos:end -->';
+const MARKER_START = '<!-- siriusos:begin -->';
+const MARKER_END = '<!-- siriusos:end -->';
 
 export const openaiStrategy: ProviderStrategy = {
   command() {

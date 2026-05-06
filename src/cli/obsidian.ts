@@ -55,7 +55,7 @@ interface ListNotesOptions extends BaseOptions {
 }
 
 function loadGlobalConfig(instance: string): ObsidianGlobalConfig {
-  const path = join(homedir(), '.cortextos', instance, 'config', 'obsidian.json');
+  const path = join(homedir(), '.siriusos', instance, 'config', 'obsidian.json');
   if (!existsSync(path)) {
     throw new Error(`obsidian.json not found at ${path}. Create it with at least { "vault_path": "..." }.`);
   }
@@ -198,7 +198,7 @@ function logAudit(audit: boolean, instance: string, agent: string, op: string, r
   if (!audit) return;
   try {
     const { spawnSync } = require('child_process');
-    spawnSync('cortextos', [
+    spawnSync('siriusos', [
       'bus', 'log-event', 'action', 'obsidian_modified', 'info',
       '--meta', JSON.stringify({ agent, op, path: relPath, instance }),
     ], { stdio: 'ignore' });
@@ -225,7 +225,7 @@ function withVaultContext(opts: BaseOptions) {
 }
 
 function ctxRootFor(instance: string): string {
-  return join(homedir(), '.cortextos', instance);
+  return join(homedir(), '.siriusos', instance);
 }
 
 function isoToday(): string {

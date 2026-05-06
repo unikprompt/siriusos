@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# cortextOS shared environment resolution
+# SiriusOS shared environment resolution
 # Source this at the top of bus/ and scripts/ files after determining SCRIPT_DIR.
 #
 # Handles:
@@ -8,14 +8,14 @@
 # - Flat message bus paths
 # - .env sourcing helper
 
-# ── Source .cortextos-env if present (written by the Node.js daemon) ─────
+# ── Source .siriusos-env if present (written by the Node.js daemon) ─────
 # This is the most reliable fallback: a file in the agent's working dir
 # that contains the correct CTX_ vars, regardless of env var inheritance.
 if [[ -z "${CTX_ROOT:-}" ]]; then
-    if [[ -f "$(pwd)/.cortextos-env" ]]; then
-        source "$(pwd)/.cortextos-env" 2>/dev/null || true
-    elif [[ -n "${CTX_AGENT_DIR:-}" && -f "${CTX_AGENT_DIR}/.cortextos-env" ]]; then
-        source "${CTX_AGENT_DIR}/.cortextos-env" 2>/dev/null || true
+    if [[ -f "$(pwd)/.siriusos-env" ]]; then
+        source "$(pwd)/.siriusos-env" 2>/dev/null || true
+    elif [[ -n "${CTX_AGENT_DIR:-}" && -f "${CTX_AGENT_DIR}/.siriusos-env" ]]; then
+        source "${CTX_AGENT_DIR}/.siriusos-env" 2>/dev/null || true
     fi
 fi
 
@@ -29,7 +29,7 @@ if [[ -n "${CTX_AGENT_NAME}" && ! "${CTX_AGENT_NAME}" =~ ^[a-z0-9_-]+$ ]]; then
     exit 1
 fi
 CTX_FRAMEWORK_ROOT="${CTX_FRAMEWORK_ROOT:-${CRM_TEMPLATE_ROOT:-}}"
-CTX_ROOT="${CTX_ROOT:-${CRM_ROOT:-${HOME}/.cortextos/${CTX_INSTANCE_ID}}}"
+CTX_ROOT="${CTX_ROOT:-${CRM_ROOT:-${HOME}/.siriusos/${CTX_INSTANCE_ID}}}"
 CTX_PROJECT_ROOT="${CTX_PROJECT_ROOT:-}"
 CTX_ORG="${CTX_ORG:-}"
 
@@ -103,5 +103,5 @@ ctx_resolve_instance() {
         fi
         CTX_INSTANCE_ID="${id:-${CTX_INSTANCE_ID}}"
     fi
-    CTX_ROOT="${HOME}/.cortextos/${CTX_INSTANCE_ID}"
+    CTX_ROOT="${HOME}/.siriusos/${CTX_INSTANCE_ID}"
 }

@@ -159,7 +159,7 @@ function sendCrashLoopAlertBestEffort(
     return false;
   }
   const message =
-    `🚨 CRITICAL: cortextos daemon is crash-looping\n` +
+    `🚨 CRITICAL: siriusos daemon is crash-looping\n` +
     `${crashCount} crashes in 15 minutes\n` +
     `Last error: ${errStr.slice(0, 500)}\n` +
     `Next alert in 30 min if the pattern continues.`;
@@ -214,8 +214,8 @@ function handleFatal(
 }
 
 /**
- * cortextOS Daemon - single process managing all agents.
- * Run via `pm2 start ecosystem.config.js` or `cortextos ecosystem && pm2 start`.
+ * SiriusOS Daemon - single process managing all agents.
+ * Run via `pm2 start ecosystem.config.js` or `siriusos ecosystem && pm2 start`.
  */
 class Daemon {
   private agentManager: AgentManager | null = null;
@@ -225,8 +225,8 @@ class Daemon {
 
   constructor() {
     this.instanceId = process.env.CTX_INSTANCE_ID || 'default';
-    // Always derive ctxRoot from instanceId to avoid inheriting a parent cortextOS's CTX_ROOT
-    this.ctxRoot = join(homedir(), '.cortextos', this.instanceId);
+    // Always derive ctxRoot from instanceId to avoid inheriting a parent SiriusOS's CTX_ROOT
+    this.ctxRoot = join(homedir(), '.siriusos', this.instanceId);
   }
 
   async start(): Promise<void> {
@@ -236,7 +236,7 @@ class Daemon {
       process.umask(0o077);
     }
 
-    console.log(`[daemon] Starting cortextOS daemon (instance: ${this.instanceId})`);
+    console.log(`[daemon] Starting SiriusOS daemon (instance: ${this.instanceId})`);
 
     const frameworkRoot = process.env.CTX_FRAMEWORK_ROOT || '';
     const org = process.env.CTX_ORG || '';

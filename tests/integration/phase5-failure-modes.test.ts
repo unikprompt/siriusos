@@ -116,7 +116,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 function ensureAgentDir(agentName: string): string {
-  const dir = join(tmpRoot, '.cortextOS', 'state', 'agents', agentName);
+  const dir = join(tmpRoot, '.siriusos', 'state', 'agents', agentName);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -159,7 +159,7 @@ async function advanceSim(totalMs: number, stepMs = ONE_MIN): Promise<void> {
 function readLog(agentName: string): CronExecutionLogEntry[] {
   const logPath = join(
     tmpRoot,
-    '.cortextOS', 'state', 'agents', agentName, 'cron-execution.log',
+    '.siriusos', 'state', 'agents', agentName, 'cron-execution.log',
   );
   if (!existsSync(logPath)) return [];
   const raw = readFileSync(logPath, 'utf-8');
@@ -170,7 +170,7 @@ function readLog(agentName: string): CronExecutionLogEntry[] {
 }
 
 function cronsFilePath(agentName: string): string {
-  return join(tmpRoot, '.cortextOS', 'state', 'agents', agentName, 'crons.json');
+  return join(tmpRoot, '.siriusos', 'state', 'agents', agentName, 'crons.json');
 }
 
 function cronsBakPath(agentName: string): string {
@@ -211,7 +211,7 @@ describe('FM-1: Disk full — ENOSPC write failure, no data loss on recovery', (
     expect(fired.length).toBe(1);
 
     // Simulate "disk full" by making the agent state dir read-only
-    const agentDir = join(tmpRoot, '.cortextOS', 'state', 'agents', agent);
+    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', agent);
     const { chmodSync } = await import('fs');
     chmodSync(agentDir, 0o555); // read + execute only (no write)
 
@@ -273,7 +273,7 @@ describe('FM-1: Disk full — ENOSPC write failure, no data loss on recovery', (
     expect(fired.length).toBe(1);
 
     // Make dir read-only (disk full scenario)
-    const agentDir = join(tmpRoot, '.cortextOS', 'state', 'agents', agent);
+    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', agent);
     const { chmodSync } = require('fs');
     chmodSync(agentDir, 0o555);
 
@@ -755,8 +755,8 @@ describe('FM-7: Log rotation under concurrent write pressure', () => {
     };
 
     // Pre-fill log to just below MAX_LOG_LINES (1000) with 950 entries
-    const logPath = join(tmpRoot, '.cortextOS', 'state', 'agents', agent, 'cron-execution.log');
-    mkdirSync(join(tmpRoot, '.cortextOS', 'state', 'agents', agent), { recursive: true });
+    const logPath = join(tmpRoot, '.siriusos', 'state', 'agents', agent, 'cron-execution.log');
+    mkdirSync(join(tmpRoot, '.siriusos', 'state', 'agents', agent), { recursive: true });
 
     const prefill = Array.from({ length: 950 }, (_, i) =>
       JSON.stringify({ ...baseEntry, cron: `prefill-${i}` }) + '\n'
@@ -791,8 +791,8 @@ describe('FM-7: Log rotation under concurrent write pressure', () => {
 
     const { appendExecutionLog, MAX_LOG_LINES } = await import('../../src/daemon/cron-execution-log.js');
 
-    const logPath = join(tmpRoot, '.cortextOS', 'state', 'agents', agent, 'cron-execution.log');
-    mkdirSync(join(tmpRoot, '.cortextOS', 'state', 'agents', agent), { recursive: true });
+    const logPath = join(tmpRoot, '.siriusos', 'state', 'agents', agent, 'cron-execution.log');
+    mkdirSync(join(tmpRoot, '.siriusos', 'state', 'agents', agent), { recursive: true });
 
     const baseEntry: CronExecutionLogEntry = {
       ts: new Date().toISOString(),

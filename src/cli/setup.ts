@@ -1,5 +1,5 @@
 /**
- * cortextos setup — interactive first-run wizard.
+ * siriusos setup — interactive first-run wizard.
  *
  * Guides a new user through:
  *   1. Dependency check + state directory creation (install)
@@ -141,7 +141,7 @@ async function validateTelegramCredsInteractive(
 
     if (result.reason === 'network_error' || result.reason === 'rate_limited') {
       console.log(`  Warning: ${formatValidateError(result)}`);
-      console.log('  Writing .env with unvalidated values. Re-run cortextos enable later to confirm.');
+      console.log('  Writing .env with unvalidated values. Re-run siriusos enable later to confirm.');
       return chatId;
     }
 
@@ -150,7 +150,7 @@ async function validateTelegramCredsInteractive(
     if (result.reason === 'bad_token') {
       // Can't recover from a bad token inside the wizard loop — the user
       // needs to fix the token at @BotFather and re-run setup. Bail.
-      console.log('  Re-run cortextos setup after fixing the bot token.');
+      console.log('  Re-run siriusos setup after fixing the bot token.');
       return null;
     }
 
@@ -174,20 +174,20 @@ function validateOrgName(name: string): boolean {
 }
 
 function findProjectRoot(): string {
-  // Prefer CTX_FRAMEWORK_ROOT if set (running inside cortextOS session)
+  // Prefer CTX_FRAMEWORK_ROOT if set (running inside SiriusOS session)
   if (process.env.CTX_FRAMEWORK_ROOT && existsSync(join(process.env.CTX_FRAMEWORK_ROOT, 'dist', 'cli.js'))) {
     return process.env.CTX_FRAMEWORK_ROOT;
   }
   const cwd = process.cwd();
   if (existsSync(join(cwd, 'dist', 'cli.js'))) return cwd;
-  // Walk up to find package.json with cortextos name
+  // Walk up to find package.json with siriusos name
   let dir = cwd;
   for (let i = 0; i < 4; i++) {
     const pkg = join(dir, 'package.json');
     if (existsSync(pkg)) {
       try {
         const { name } = JSON.parse(require('fs').readFileSync(pkg, 'utf-8'));
-        if (name === 'cortextos' && existsSync(join(dir, 'dist', 'cli.js'))) return dir;
+        if (name === 'siriusos' && existsSync(join(dir, 'dist', 'cli.js'))) return dir;
       } catch { /* ignore */ }
     }
     const parent = join(dir, '..');
@@ -203,11 +203,11 @@ export const setupCommand = new Command('setup')
   .action(async (options: { instance: string }) => {
     const instanceId = options.instance;
     const projectRoot = findProjectRoot();
-    const ctxRoot = join(homedir(), '.cortextos', instanceId);
+    const ctxRoot = join(homedir(), '.siriusos', instanceId);
 
     const iface = rl();
 
-    console.log('\n  Welcome to cortextOS setup\n');
+    console.log('\n  Welcome to SiriusOS setup\n');
     console.log('  This wizard will:');
     console.log('    1. Check and install dependencies');
     console.log('    2. Create your organization');
@@ -220,9 +220,9 @@ export const setupCommand = new Command('setup')
     // ─── Step 1: Install ─────────────────────────────────────────────────────
 
     console.log('  Step 1: Checking dependencies and creating state directories...\n');
-    const installOk = runCli(projectRoot, ['install', '--instance', instanceId], 'cortextos install');
+    const installOk = runCli(projectRoot, ['install', '--instance', instanceId], 'siriusos install');
     if (!installOk) {
-      console.error('\n  Install step failed. Fix the errors above and re-run cortextos setup.');
+      console.error('\n  Install step failed. Fix the errors above and re-run siriusos setup.');
       iface.close();
       process.exit(1);
     }
@@ -244,9 +244,9 @@ export const setupCommand = new Command('setup')
       break;
     }
 
-    const initOk = runCli(projectRoot, ['init', orgName, '--instance', instanceId], 'cortextos init');
+    const initOk = runCli(projectRoot, ['init', orgName, '--instance', instanceId], 'siriusos init');
     if (!initOk) {
-      console.error('\n  Org creation failed. Fix the errors above and re-run cortextos setup.');
+      console.error('\n  Org creation failed. Fix the errors above and re-run siriusos setup.');
       iface.close();
       process.exit(1);
     }
@@ -310,7 +310,7 @@ export const setupCommand = new Command('setup')
     const addOrchOk = runCli(
       projectRoot,
       ['add-agent', orchName, '--template', 'orchestrator', '--org', orgName, '--instance', instanceId],
-      'cortextos add-agent orchestrator'
+      'siriusos add-agent orchestrator'
     );
     if (!addOrchOk) {
       console.error('\n  Failed to create orchestrator agent.');
@@ -327,10 +327,10 @@ export const setupCommand = new Command('setup')
     const enableOrchOk = runCli(
       projectRoot,
       ['enable', orchName, '--org', orgName, '--instance', instanceId],
-      'cortextos enable orchestrator'
+      'siriusos enable orchestrator'
     );
     if (!enableOrchOk) {
-      console.error(`\n  Failed to enable ${orchName}. Check .env and try: cortextos enable ${orchName}`);
+      console.error(`\n  Failed to enable ${orchName}. Check .env and try: siriusos enable ${orchName}`);
     }
 
     // ─── Step 4: Additional agents ───────────────────────────────────────────
@@ -386,7 +386,7 @@ export const setupCommand = new Command('setup')
         `agent ${agentName}`,
       );
       if (!validatedAgentChatId) {
-        console.log(`  Skipping ${agentName} — fix the credentials and re-run cortextos setup or cortextos enable ${agentName}.`);
+        console.log(`  Skipping ${agentName} — fix the credentials and re-run siriusos setup or siriusos enable ${agentName}.`);
         continue;
       }
       agentChatId = validatedAgentChatId;
@@ -394,7 +394,7 @@ export const setupCommand = new Command('setup')
       const addOk = runCli(
         projectRoot,
         ['add-agent', agentName, '--template', template, '--org', orgName, '--instance', instanceId],
-        `cortextos add-agent ${agentName}`
+        `siriusos add-agent ${agentName}`
       );
 
       if (addOk) {
@@ -420,7 +420,7 @@ export const setupCommand = new Command('setup')
     });
 
     if (ecoResult.status !== 0) {
-      console.error('  Failed to generate ecosystem config. Run manually: cortextos ecosystem');
+      console.error('  Failed to generate ecosystem config. Run manually: siriusos ecosystem');
     } else {
       // Try PM2 start
       const pm2Result = spawnSync('pm2', ['start', 'ecosystem.config.js'], {
@@ -431,8 +431,8 @@ export const setupCommand = new Command('setup')
         spawnSync('pm2', ['save'], { cwd: projectRoot, stdio: 'inherit' });
         console.log('\n  Daemon started via PM2.');
       } else {
-        // Fallback: cortextos start
-        runCli(projectRoot, ['start', '--instance', instanceId], 'cortextos start');
+        // Fallback: siriusos start
+        runCli(projectRoot, ['start', '--instance', instanceId], 'siriusos start');
       }
     }
 
@@ -446,8 +446,8 @@ export const setupCommand = new Command('setup')
     console.log(`  Agents: ${addedAgents.join(', ')}`);
     console.log(`  State: ${ctxRoot}\n`);
     console.log('  Next steps:');
-    console.log('    - Check agent status: cortextos status');
-    console.log('    - Start dashboard:    cortextos dashboard');
+    console.log('    - Check agent status: siriusos status');
+    console.log('    - Start dashboard:    siriusos dashboard');
     console.log('    - View PM2 logs:      pm2 logs');
     console.log('    - Talk to your agent via Telegram!\n');
   });

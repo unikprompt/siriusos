@@ -98,7 +98,7 @@ writeFileSync(
 // ---------------------------------------------------------------------------
 
 const ROOT          = process.cwd();
-const CRONS_DIR     = '.cortextOS/state/agents';
+const CRONS_DIR     = '.siriusos/state/agents';
 const CRONS_FILE    = 'crons.json';
 const MARKER_FILE   = '.crons-migrated';
 

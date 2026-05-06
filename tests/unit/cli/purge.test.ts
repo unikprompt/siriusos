@@ -25,7 +25,7 @@ function setupSandbox(instance = 'default', org = 'testorg', agent = 'sample'): 
   const realHome = homedir();
   const fakeHome = mkdtempSync(join(tmpdir(), 'cortextos-purge-'));
   const projectRoot = mkdtempSync(join(tmpdir(), 'cortextos-purge-proj-'));
-  const ctxRoot = join(fakeHome, '.cortextos', instance);
+  const ctxRoot = join(fakeHome, '.siriusos', instance);
 
   // Runtime state directories with content
   for (const sub of ['state', 'logs', 'inbox', 'outbox', 'inflight', 'processed', 'analytics']) {

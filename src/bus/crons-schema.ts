@@ -6,7 +6,7 @@
  *
  * Per-agent crons.json location:
  *   {CRONS_DIRECTORY}/{agentName}/{CRONS_FILENAME}
- *   => .cortextOS/state/agents/boris/crons.json
+ *   => .siriusos/state/agents/boris/crons.json
  */
 
 import { join } from 'path';
@@ -16,9 +16,9 @@ import { join } from 'path';
  * Relative to CTX_ROOT; callers that need an absolute path should
  * prefix with the CTX_ROOT env var or the framework root from CtxEnv.
  *
- * @example ".cortextOS/state/agents"
+ * @example ".siriusos/state/agents"
  */
-export const CRONS_DIRECTORY = '.cortextOS/state/agents';
+export const CRONS_DIRECTORY = '.siriusos/state/agents';
 
 /**
  * File name for the cron definitions list inside each agent state directory.
@@ -31,11 +31,11 @@ export const CRONS_FILENAME = 'crons.json';
  * Return the path to an agent's crons.json relative to CTX_ROOT.
  *
  * @param agentName - The agent's directory name (e.g. "boris", "paul").
- * @returns Relative path string: `.cortextOS/state/agents/{agentName}/crons.json`
+ * @returns Relative path string: `.siriusos/state/agents/{agentName}/crons.json`
  *
  * @example
  * cronsPathFor("boris")
- * // => ".cortextOS/state/agents/boris/crons.json"
+ * // => ".siriusos/state/agents/boris/crons.json"
  */
 export function cronsPathFor(agentName: string): string {
   return join(CRONS_DIRECTORY, agentName, CRONS_FILENAME);
@@ -56,11 +56,11 @@ export const CRON_EXECUTION_LOG_FILENAME = 'cron-execution.log';
  *
  * @param agentName - The agent's directory name (e.g. "boris", "paul").
  * @returns Relative path string:
- *   `.cortextOS/state/agents/{agentName}/cron-execution.log`
+ *   `.siriusos/state/agents/{agentName}/cron-execution.log`
  *
  * @example
  * cronExecutionLogPathFor("boris")
- * // => ".cortextOS/state/agents/boris/cron-execution.log"
+ * // => ".siriusos/state/agents/boris/cron-execution.log"
  */
 export function cronExecutionLogPathFor(agentName: string): string {
   return join(CRONS_DIRECTORY, agentName, CRON_EXECUTION_LOG_FILENAME);

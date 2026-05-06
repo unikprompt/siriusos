@@ -15,7 +15,7 @@ export const doctorCommand = new Command('doctor')
   .option('--instance <id>', 'Instance ID', 'default')
   .description('Diagnose common issues')
   .action(async (options: { instance: string }) => {
-    console.log('\ncortextOS Doctor\n');
+    console.log('\nSiriusOS Doctor\n');
 
     const checks: Check[] = [];
 
@@ -148,12 +148,12 @@ export const doctorCommand = new Command('doctor')
     }
 
     // Check state directory
-    const ctxRoot = join(homedir(), '.cortextos', options.instance);
+    const ctxRoot = join(homedir(), '.siriusos', options.instance);
     checks.push({
       name: 'State directory',
       status: existsSync(ctxRoot) ? 'pass' : 'warn',
       message: existsSync(ctxRoot) ? ctxRoot : 'Not found',
-      fix: !existsSync(ctxRoot) ? 'Run: cortextos init <org-name>' : undefined,
+      fix: !existsSync(ctxRoot) ? 'Run: siriusos init <org-name>' : undefined,
     });
 
     // Check Claude Code auth
@@ -202,30 +202,30 @@ export const doctorCommand = new Command('doctor')
           timeout: 10000,
         });
         const tunnels: Array<{ name: string }> = JSON.parse(listOut);
-        tunnelExists = tunnels.some((t) => t.name === 'cortextos');
+        tunnelExists = tunnels.some((t) => t.name === 'siriusos');
       } catch { /* not authenticated or cloudflared not installed */ }
       checks.push({
-        name: "Tunnel 'cortextos'",
+        name: "Tunnel 'siriusos'",
         status: tunnelExists ? 'pass' : 'warn',
         message: tunnelExists ? 'Exists' : 'Not created',
-        fix: !tunnelExists ? 'Run: cortextos tunnel start' : undefined,
+        fix: !tunnelExists ? 'Run: siriusos tunnel start' : undefined,
       });
 
       // launchd service running?
       let serviceRunning = false;
       try {
         const launchctlOut = execSync('launchctl list', { encoding: 'utf-8', stdio: 'pipe' });
-        serviceRunning = launchctlOut.includes('com.cortextos.tunnel');
+        serviceRunning = launchctlOut.includes('com.siriusos.tunnel');
       } catch { /* launchctl not available */ }
       checks.push({
         name: 'Tunnel service (launchd)',
         status: serviceRunning ? 'pass' : 'warn',
         message: serviceRunning ? 'Running' : 'Not running',
-        fix: !serviceRunning ? 'Run: cortextos tunnel start' : undefined,
+        fix: !serviceRunning ? 'Run: siriusos tunnel start' : undefined,
       });
 
       // Tunnel URL saved?
-      const tunnelConfigPath = join(homedir(), '.cortextos', options.instance, 'tunnel.json');
+      const tunnelConfigPath = join(homedir(), '.siriusos', options.instance, 'tunnel.json');
       let tunnelUrl: string | undefined;
       try {
         const tc = JSON.parse(readFileSync(tunnelConfigPath, 'utf-8'));
@@ -235,7 +235,7 @@ export const doctorCommand = new Command('doctor')
         name: 'Tunnel URL',
         status: tunnelUrl ? 'pass' : 'warn',
         message: tunnelUrl ?? 'Not set',
-        fix: !tunnelUrl ? 'Run: cortextos tunnel start' : undefined,
+        fix: !tunnelUrl ? 'Run: siriusos tunnel start' : undefined,
       });
     }
 
@@ -263,7 +263,7 @@ export const doctorCommand = new Command('doctor')
           name: 'upstream remote',
           status: 'warn',
           message: 'Not configured',
-          fix: 'Run: git remote add upstream <canonical-cortextos-repo-url>',
+          fix: 'Run: git remote add upstream <canonical-siriusos-repo-url>',
         });
       }
     }
@@ -274,7 +274,7 @@ export const doctorCommand = new Command('doctor')
       name: 'community/catalog.json',
       status: existsSync(catalogPath) ? 'pass' : 'warn',
       message: existsSync(catalogPath) ? 'Found' : 'Not found',
-      fix: !existsSync(catalogPath) ? 'Run: cortextos bus check-upstream --apply to fetch the latest catalog' : undefined,
+      fix: !existsSync(catalogPath) ? 'Run: siriusos bus check-upstream --apply to fetch the latest catalog' : undefined,
     });
 
     // Check GEMINI_API_KEY for Knowledge Base (semantic search / RAG)

@@ -134,8 +134,8 @@ export function autoCommit(projectDir: string, dryRun: boolean = false): AutoCom
       continue;
     }
 
-    // Block .cortextos-env
-    if (file === '.cortextos-env' || file.endsWith('/.cortextos-env')) {
+    // Block .siriusos-env
+    if (file === '.siriusos-env' || file.endsWith('/.siriusos-env')) {
       blocked.push(`${file}:runtime_env`);
       continue;
     }

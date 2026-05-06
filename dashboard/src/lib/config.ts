@@ -16,7 +16,7 @@ const CTX_INSTANCE_ID = process.env.CTX_INSTANCE_ID ?? 'default';
 // Core path constants - mirror bus/_ctx-env.sh logic
 export const CTX_ROOT = expandTilde(
   process.env.CTX_ROOT ??
-  path.join(os.homedir(), '.cortextos', CTX_INSTANCE_ID),
+  path.join(os.homedir(), '.siriusos', CTX_INSTANCE_ID),
 );
 
 export const CTX_FRAMEWORK_ROOT = expandTilde(

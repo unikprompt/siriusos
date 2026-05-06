@@ -2,7 +2,7 @@
  * StatusLine hook — writes Claude Code's context window usage to a state file.
  *
  * Configured in settings.json as:
- *   "statusLine": { "type": "command", "command": "cortextos bus hook-context-status",
+ *   "statusLine": { "type": "command", "command": "siriusos bus hook-context-status",
  *                   "refreshInterval": 5, "timeout": 2 }
  *
  * Claude Code pipes a JSON blob to stdin after every assistant turn (debounced 300ms)
@@ -37,7 +37,7 @@ async function main(): Promise<void> {
   const agentName = process.env.CTX_AGENT_NAME;
   if (!agentName) return;
 
-  const ctxRoot = process.env.CTX_ROOT || join(homedir(), '.cortextos', 'default');
+  const ctxRoot = process.env.CTX_ROOT || join(homedir(), '.siriusos', 'default');
   const stateDir = join(ctxRoot, 'state', agentName);
   const outPath = join(stateDir, 'context_status.json');
 

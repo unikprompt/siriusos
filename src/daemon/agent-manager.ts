@@ -19,7 +19,7 @@ import { processMediaMessage } from '../telegram/media.js';
 type LogFn = (msg: string) => void;
 
 /**
- * Manages all agents in a cortextOS instance.
+ * Manages all agents in a SiriusOS instance.
  */
 export class AgentManager {
   private agents: Map<string, { process: AgentProcess; checker: FastChecker; poller?: TelegramPoller; activityPoller?: TelegramPoller }> = new Map();
@@ -49,7 +49,7 @@ export class AgentManager {
 
     // BUG-028: read instance-level enabled-agents.json so the daemon respects
     // the user's explicit enable/disable choices written by the CLI
-    // (`cortextos enable`/`disable`) and the dashboard. Without this read, those
+    // (`siriusos enable`/`disable`) and the dashboard. Without this read, those
     // commands have no effect across daemon restarts — the daemon would
     // re-discover and re-start any agent dir on disk regardless of user intent.
     const instanceEnabled = this.readInstanceEnableList();
@@ -95,7 +95,7 @@ export class AgentManager {
    * Resolution order:
    *   1. Explicit `org` argument (e.g. from `discoverAgents()` which knows
    *      which org a dir lives under)
-   *   2. `enabled-agents.json[name].org` — set by `cortextos enable`/`add-agent`
+   *   2. `enabled-agents.json[name].org` — set by `siriusos enable`/`add-agent`
    *   3. Filesystem scan: walk `frameworkRoot/orgs/*` looking for a dir
    *      named `name` — handles legacy enabled-agents.json entries that
    *      were written before the `org` field was added
@@ -260,7 +260,7 @@ export class AgentManager {
           const crashNum = status.crashCount ?? '?';
           tgApi.sendMessage(tgChatId, `Agent ${name} crashed (crash #${crashNum}) — auto-restarting`).catch(() => {});
         } else if (status.status === 'halted') {
-          tgApi.sendMessage(tgChatId, `Agent ${name} HALTED — exceeded crash limit. Restart manually with: cortextos start ${name}`).catch(() => {});
+          tgApi.sendMessage(tgChatId, `Agent ${name} HALTED — exceeded crash limit. Restart manually with: siriusos start ${name}`).catch(() => {});
         } else if (status.status === 'running' && prevStatus === 'crashed') {
           tgApi.sendMessage(tgChatId, `Agent ${name} recovered and is back online`).catch(() => {});
         }
@@ -622,7 +622,7 @@ export class AgentManager {
    * state dir BEFORE stopping it. The SessionEnd crash-alert hook
    * (src/hooks/hook-crash-alert.ts) reads this marker and reports a clean
    * `🛑 daemon shutdown` notification instead of a false `🚨 CRASH` alarm.
-   * Without this, every `pm2 restart cortextos-daemon` (or `pm2 stop`)
+   * Without this, every `pm2 restart siriusos-daemon` (or `pm2 stop`)
    * generates a false crash alarm per agent — trust-destroying.
    *
    * Pattern matches src/cli/bus.ts:1283-1289 and PR #12 (BUG-036). Markers
@@ -770,7 +770,7 @@ export class AgentManager {
 
   /**
    * Inject text directly into a running agent's PTY.
-   * Used by `cortextos bus test-cron-fire` to fire a cron immediately for testing.
+   * Used by `siriusos bus test-cron-fire` to fire a cron immediately for testing.
    * Returns true if the agent is running and the inject succeeded; false otherwise.
    */
   injectAgent(agentName: string, text: string): boolean {

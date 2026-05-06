@@ -369,7 +369,7 @@ addBaseOptions(
         `Skill suggestions for ${agent} (${items.length} new since ${opts.since}):`,
         ...items.map(
           (s) =>
-            `  • [${s.pattern_type}] ${s.pattern_key} (x${s.occurrences})\n    review: cortextos bus skill-suggestions show ${s.id} --agent ${agent}`,
+            `  • [${s.pattern_type}] ${s.pattern_key} (x${s.occurrences})\n    review: siriusos bus skill-suggestions show ${s.id} --agent ${agent}`,
         ),
       ];
       emit('text', lines.join('\n'));

@@ -25,9 +25,9 @@ afterEach(() => {
 });
 
 describe('paths + defaults', () => {
-  it('defaultCtxRoot uses ~/.cortextos/<instance>', () => {
+  it('defaultCtxRoot uses ~/.siriusos/<instance>', () => {
     const p = defaultCtxRoot('default');
-    expect(p).toMatch(/\.cortextos\/default$/);
+    expect(p).toMatch(/\.siriusos\/default$/);
   });
 
   it('getContextDir places browser dir under state/<agent>/browser', () => {

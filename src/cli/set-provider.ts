@@ -47,5 +47,5 @@ export const setProviderCommand = new Command('set-provider')
       console.log(`Agent "${agentName}" model: ${previousModel ?? '(unset)'} → ${opts.model}`);
     }
     console.log(`Restart the agent for changes to take effect:`);
-    console.log(`  cortextos stop ${agentName} && cortextos start ${agentName}`);
+    console.log(`  siriusos stop ${agentName} && siriusos start ${agentName}`);
   });

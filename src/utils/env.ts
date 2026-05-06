@@ -6,17 +6,17 @@ import { ensureDir } from './atomic.js';
 import { validateAgentName, validateOrgName } from './validate.js';
 
 /**
- * Resolve the cortextOS environment context.
- * Equivalent of bash _ctx-env.sh - reads from env vars, .cortextos-env, .env files.
+ * Resolve the SiriusOS environment context.
+ * Equivalent of bash _ctx-env.sh - reads from env vars, .siriusos-env, .env files.
  */
 export function resolveEnv(overrides?: Partial<CtxEnv>): CtxEnv {
-  // Priority: overrides > env vars > .cortextos-env file > defaults
+  // Priority: overrides > env vars > .siriusos-env file > defaults
 
-  // Try reading .cortextos-env from cwd
+  // Try reading .siriusos-env from cwd
   let envFile: Record<string, string> = {};
-  const cortextosEnvPath = join(process.cwd(), '.cortextos-env');
-  if (existsSync(cortextosEnvPath)) {
-    envFile = parseEnvFile(cortextosEnvPath);
+  const siriusosEnvPath = join(process.cwd(), '.siriusos-env');
+  if (existsSync(siriusosEnvPath)) {
+    envFile = parseEnvFile(siriusosEnvPath);
   }
 
   const instanceId =
@@ -29,7 +29,7 @@ export function resolveEnv(overrides?: Partial<CtxEnv>): CtxEnv {
     overrides?.ctxRoot ||
     process.env.CTX_ROOT ||
     envFile.CTX_ROOT ||
-    join(homedir(), '.cortextos', instanceId);
+    join(homedir(), '.siriusos', instanceId);
 
   const frameworkRoot =
     overrides?.frameworkRoot ||
@@ -84,7 +84,7 @@ export function resolveEnv(overrides?: Partial<CtxEnv>): CtxEnv {
   }
 
   // Security (H9): Validate agent name and org before they flow into filesystem paths.
-  // These come from env vars / .cortextos-env and must match [a-z0-9_-]+.
+  // These come from env vars / .siriusos-env and must match [a-z0-9_-]+.
   if (agentName) {
     try {
       validateAgentName(agentName);
@@ -106,10 +106,10 @@ export function resolveEnv(overrides?: Partial<CtxEnv>): CtxEnv {
 }
 
 /**
- * Write .cortextos-env file for backward compatibility with bash bus scripts.
+ * Write .siriusos-env file for backward compatibility with bash bus scripts.
  * Per D6: maintain this pattern.
  */
-export function writeCortextosEnv(agentDir: string, env: CtxEnv): void {
+export function writeSiriusosEnv(agentDir: string, env: CtxEnv): void {
   ensureDir(agentDir);
   const content = [
     `CTX_INSTANCE_ID=${env.instanceId}`,
@@ -121,7 +121,7 @@ export function writeCortextosEnv(agentDir: string, env: CtxEnv): void {
     `CTX_PROJECT_ROOT=${env.projectRoot}`,
   ].join('\n');
 
-  writeFileSync(join(agentDir, '.cortextos-env'), content + '\n', 'utf-8');
+  writeFileSync(join(agentDir, '.siriusos-env'), content + '\n', 'utf-8');
 }
 
 /**

@@ -1,4 +1,4 @@
-// cortextOS Node.js - Core Type Definitions
+// SiriusOS Node.js - Core Type Definitions
 // These types match the bash version's JSON formats exactly for backward compatibility
 
 export type Priority = 'urgent' | 'high' | 'normal' | 'low';
@@ -57,7 +57,7 @@ export interface Task {
   due_date: string | null;
   archived: boolean;
   result?: string;
-  /** Linked deliverables (files saved via `cortextos bus save-output`). */
+  /** Linked deliverables (files saved via `siriusos bus save-output`). */
   outputs?: TaskOutput[];
   /**
    * Dependency DAG edges (beads-inspired). Optional so existing task
@@ -208,7 +208,7 @@ export interface CronEntry {
 // ---------------------------------------------------------------------------
 //
 // CronDefinition is the canonical record stored in per-agent crons.json files:
-//   .cortextOS/state/agents/{agent_name}/crons.json
+//   .siriusos/state/agents/{agent_name}/crons.json
 //
 // The file is an array of CronDefinition objects.  The daemon reads it, schedules
 // each enabled cron, and injects the prompt into the agent's PTY on schedule.
@@ -255,7 +255,7 @@ export interface CronEntry {
 /**
  * A single persistent cron definition stored in an agent's crons.json.
  *
- * Stored at: `.cortextOS/state/agents/{agent_name}/crons.json`
+ * Stored at: `.siriusos/state/agents/{agent_name}/crons.json`
  *
  * The `schedule` field accepts two formats:
  *   - Interval shorthand: `"6h"`, `"30m"`, `"1d"`, `"2w"`
@@ -315,7 +315,7 @@ export interface CronDefinition {
 
   /**
    * ISO 8601 UTC timestamp of when this cron definition was created.
-   * Set automatically by `cortextos bus add-cron`; operators should not modify this.
+   * Set automatically by `siriusos bus add-cron`; operators should not modify this.
    *
    * @example "2026-04-01T00:00:00.000Z"
    */
@@ -396,7 +396,7 @@ export interface CronDefinition {
 
 /**
  * A single entry in the per-agent cron execution log
- * (`$CTX_ROOT/.cortextOS/state/agents/{agent}/cron-execution.log`).
+ * (`$CTX_ROOT/.siriusos/state/agents/{agent}/cron-execution.log`).
  *
  * The file is JSONL (one JSON object per line, newline-separated).
  * It is append-only; log rotation prunes to the last 1 000 lines.
@@ -714,8 +714,8 @@ export interface IPCRequest {
   agent?: string;
   data?: Record<string, unknown>;
   /**
-   * BUG-015: human-readable identifier of the caller (e.g. 'cortextos enable',
-   * 'cortextos bus soft-restart-all'). Logged by the daemon on every incoming
+   * BUG-015: human-readable identifier of the caller (e.g. 'siriusos enable',
+   * 'siriusos bus soft-restart-all'). Logged by the daemon on every incoming
    * IPC request so we can trace which CLI command triggered which daemon action.
    * Optional for backwards compatibility — older clients fall back to 'unknown'.
    */

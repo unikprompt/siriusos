@@ -58,7 +58,7 @@ purgeCommand
     }
 
     const projectRoot = process.env.CTX_FRAMEWORK_ROOT || process.env.CTX_PROJECT_ROOT || process.cwd();
-    const ctxRoot = join(homedir(), '.cortextos', options.instance);
+    const ctxRoot = join(homedir(), '.siriusos', options.instance);
 
     const org = options.org || autoDetectOrgForAgent(projectRoot, name);
     if (org) {
@@ -157,7 +157,7 @@ purgeCommand
 
     const projectRoot = process.env.CTX_FRAMEWORK_ROOT || process.env.CTX_PROJECT_ROOT || process.cwd();
     const orgDir = join(projectRoot, 'orgs', name);
-    const ctxRoot = join(homedir(), '.cortextos', options.instance);
+    const ctxRoot = join(homedir(), '.siriusos', options.instance);
 
     if (!existsSync(orgDir)) {
       console.log(`Organization "${name}" not found at ${orgDir}. Nothing to purge.`);
@@ -312,8 +312,8 @@ async function stopAgentIfRunning(instance: string, agent: string): Promise<void
     const ipc = new IPCClient(instance);
     const running = await ipc.isDaemonRunning();
     if (!running) return;
-    writeStopMarker(instance, agent, 'stopped via cortextos purge');
-    const response = await ipc.send({ type: 'stop-agent', agent, source: 'cortextos purge' });
+    writeStopMarker(instance, agent, 'stopped via siriusos purge');
+    const response = await ipc.send({ type: 'stop-agent', agent, source: 'siriusos purge' });
     if (response.success) {
       console.log(`  Stopped running agent: ${agent}`);
     }
@@ -326,7 +326,7 @@ async function stopAgentIfRunning(instance: string, agent: string): Promise<void
     if (pm2List.status === 0 && pm2List.stdout) {
       const processes = JSON.parse(pm2List.stdout) as { name: string }[];
       for (const p of processes) {
-        if (p.name === `cortextos-${agent}` || p.name === `ctx-${instance}-${agent}`) {
+        if (p.name === `siriusos-${agent}` || p.name === `ctx-${instance}-${agent}`) {
           spawnSync('pm2', ['delete', p.name], { timeout: 5000, stdio: 'pipe' });
           console.log(`  Stopped PM2 process: ${p.name}`);
         }

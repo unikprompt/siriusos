@@ -12,7 +12,7 @@ import { IPCClient } from '../daemon/ipc-server.js';
  */
 export function writeStopMarker(instanceId: string, agent: string, reason: string): void {
   try {
-    const ctxRoot = join(homedir(), '.cortextos', instanceId);
+    const ctxRoot = join(homedir(), '.siriusos', instanceId);
     const stateDir = join(ctxRoot, 'state', agent);
     mkdirSync(stateDir, { recursive: true });
     writeFileSync(join(stateDir, '.user-stop'), reason);
@@ -23,17 +23,17 @@ export const stopCommand = new Command('stop')
   .argument('[agent]', 'Agent name to stop. Omit and pass --all to stop every running agent.')
   .option('--instance <id>', 'Instance ID', 'default')
   .option('--all', 'Stop every running agent (required when no agent name is given)')
-  .description('Stop a running agent. Use --all to stop every agent. Does NOT stop the daemon process itself — use `pm2 stop cortextos-daemon` for that.')
+  .description('Stop a running agent. Use --all to stop every agent. Does NOT stop the daemon process itself — use `pm2 stop siriusos-daemon` for that.')
   .action(async (agent: string | undefined, options: { instance: string; all?: boolean }) => {
     // Safety: refuse to stop the entire fleet unless the user explicitly opted in.
     if (!agent && !options.all) {
       console.error('Refusing to stop all agents without an explicit target.');
       console.error('');
-      console.error('  To stop one agent:    cortextos stop <agent>');
-      console.error('  To stop every agent:  cortextos stop --all');
-      console.error('  To stop the daemon:   pm2 stop cortextos-daemon');
+      console.error('  To stop one agent:    siriusos stop <agent>');
+      console.error('  To stop every agent:  siriusos stop --all');
+      console.error('  To stop the daemon:   pm2 stop siriusos-daemon');
       console.error('');
-      console.error('(Previously `cortextos stop` with no argument silently stopped every running agent. That behavior was a foot-gun and now requires --all.)');
+      console.error('(Previously `siriusos stop` with no argument silently stopped every running agent. That behavior was a foot-gun and now requires --all.)');
       process.exit(2);
     }
 
@@ -52,8 +52,8 @@ export const stopCommand = new Command('stop')
 
     if (agent) {
       console.log(`Stopping agent: ${agent}`);
-      writeStopMarker(options.instance, agent, 'stopped via cortextos stop');
-      const response = await ipc.send({ type: 'stop-agent', agent, source: 'cortextos stop' });
+      writeStopMarker(options.instance, agent, 'stopped via siriusos stop');
+      const response = await ipc.send({ type: 'stop-agent', agent, source: 'siriusos stop' });
       if (response.success) {
         console.log(`  ${response.data}`);
       } else {
@@ -65,7 +65,7 @@ export const stopCommand = new Command('stop')
 
     // options.all === true
     console.log('Stopping all agents...');
-    const listResponse = await ipc.send({ type: 'list-agents', source: 'cortextos stop --all' });
+    const listResponse = await ipc.send({ type: 'list-agents', source: 'siriusos stop --all' });
     if (!listResponse.success) {
       console.error(`  Error listing agents: ${listResponse.error}`);
       process.exit(1);
@@ -76,9 +76,9 @@ export const stopCommand = new Command('stop')
       return;
     }
     for (const a of agents) {
-      writeStopMarker(options.instance, a, 'stopped via cortextos stop --all');
-      const response = await ipc.send({ type: 'stop-agent', agent: a, source: 'cortextos stop --all' });
+      writeStopMarker(options.instance, a, 'stopped via siriusos stop --all');
+      const response = await ipc.send({ type: 'stop-agent', agent: a, source: 'siriusos stop --all' });
       console.log(`  ${a}: ${response.success ? 'stopped' : response.error}`);
     }
-    console.log('\nAll agents stopped. The daemon is still running. To stop it: pm2 stop cortextos-daemon');
+    console.log('\nAll agents stopped. The daemon is still running. To stop it: pm2 stop siriusos-daemon');
   });

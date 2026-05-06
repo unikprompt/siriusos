@@ -1,7 +1,7 @@
 /**
  * cron-execution-log.ts — Per-agent cron execution log writer (Subtask 1.5).
  *
- * Appends one JSONL entry to `$CTX_ROOT/.cortextOS/state/agents/{agent}/cron-execution.log`
+ * Appends one JSONL entry to `$CTX_ROOT/.siriusos/state/agents/{agent}/cron-execution.log`
  * on every fire attempt (success, retry, or final failure).
  *
  * Log rotation

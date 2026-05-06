@@ -4,7 +4,7 @@ import os from 'os';
 
 // Resolve CTX_ROOT without importing from config (avoids turbopack chunk issues)
 const CTX_INSTANCE_ID = process.env.CTX_INSTANCE_ID ?? 'default';
-const CTX_ROOT = process.env.CTX_ROOT ?? path.join(os.homedir(), '.cortextos', CTX_INSTANCE_ID);
+const CTX_ROOT = process.env.CTX_ROOT ?? path.join(os.homedir(), '.siriusos', CTX_INSTANCE_ID);
 
 // ---------------------------------------------------------------------------
 // Types
