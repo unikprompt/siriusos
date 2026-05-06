@@ -11,7 +11,7 @@ Discover new skills, agent templates, and org templates from the community catal
 
 ## When to Run
 
-- Weekly cron (configured via `cortextos bus add-cron`)
+- Weekly cron (configured via `siriusos bus add-cron`)
 - When user asks about available skills
 - When an agent needs a capability that might exist in the catalog
 
@@ -21,16 +21,16 @@ Discover new skills, agent templates, and org templates from the community catal
 
 ```bash
 # Browse all items
-RESULT=$(cortextos bus browse-catalog)
+RESULT=$(siriusos bus browse-catalog)
 
 # Filter by type
-RESULT=$(cortextos bus browse-catalog --type skill)
+RESULT=$(siriusos bus browse-catalog --type skill)
 
 # Filter by tag
-RESULT=$(cortextos bus browse-catalog --type skill --tag email)
+RESULT=$(siriusos bus browse-catalog --type skill --tag email)
 
 # Search by keyword
-RESULT=$(cortextos bus browse-catalog --search "content")
+RESULT=$(siriusos bus browse-catalog --search "content")
 ```
 
 ### Step 2: Review results
@@ -52,10 +52,10 @@ For items that look useful:
 
 ```bash
 # Dry run first
-cortextos bus install-community-item <item-name> --dry-run
+siriusos bus install-community-item <item-name> --dry-run
 
 # Install after user approves
-cortextos bus install-community-item <item-name>
+siriusos bus install-community-item <item-name>
 ```
 
 ## Config
@@ -64,6 +64,6 @@ Requires `ecosystem.catalog_browse.enabled: true` in config.json.
 
 ## Notes
 
-- The catalog is fetched during upstream sync (`cortextos bus check-upstream`) and lives at `community/catalog.json` in the framework root
+- The catalog is fetched during upstream sync (`siriusos bus check-upstream`) and lives at `community/catalog.json` in the framework root
 - Items are reviewed by the community before being listed
 - Always dry-run before installing

@@ -12,7 +12,7 @@
 
 The External Persistent Crons migration is **complete and ready for production deployment**.
 
-This migration replaces cortextOS's prior session-local, `/loop`-based cron system with a fully
+This migration replaces SiriusOS's prior session-local, `/loop`-based cron system with a fully
 persistent, daemon-managed scheduling engine that survives daemon crashes, restarts, and state
 corruption. All five phases of the plan have been executed, verified, and signed off. The final
 test suite stands at **1430 tests, all green**, across 76 test files and 26 commits ahead of
@@ -51,7 +51,7 @@ The `EXTERNAL_CRONS_PLAN.md` defined the following acceptance criteria. Every it
 
 | Criterion | Status | Evidence |
 |---|---|---|
-| All changes meet cortextOS standards | PASS | TypeScript strict mode, atomic writes, no external runtime deps |
+| All changes meet SiriusOS standards | PASS | TypeScript strict mode, atomic writes, no external runtime deps |
 | >80% coverage on all new code | PASS | 76 test files, 1430 tests, all new modules exercised end-to-end |
 
 ### Test Coverage
@@ -78,7 +78,7 @@ The `EXTERNAL_CRONS_PLAN.md` defined the following acceptance criteria. Every it
 |---|---|---|
 | No new vulnerabilities | PASS | No new external dependencies introduced |
 | All state writes atomic | PASS | atomicWriteSync (tmp+rename) across all crons.json writes |
-| State files not world-readable | PASS | OS permissions unchanged; files in .cortextOS/state/ |
+| State files not world-readable | PASS | OS permissions unchanged; files in .SiriusOS/state/ |
 
 ### Documentation
 
@@ -124,7 +124,7 @@ each component does and where it lives.
   try-catch around `updateCron` in `tick()` to survive ENOSPC/EACCES disk errors
 
 **`src/daemon/cron-execution-log.ts`** — Append-only execution audit log. Appends one JSONL
-line per fire attempt to `.cortextOS/state/agents/{agent}/cron-execution.log`. Each entry:
+line per fire attempt to `.SiriusOS/state/agents/{agent}/cron-execution.log`. Each entry:
 `{ ts, cron, status, attempt, duration_ms, error }`. Rotates at 200KB using atomic rename,
 preserving the most-recent 1,000 lines.
 
@@ -711,18 +711,18 @@ From `CRONS_MIGRATION_GUIDE.md`:
 
 ```bash
 # 1. Verify migration ran on all agents
-cortextos bus migrate-crons --dry-run
+siriusos bus migrate-crons --dry-run
 
 # 2. Verify crons.json exists for each agent
-find .cortextOS/state/agents -name "crons.json" | head -20
+find .SiriusOS/state/agents -name "crons.json" | head -20
 
 # 3. List all agent crons
-cortextos bus list-crons boris
-cortextos bus list-crons paul
-cortextos bus list-crons sentinel
+siriusos bus list-crons boris
+siriusos bus list-crons paul
+siriusos bus list-crons sentinel
 
 # 4. Verify execution log is populating
-cortextos bus get-cron-log boris heartbeat
+siriusos bus get-cron-log boris heartbeat
 
 # 5. Check dashboard health page
 # Navigate to /workflows/health — should show all agents with no 'never-fired' for
@@ -733,7 +733,7 @@ cortextos bus get-cron-log boris heartbeat
 
 The migration is fully reversible. The rollback procedure:
 
-1. Stop the daemon (`cortextos daemon stop` or PM2/systemd equivalent)
+1. Stop the daemon (`siriusos daemon stop` or PM2/systemd equivalent)
 2. Revert the daemon binary to the pre-migration version
 3. The old system reads `config.json` crons — these were never deleted or modified
 4. `crons.json` files will be ignored by the old daemon
@@ -772,7 +772,7 @@ These are standard operational checks and do not represent known issues with the
 ### Engineering Sign-Off
 
 **Code quality**: All new TypeScript compiles in strict mode with zero errors. All new modules
-follow the existing cortextOS patterns: atomic writes, per-agent file isolation, graceful
+follow the existing SiriusOS patterns: atomic writes, per-agent file isolation, graceful
 degradation on read failures, explicit error logging without crashes.
 
 **Test coverage**: 1430/1430 tests pass. Every new module is exercised end-to-end in integration
@@ -780,7 +780,7 @@ tests using real disk I/O and vitest fake timers. No coverage gaps exist for the
 that are not explicitly documented as architectural limitations.
 
 **Security**: No new external runtime dependencies. All state files live inside the existing
-`.cortextOS/state/agents/` tree. Atomic writes prevent partial-state exposure. The `.bak` file
+`.SiriusOS/state/agents/` tree. Atomic writes prevent partial-state exposure. The `.bak` file
 approach does not introduce any new attack surface (same file permissions as primary).
 
 ### Product Sign-Off

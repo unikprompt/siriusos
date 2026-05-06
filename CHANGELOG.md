@@ -59,15 +59,15 @@ Crons move from session-local (`/loop`, `CronCreate`) to daemon-managed `crons.j
 
 ## [0.1.0] — 2026-03-30
 
-### cortextOS Node.js — Initial Release
+### SiriusOS Node.js — Initial Release
 
-Complete TypeScript/Node.js implementation of the cortextOS agent framework. Full feature parity with the bash reference implementation. 307 unit and integration tests, 0 failures. npm-ready.
+Complete TypeScript/Node.js implementation of the SiriusOS agent framework. Full feature parity with the bash reference implementation. 307 unit and integration tests, 0 failures. npm-ready.
 
 ---
 
-## What is cortextOS
+## What is SiriusOS
 
-cortextOS is a persistent 24/7 multi-agent framework built on Claude Code. Agents run as PM2-managed PTY processes, communicate over a file-based message bus, manage tasks, log analytics events, and are controlled via Telegram. This Node.js package ships the entire framework as a single `npm install` with a unified `cortextos` CLI.
+SiriusOS is a persistent 24/7 multi-agent framework built on Claude Code. Agents run as PM2-managed PTY processes, communicate over a file-based message bus, manage tasks, log analytics events, and are controlled via Telegram. This Node.js package ships the entire framework as a single `npm install` with a unified `siriusos` CLI.
 
 ---
 
@@ -143,7 +143,7 @@ Semantic memory via the multimodal-rag Python library (mmrag.py).
 - **`listCollections()`**: Lists all ChromaDB collections with document counts
 - **Collections**: `shared-{org}` (org-wide, all agents) and `agent-{name}` (private per-agent)
 - **Environment setup**: Auto-sets `MMRAG_DIR`, `MMRAG_CHROMADB_DIR`, `MMRAG_CONFIG` for every subprocess call
-- **Instance isolation**: KB root derived from `CTX_ROOT` basename — each cortextOS instance has its own KB
+- **Instance isolation**: KB root derived from `CTX_ROOT` basename — each SiriusOS instance has its own KB
 - **Auto-init**: `kb-ingest.sh` auto-calls `kb-setup.sh` if `config.json` is missing
 - **`kb-setup.sh`**: Creates venv, installs mmrag deps, writes default `config.json`
 
@@ -180,26 +180,26 @@ Structured hypothesis-test-evaluate loop for autonomous agent experimentation.
 
 ---
 
-## CLI Reference (`cortextos`)
+## CLI Reference (`siriusos`)
 
 ### Agent Management
 
 | Command | Description |
 |---------|-------------|
-| `cortextos init` | Initialize a new cortextOS instance |
-| `cortextos add-agent <name> --template <type>` | Create a new agent from template |
-| `cortextos enable <name>` | Enable an agent (adds to enabled-agents.json) |
-| `cortextos start <name>` | Start an agent (via PM2) |
-| `cortextos stop <name>` | Stop an agent (via PM2) |
-| `cortextos status` | Show all agents' status, heartbeat age, current task |
-| `cortextos list-agents [--org <org>]` | List agents with heartbeat/role info |
-| `cortextos list-skills` | List available skills |
-| `cortextos install` | Install/configure cortextOS on this machine |
-| `cortextos uninstall [--keep-state]` | Remove cortextOS |
-| `cortextos doctor` | Diagnose common configuration issues |
-| `cortextos dashboard` | Start the Next.js dashboard |
+| `siriusos init` | Initialize a new SiriusOS instance |
+| `siriusos add-agent <name> --template <type>` | Create a new agent from template |
+| `siriusos enable <name>` | Enable an agent (adds to enabled-agents.json) |
+| `siriusos start <name>` | Start an agent (via PM2) |
+| `siriusos stop <name>` | Stop an agent (via PM2) |
+| `siriusos status` | Show all agents' status, heartbeat age, current task |
+| `siriusos list-agents [--org <org>]` | List agents with heartbeat/role info |
+| `siriusos list-skills` | List available skills |
+| `siriusos install` | Install/configure SiriusOS on this machine |
+| `siriusos uninstall [--keep-state]` | Remove SiriusOS |
+| `siriusos doctor` | Diagnose common configuration issues |
+| `siriusos dashboard` | Start the Next.js dashboard |
 
-### Bus Subcommands (`cortextos bus <cmd>`)
+### Bus Subcommands (`siriusos bus <cmd>`)
 
 #### Messaging
 | Command | Description |
@@ -477,7 +477,7 @@ Research and analytics specialist. Reads metrics, generates reports, tracks KPIs
 
 `.github/workflows/ci.yml` — three-job GitHub Actions pipeline:
 
-1. **`build`**: TypeScript type check (`tsc --noEmit`) + full build (`npm run build`) + CLI smoke test (`cortextos --version`)
+1. **`build`**: TypeScript type check (`tsc --noEmit`) + full build (`npm run build`) + CLI smoke test (`siriusos --version`)
 2. **`test`**: Vitest full suite (depends on `build` job passing)
 3. **`dashboard-build`**: Next.js type check + production build
 
@@ -486,7 +486,7 @@ Triggers: push to `main`, `feat/*`, `fix/*` branches; all pull requests.
 ### Directory Structure
 
 ```
-cortextos/
+siriusos/
 ├── src/
 │   ├── bus/          # Core bus modules (message, task, event, heartbeat, approval, experiment, knowledge-base, agents, catalog, system, metrics)
 │   ├── cli/          # CLI entry points (bus.ts, dashboard.ts, doctor.ts, ecosystem.ts, enable-agent.ts, init.ts, install.ts, list-agents.ts, list-skills.ts, notify-agent.ts, start.ts, status.ts, stop.ts, uninstall.ts)
@@ -513,7 +513,7 @@ cortextos/
 
 ---
 
-## Migration Notes (from bash cortextOS)
+## Migration Notes (from bash SiriusOS)
 
 The Node.js implementation is **format-compatible** with the bash reference implementation. All file formats match exactly:
 

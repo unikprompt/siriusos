@@ -1,6 +1,6 @@
-![npm version](https://img.shields.io/npm/v/cortextos) ![License](https://img.shields.io/badge/license-MIT-green) ![Node](https://img.shields.io/badge/node-20%2B-brightgreen) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
+![npm version](https://img.shields.io/npm/v/siriusos) ![License](https://img.shields.io/badge/license-MIT-green) ![Node](https://img.shields.io/badge/node-20%2B-brightgreen) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 
-# cortextOS
+# SiriusOS
 
 **Persistent 24/7 Claude Code agents you control from Telegram or your phone.**
 
@@ -39,7 +39,7 @@ Boss:    Done. "morning-inbox" cron set — runs daily at 08:00.
 
 ```mermaid
 flowchart TD
-    U["User (Telegram / iOS)"] --> CLI["cortextOS Daemon (Node.js)"]
+    U["User (Telegram / iOS)"] --> CLI["SiriusOS Daemon (Node.js)"]
     CLI --> O["Orchestrator agent"]
     CLI --> A["Analyst agent"]
     CLI --> W["Specialist agents"]
@@ -59,7 +59,7 @@ flowchart TD
 # 1. Install PM2 globally if you don't have it
 npm install -g pm2
 
-# 2. Install cortextOS
+# 2. Install SiriusOS
 curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node
 
 # 3. Open the project in Claude Code and run guided onboarding
@@ -73,10 +73,10 @@ Onboarding handles everything: dependency checks, org setup, bot creation, PM2 c
 ### Manual setup (advanced)
 
 ```bash
-cortextos install                          # Set up state directories
-cortextos init myorg                       # Create an organization
-cortextos add-agent boss --template orchestrator --org myorg
-cortextos add-agent analyst --template analyst --org myorg
+siriusos install                          # Set up state directories
+siriusos init myorg                       # Create an organization
+siriusos add-agent boss --template orchestrator --org myorg
+siriusos add-agent analyst --template analyst --org myorg
 
 # Add Telegram credentials for each agent
 cat > orgs/myorg/agents/boss/.env << EOF
@@ -85,7 +85,7 @@ CHAT_ID=<your-chat-id>
 ALLOWED_USER=<your-telegram-user-id>
 EOF
 
-cortextos ecosystem                        # Generate PM2 config
+siriusos ecosystem                        # Generate PM2 config
 pm2 start ecosystem.config.js && pm2 save && pm2 startup
 ```
 
@@ -116,22 +116,22 @@ pm2 start ecosystem.config.js && pm2 save && pm2 startup
 ## CLI Reference
 
 ```bash
-cortextos install            # Set up state directories
-cortextos init <org>         # Create an organization
-cortextos add-agent <name>   # Add an agent (--template, --org)
-cortextos enable <name>      # Enable agent in daemon
-cortextos ecosystem          # Generate PM2 config
-cortextos status             # Agent health table
-cortextos doctor             # Check prerequisites
-cortextos list-agents        # List agents
-cortextos dashboard          # Start web dashboard (--port 3000)
+siriusos install            # Set up state directories
+siriusos init <org>         # Create an organization
+siriusos add-agent <name>   # Add an agent (--template, --org)
+siriusos enable <name>      # Enable agent in daemon
+siriusos ecosystem          # Generate PM2 config
+siriusos status             # Agent health table
+siriusos doctor             # Check prerequisites
+siriusos list-agents        # List agents
+siriusos dashboard          # Start web dashboard (--port 3000)
 ```
 
 ---
 
 ## Security
 
-cortextOS has undergone a dedicated security hardening sprint covering prompt injection resistance, guardrail enforcement, and approval gate integrity. Agents require explicit human approval before any external action (email, deploy, delete, financial). The guardrails system is self-improving: agents log near-misses and extend GUARDRAILS.md each session.
+SiriusOS has undergone a dedicated security hardening sprint covering prompt injection resistance, guardrail enforcement, and approval gate integrity. Agents require explicit human approval before any external action (email, deploy, delete, financial). The guardrails system is self-improving: agents log near-misses and extend GUARDRAILS.md each session.
 
 ---
 

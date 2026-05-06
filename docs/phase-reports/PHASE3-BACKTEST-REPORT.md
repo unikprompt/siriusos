@@ -67,7 +67,7 @@ Fix: added two concrete `bus add-cron` examples below the template form.
 - All required sections present: What Changed, What You Need to Do, Verification, Troubleshooting, Backward Compatibility
 - "What You Need to Do" opens with "Nothing. Migration runs automatically" — clear and non-scary
 - References `.crons-migrated` marker and `crons.json` as the target store
-- Provides `cortextos bus migrate-crons` and `--force` for manual override
+- Provides `siriusos bus migrate-crons` and `--force` for manual override
 
 **Programmatic assertions (2d–2h):**
 - Auto-migration from config.json `crons` array creates `crons.json` + marker
@@ -102,7 +102,7 @@ Fix: added two concrete `bus add-cron` examples below the template form.
 **Result**: PASSED (9 tests)
 
 **Doc coverage assertions (4a, 4b, 4i):**
-- CRONS_MIGRATION_GUIDE.md Troubleshooting covers: "Migration did not run", "Cron not firing", `list-crons`, `get-cron-log`, `cortextos bus migrate-crons`
+- CRONS_MIGRATION_GUIDE.md Troubleshooting covers: "Migration did not run", "Cron not firing", `list-crons`, `get-cron-log`, `siriusos bus migrate-crons`
 - SKILL.md Troubleshooting covers: `list-crons` as step 1, `get-cron-log`, daemon reload, disabled cron check
 - Combined docs cover all 4 required failure modes (see Coverage Analysis below)
 
@@ -167,8 +167,8 @@ Two documentation gaps were surfaced programmatically and fixed as part of this 
 **Gap**: Step 9 showed only a template placeholder `<workflow-name> <interval> <prompt>` with no copy-paste-ready examples. Users following the guide would have no reference for correct syntax.
 **Fix**: Added two concrete examples below the template form:
 ```bash
-cortextos bus add-cron $CTX_AGENT_NAME heartbeat 6h Read HEARTBEAT.md and follow its instructions.
-cortextos bus add-cron $CTX_AGENT_NAME daily-report "0 9 * * 1-5" Generate and send the daily analytics report.
+siriusos bus add-cron $CTX_AGENT_NAME heartbeat 6h Read HEARTBEAT.md and follow its instructions.
+siriusos bus add-cron $CTX_AGENT_NAME daily-report "0 9 * * 1-5" Generate and send the daily analytics report.
 ```
 **Test**: Scenario 1, test 1b now passes.
 

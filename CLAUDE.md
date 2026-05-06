@@ -1,4 +1,4 @@
-# Contributing to cortextOS
+# Contributing to SiriusOS
 
 ## Development Setup
 

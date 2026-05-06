@@ -7,7 +7,7 @@ triggers: ["remind me", "every day", "every hour", "every week", "schedule", "re
 # Cron Management
 
 Crons are **daemon-managed**. They are stored in `${CTX_ROOT}/state/$CTX_AGENT_NAME/crons.json`
-and dispatched by the cortextOS daemon. Crons survive agent restarts, context compactions,
+and dispatched by the SiriusOS daemon. Crons survive agent restarts, context compactions,
 and daemon restarts automatically. You do NOT need to recreate them on session start.
 
 **Never use `/loop` or CronCreate for persistent recurring work** — those are session-local
@@ -20,13 +20,13 @@ and die on agent restart.
 Check that your crons are registered. Do not recreate them unless they are missing.
 
 ```bash
-cortextos bus list-crons $CTX_AGENT_NAME
+siriusos bus list-crons $CTX_AGENT_NAME
 ```
 
 If a cron is missing from the list, add it:
 
 ```bash
-cortextos bus add-cron $CTX_AGENT_NAME <name> <interval|cron-expr> "<prompt>"
+siriusos bus add-cron $CTX_AGENT_NAME <name> <interval|cron-expr> "<prompt>"
 ```
 
 ---
@@ -35,14 +35,14 @@ cortextos bus add-cron $CTX_AGENT_NAME <name> <interval|cron-expr> "<prompt>"
 
 **Interval shorthand** (s/m/h/d/w):
 ```bash
-cortextos bus add-cron $CTX_AGENT_NAME heartbeat 6h "Read HEARTBEAT.md and follow its instructions."
-cortextos bus add-cron $CTX_AGENT_NAME health-check 30m "Check system health and report anomalies."
+siriusos bus add-cron $CTX_AGENT_NAME heartbeat 6h "Read HEARTBEAT.md and follow its instructions."
+siriusos bus add-cron $CTX_AGENT_NAME health-check 30m "Check system health and report anomalies."
 ```
 
 **5-field cron expression** (minute hour dom month dow):
 ```bash
-cortextos bus add-cron $CTX_AGENT_NAME morning-report "0 9 * * 1-5" "Generate and send the daily analytics report."
-cortextos bus add-cron $CTX_AGENT_NAME weekly-summary "0 17 * * 5" "Compile and deliver the weekly summary."
+siriusos bus add-cron $CTX_AGENT_NAME morning-report "0 9 * * 1-5" "Generate and send the daily analytics report."
+siriusos bus add-cron $CTX_AGENT_NAME weekly-summary "0 17 * * 5" "Compile and deliver the weekly summary."
 ```
 
 The daemon reloads automatically after `add-cron`. Confirm with `list-crons`.
@@ -53,16 +53,16 @@ The daemon reloads automatically after `add-cron`. Confirm with `list-crons`.
 
 ```bash
 # Change the schedule
-cortextos bus update-cron $CTX_AGENT_NAME heartbeat --interval 4h
+siriusos bus update-cron $CTX_AGENT_NAME heartbeat --interval 4h
 
 # Update the prompt
-cortextos bus update-cron $CTX_AGENT_NAME heartbeat --prompt "New prompt text."
+siriusos bus update-cron $CTX_AGENT_NAME heartbeat --prompt "New prompt text."
 
 # Disable (stops firing without removing it)
-cortextos bus update-cron $CTX_AGENT_NAME heartbeat --enabled false
+siriusos bus update-cron $CTX_AGENT_NAME heartbeat --enabled false
 
 # Re-enable
-cortextos bus update-cron $CTX_AGENT_NAME heartbeat --enabled true
+siriusos bus update-cron $CTX_AGENT_NAME heartbeat --enabled true
 ```
 
 ---
@@ -70,7 +70,7 @@ cortextos bus update-cron $CTX_AGENT_NAME heartbeat --enabled true
 ## Removing a Cron
 
 ```bash
-cortextos bus remove-cron $CTX_AGENT_NAME <name>
+siriusos bus remove-cron $CTX_AGENT_NAME <name>
 ```
 
 ---
@@ -89,10 +89,10 @@ crons that must only fire on schedule).
 
 ```bash
 # All crons for this agent
-cortextos bus get-cron-log $CTX_AGENT_NAME
+siriusos bus get-cron-log $CTX_AGENT_NAME
 
 # Filter to a specific cron
-cortextos bus get-cron-log $CTX_AGENT_NAME <name>
+siriusos bus get-cron-log $CTX_AGENT_NAME <name>
 ```
 
 Each log entry: `ts`, `cron`, `status` (fired/retried/failed), `attempt`, `duration_ms`, `error`.
@@ -102,14 +102,14 @@ Each log entry: `ts`, `cron`, `status` (fired/retried/failed), `attempt`, `durat
 ## Troubleshooting
 
 **Cron not firing:**
-1. `cortextos bus list-crons $CTX_AGENT_NAME` — confirm it is registered and not disabled.
-2. `cortextos bus get-cron-log $CTX_AGENT_NAME <name>` — check for `status: failed` entries.
-3. Check daemon log: `~/.cortextos/$CTX_INSTANCE_ID/logs/$CTX_AGENT_NAME/`
+1. `siriusos bus list-crons $CTX_AGENT_NAME` — confirm it is registered and not disabled.
+2. `siriusos bus get-cron-log $CTX_AGENT_NAME <name>` — check for `status: failed` entries.
+3. Check daemon log: `~/.siriusos/$CTX_INSTANCE_ID/logs/$CTX_AGENT_NAME/`
 
 **`crons.json` corrupted:**
 - `readCrons` automatically falls back to `crons.json.bak` on parse failure. Usually self-healing.
 - If both files are bad, re-add crons via `add-cron` or force re-migration:
-  `cortextos bus migrate-crons $CTX_AGENT_NAME --force`
+  `siriusos bus migrate-crons $CTX_AGENT_NAME --force`
 
 **Scheduler retained stale schedule after reload:**
 - If a reload produces an empty schedule (transient corruption), the daemon keeps the last-good

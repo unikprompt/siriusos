@@ -42,7 +42,7 @@ Same infrastructure as 5.1 through 5.4:
 timestamp reflecting when the last mutation occurred.  Each cron definition includes a
 `created_at` field set at creation time.
 
-**Where**: `.cortextOS/state/agents/{agent}/crons.json`
+**Where**: `.SiriusOS/state/agents/{agent}/crons.json`
 
 **Sample log line** (crons.json envelope after add):
 ```json
@@ -91,7 +91,7 @@ The log is append-only (POSIX O_APPEND).  Rotation prunes to the last 1,000 line
 atomic rename when the file exceeds 200 KB.  Retention: effectively rolling 1,000 entries
 (at 200 bytes/entry ≈ 200 KB, aligning with the rotation threshold).
 
-**Where**: `.cortextOS/state/agents/{agent}/cron-execution.log`
+**Where**: `.SiriusOS/state/agents/{agent}/cron-execution.log`
 
 **Sample log lines**:
 ```jsonl
@@ -161,7 +161,7 @@ error message and attempt index.  The error class is not currently extracted as 
    This warning is emitted to the `logger` function (defaults to `process.stdout.write`).
    In production this goes to the daemon's stdout which is captured by PM2/systemd logs.
 
-**Where**: `.cortextOS/state/agents/{agent}/crons.json.bak` (file artifact); daemon stdout
+**Where**: `.SiriusOS/state/agents/{agent}/crons.json.bak` (file artifact); daemon stdout
 (warning log).
 
 **Tests**:
@@ -198,9 +198,9 @@ clients that omit it), and fallback is `'unknown'` in the log line.
 
 **Sample daemon log lines**:
 ```
-[ipc] add-cron boris from cortextos-dashboard
-[ipc] fire-cron boris from cortextos-cli
-[ipc] remove-cron nick from cortextos-dashboard
+[ipc] add-cron boris from siriusos-dashboard
+[ipc] fire-cron boris from siriusos-cli
+[ipc] remove-cron nick from siriusos-dashboard
 ```
 
 **Tests**:

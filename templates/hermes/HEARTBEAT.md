@@ -8,7 +8,7 @@ Skipping steps = broken system.
 Quick `update-heartbeat` so the dashboard sees you alive. The full structured update happens in Step 4.
 
 ```bash
-cortextos bus update-heartbeat "starting heartbeat cycle"
+siriusos bus update-heartbeat "starting heartbeat cycle"
 ```
 
 If this fails, your agent shows as DEAD on the dashboard. Fix it before anything else.
@@ -16,12 +16,12 @@ If this fails, your agent shows as DEAD on the dashboard. Fix it before anything
 ## Step 2: Check inbox
 
 ```bash
-cortextos bus check-inbox
+siriusos bus check-inbox
 ```
 
 Process ALL messages. ACK every single one:
 ```bash
-cortextos bus ack-inbox "<message_id>"
+siriusos bus ack-inbox "<message_id>"
 ```
 
 Un-ACK'd messages are re-delivered in 5 minutes.
@@ -30,8 +30,8 @@ Target: 0 un-ACK'd messages after this step.
 ## Step 3: Check task queue
 
 ```bash
-cortextos bus list-tasks --agent $CTX_AGENT_NAME --status pending
-cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
+siriusos bus list-tasks --agent $CTX_AGENT_NAME --status pending
+siriusos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 ```
 
 - Pending tasks: pick the highest priority one and start it
@@ -43,7 +43,7 @@ cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 Single structured call that wraps update-heartbeat + log-event + update-cron-fire + memory append. Each substep runs independently and partial failures are surfaced in the output.
 
 ```bash
-cortextos bus heartbeat-respond \
+siriusos bus heartbeat-respond \
   --status ok \
   --inbox-count <N from Step 2> \
   --tasks-count <N from Step 3> \
@@ -58,7 +58,7 @@ Exit code is 1 if any substep failed. If you see `PARTIAL`, re-run only the fail
 ## Step 5: Re-index memory to KB
 
 ```bash
-cortextos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
+siriusos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
   --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private --force
 ```
 
@@ -66,7 +66,7 @@ cortextos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
 
 Read GOALS.md for any new objectives. If goals changed, create tasks:
 ```bash
-cortextos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME
+siriusos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME
 ```
 
 ## Step 7: Resume work
@@ -74,9 +74,9 @@ cortextos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT
 Pick your highest priority task and work on it.
 
 ```bash
-cortextos bus update-task "<task_id>" in_progress
+siriusos bus update-task "<task_id>" in_progress
 # ... do the work ...
-cortextos bus complete-task "<task_id>" "<summary of what was produced>"
+siriusos bus complete-task "<task_id>" "<summary of what was produced>"
 ```
 
 ---
