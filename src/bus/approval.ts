@@ -4,6 +4,7 @@ import type { Approval, ApprovalCategory, ApprovalStatus, BusPaths } from '../ty
 import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
 import { randomString } from '../utils/random.js';
 import { validateApprovalCategory } from '../utils/validate.js';
+import { explainShellCommand, formatExplanationForTelegram, type ShellExplanation } from '../utils/shell-explainer.js';
 import { sendMessage } from './message.js';
 import { postActivity } from './system.js';
 
@@ -58,6 +59,8 @@ function postApprovalToActivityChannel(
   agentName: string,
   context: string | undefined,
   frameworkRoot: string | undefined,
+  command: string | undefined,
+  explanation: ShellExplanation | undefined,
 ): Promise<void> {
   const root = frameworkRoot ?? process.env.CTX_FRAMEWORK_ROOT;
   if (!root) {
@@ -76,6 +79,15 @@ function postApprovalToActivityChannel(
   ];
   if (context) {
     lines.push('', context);
+  }
+  if (command) {
+    lines.push('', 'Command:', '`' + command + '`');
+    if (explanation) {
+      const block = formatExplanationForTelegram(explanation);
+      if (block) {
+        lines.push('', block);
+      }
+    }
   }
   lines.push('', `id: ${approvalId}`);
   const message = lines.join('\n');
@@ -119,6 +131,7 @@ export async function createApproval(
   category: ApprovalCategory,
   context?: string,
   frameworkRoot?: string,
+  command?: string,
 ): Promise<string> {
   validateApprovalCategory(category);
 
@@ -126,6 +139,8 @@ export async function createApproval(
   const rand = randomString(5);
   const approvalId = `approval_${epoch}_${rand}`;
   const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  const explanation = command ? explainShellCommand(command) : undefined;
 
   const approval: Approval = {
     id: approvalId,
@@ -139,6 +154,9 @@ export async function createApproval(
     updated_at: now,
     resolved_at: null,
     resolved_by: null,
+    ...(command ? { command } : {}),
+    ...(explanation && explanation.explanation ? { command_explanation: explanation.explanation } : {}),
+    ...(explanation && explanation.danger_flags.length > 0 ? { danger_flags: explanation.danger_flags } : {}),
   };
 
   const pendingDir = join(paths.approvalDir, 'pending');
@@ -152,7 +170,7 @@ export async function createApproval(
   // unreachable must not block approval creation. Callbacks route back
   // via the orchestrator's activity-channel poller (see
   // daemon/agent-manager.ts).
-  await postApprovalToActivityChannel(paths, org, approvalId, title, category, agentName, context, frameworkRoot);
+  await postApprovalToActivityChannel(paths, org, approvalId, title, category, agentName, context, frameworkRoot, command, explanation);
 
   return approvalId;
 }

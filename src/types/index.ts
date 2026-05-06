@@ -134,6 +134,9 @@ export interface Approval {
   updated_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  command?: string;
+  command_explanation?: string;
+  danger_flags?: { code: string; message: string; severity: 'warn' | 'critical' }[];
 }
 
 // Agent Config Types (config.json)

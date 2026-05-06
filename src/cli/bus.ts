@@ -1377,7 +1377,8 @@ busCommand
   .argument('<title>', 'What you are requesting approval for')
   .argument('<category>', 'Category: external-comms, financial, deployment, data-deletion, other')
   .argument('[context]', 'Additional context')
-  .action(async (title: string, category: string, context?: string) => {
+  .option('--command <cmd>', 'Shell command being gated. Parsed by shell-explainer to enrich the operator-facing payload with a human summary and danger flags (e.g. rm-rf-root, curl-pipe-shell).')
+  .action(async (title: string, category: string, context: string | undefined, opts: { command?: string }) => {
     const validCategories: ApprovalCategory[] = ['external-comms', 'financial', 'deployment', 'data-deletion', 'other'];
     if (!validCategories.includes(category as ApprovalCategory)) {
       console.error(`Invalid category '${category}'. Must be one of: ${validCategories.join(', ')}`);
@@ -1391,7 +1392,7 @@ busCommand
     // orgDir resolves to where activity-channel.env actually lives (the
     // framework repo path, NOT the runtime state path — see
     // src/bus/approval.ts:postApprovalToActivityChannel for the history).
-    const id = await createApproval(paths, env.agentName, env.org, title, category as ApprovalCategory, context || '', env.frameworkRoot);
+    const id = await createApproval(paths, env.agentName, env.org, title, category as ApprovalCategory, context || '', env.frameworkRoot, opts.command);
     console.log(id);
   });
 
