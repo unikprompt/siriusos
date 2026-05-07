@@ -174,7 +174,9 @@ export function parseIdentityMd(
   for (const section of parsed.sections) {
     const key = IDENTITY_HEADINGS[section.heading.toLowerCase()];
     if (key) {
-      fields[key] = section.content.trim();
+      const trimmed = section.content.trim();
+      // Treat unfilled template placeholders (whole-section HTML comments) as empty
+      fields[key] = /^<!--[\s\S]*-->$/.test(trimmed) ? '' : trimmed;
     }
   }
 
