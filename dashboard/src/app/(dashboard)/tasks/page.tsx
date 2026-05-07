@@ -9,6 +9,7 @@ import { TaskListTable } from '@/components/tasks/task-list-table';
 import { TaskDetailSheet } from '@/components/tasks/task-detail-sheet';
 import { CreateTaskDialog } from '@/components/tasks/create-task-dialog';
 import { TaskFilters } from '@/components/tasks/task-filters';
+import { EmptyState } from '@/components/shared/empty-state';
 import type { Task, TaskStatus } from '@/lib/types';
 
 type ViewMode = 'kanban' | 'list';
@@ -194,18 +195,18 @@ export default function TasksPage() {
 
       {/* Content */}
       {tasks.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <IconChecklist size={48} className="text-muted-foreground/30 mb-4" />
-          <h3 className="text-lg font-medium mb-1">No tasks yet</h3>
-          <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-            Create your first task to start tracking work across your agents.
-          </p>
-          <CreateTaskDialog
-            agents={agents}
-            projects={projects}
-            onCreated={fetchTasks}
-          />
-        </div>
+        <EmptyState
+          kind="constellation"
+          title="No tasks yet"
+          description="Create your first task to start tracking work across your agents."
+          action={
+            <CreateTaskDialog
+              agents={agents}
+              projects={projects}
+              onCreated={fetchTasks}
+            />
+          }
+        />
       ) : view === 'kanban' ? (
         <KanbanBoard
           tasks={displayTasks}

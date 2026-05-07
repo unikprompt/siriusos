@@ -141,15 +141,8 @@ export default function LoginPage() {
     <div className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-background ${showSplash ? 'invisible' : ''}`}>
       {/* Starfield backdrop */}
       <div className="starfield pointer-events-none absolute inset-0 opacity-80" aria-hidden="true" />
-      {/* Cosmic gradient wash */}
-      <div
-        className="pointer-events-none absolute inset-0 opacity-60"
-        style={{
-          background:
-            'radial-gradient(ellipse at 50% 20%, rgba(165, 201, 255, 0.10), transparent 60%), radial-gradient(ellipse at 30% 90%, rgba(255, 210, 122, 0.06), transparent 60%)',
-        }}
-        aria-hidden="true"
-      />
+      {/* Cosmic gradient wash (theme-aware via .cosmic-wash) */}
+      <div className="cosmic-wash pointer-events-none absolute inset-0" aria-hidden="true" />
 
       <div className="relative w-full max-w-sm space-y-7 px-4">
         {/* Mark + wordmark */}
@@ -159,7 +152,7 @@ export default function LoginPage() {
               width="56"
               height="56"
               viewBox="0 0 64 64"
-              className="text-primary drop-shadow-[0_0_20px_rgba(165,201,255,0.45)]"
+              className="text-primary drop-shadow-[0_0_18px_rgba(61,111,229,0.35)] dark:drop-shadow-[0_0_20px_rgba(165,201,255,0.45)]"
               aria-hidden="true"
             >
               <path

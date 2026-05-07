@@ -25,7 +25,8 @@ function MetricCard({ label, value, sublabel, icon, href }: MetricCardProps) {
       className={cn(
         "group relative overflow-hidden rounded-xl border border-border bg-card p-4 transition-all duration-200",
         "hover:border-primary/40 hover:-translate-y-px",
-        "hover:shadow-[0_8px_24px_-4px_rgba(165,201,255,0.12),0_0_0_1px_rgba(165,201,255,0.06)]",
+        "hover:shadow-[0_6px_20px_-6px_rgba(61,111,229,0.18),0_0_0_1px_rgba(61,111,229,0.06)]",
+        "dark:hover:shadow-[0_8px_24px_-4px_rgba(165,201,255,0.12),0_0_0_1px_rgba(165,201,255,0.06)]",
         href && "cursor-pointer"
       )}
       onClick={href ? () => router.push(href) : undefined}

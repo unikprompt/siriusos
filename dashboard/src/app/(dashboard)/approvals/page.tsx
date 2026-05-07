@@ -10,6 +10,7 @@ import { IconUser, IconCheck, IconClock } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { PriorityBadge, TimeAgo } from '@/components/shared';
+import { EmptyState } from '@/components/shared/empty-state';
 import type { Approval, Task } from '@/lib/types';
 
 export default function ApprovalsPage() {
@@ -145,9 +146,11 @@ export default function ApprovalsPage() {
         {/* Human Tasks tab */}
         <TabsContent value="human">
           {humanTasks.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              No tasks assigned to you right now.
-            </p>
+            <EmptyState
+              kind="silence"
+              title="Inbox clear"
+              description="No tasks assigned to you right now. Your agents will route here when they need a decision."
+            />
           ) : (
             <div className="grid gap-2 max-w-2xl">
               {humanTasks.map((task) => (

@@ -106,7 +106,7 @@ export function Sidebar({
           width="22"
           height="22"
           viewBox="0 0 64 64"
-          className="shrink-0 text-primary drop-shadow-[0_0_4px_rgba(165,201,255,0.35)]"
+          className="shrink-0 text-primary drop-shadow-[0_0_3px_rgba(61,111,229,0.25)] dark:drop-shadow-[0_0_4px_rgba(165,201,255,0.35)]"
           aria-hidden="true"
         >
           <path

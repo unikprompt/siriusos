@@ -29,6 +29,7 @@ import {
   IconShieldCheck,
 } from '@tabler/icons-react';
 import { formatRelative } from '@/lib/cron-utils';
+import { EmptyState } from '@/components/shared/empty-state';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -290,22 +291,22 @@ export default function FleetHealthPage() {
       {/* All healthy empty state */}
       {!loading && !error && allHealthy && stateFilter === 'all' && (
         <Card>
-          <CardContent className="pt-8 pb-8 text-center">
-            <IconShieldCheck size={32} className="mx-auto text-green-500 mb-3" />
-            <p className="text-sm font-medium">All systems nominal.</p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Every cron is firing on schedule. Nothing to see here (in the best way).
-            </p>
-          </CardContent>
+          <EmptyState
+            kind="orbit"
+            title="All systems nominal"
+            description="Every cron is firing on schedule. Nothing to see here, in the best way."
+          />
         </Card>
       )}
 
       {/* No crons empty state */}
       {!loading && !error && summary?.total === 0 && (
         <Card>
-          <CardContent className="pt-8 pb-8 text-center">
-            <p className="text-sm text-muted-foreground">No crons configured across any agents.</p>
-          </CardContent>
+          <EmptyState
+            kind="orbit"
+            title="No crons configured"
+            description="Add a cron to any agent to start automating recurring work."
+          />
         </Card>
       )}
 
