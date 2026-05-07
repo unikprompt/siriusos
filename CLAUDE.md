@@ -3,7 +3,7 @@
 ## Development Setup
 
 ```bash
-git clone https://github.com/mperedwa/siriusos.git
+git clone https://github.com/unikprompt/siriusos.git
 cd siriusos
 npm install
 npm run build
