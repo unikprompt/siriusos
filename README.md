@@ -60,33 +60,40 @@ flowchart TD
 npm install -g pm2
 
 # 2. Install SiriusOS
-curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node
+npm install -g siriusos
 
-# 3. Open the project in Claude Code and run guided onboarding
-claude ~/cortextos
-# Then inside Claude Code:
-# /onboarding
-```
+# 3. Set up state directories and your first organization
+siriusos install
+siriusos init myorg
 
-Onboarding handles everything: dependency checks, org setup, bot creation, PM2 config, and dashboard launch. Your Orchestrator comes online in Telegram and finishes its own setup there.
-
-### Manual setup (advanced)
-
-```bash
-siriusos install                          # Set up state directories
-siriusos init myorg                       # Create an organization
+# 4. Add your first agents
 siriusos add-agent boss --template orchestrator --org myorg
 siriusos add-agent analyst --template analyst --org myorg
 
-# Add Telegram credentials for each agent
-cat > orgs/myorg/agents/boss/.env << EOF
+# 5. Wire Telegram for each agent
+cat > orgs/myorg/agents/boss/.env <<EOF
 BOT_TOKEN=<your-bot-token>
 CHAT_ID=<your-chat-id>
 ALLOWED_USER=<your-telegram-user-id>
 EOF
 
-siriusos ecosystem                        # Generate PM2 config
+# 6. Generate PM2 config and bring the fleet online
+siriusos ecosystem
 pm2 start ecosystem.config.js && pm2 save && pm2 startup
+```
+
+Your Orchestrator comes online in Telegram and finishes the rest of its own setup there.
+
+### Open the dashboard
+
+```bash
+siriusos dashboard --build --port 3013
+```
+
+Default credentials are auto-generated on first run; print them with:
+
+```bash
+cat ~/.siriusos/default/dashboard.env
 ```
 
 ---

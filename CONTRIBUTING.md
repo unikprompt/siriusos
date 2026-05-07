@@ -113,8 +113,8 @@ Before opening a PR, verify:
 ### 1. Fork and clone
 
 ```bash
-git clone https://github.com/grandamenium/cortextos.git
-cd cortextos
+git clone https://github.com/mperedwa/siriusos.git
+cd siriusos
 git checkout -b feat/skill-<your-skill-name>
 ```
 

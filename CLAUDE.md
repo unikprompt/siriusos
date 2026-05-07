@@ -3,8 +3,8 @@
 ## Development Setup
 
 ```bash
-git clone https://github.com/grandamenium/cortextos.git
-cd cortextos
+git clone https://github.com/mperedwa/siriusos.git
+cd siriusos
 npm install
 npm run build
 npm test
