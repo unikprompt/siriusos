@@ -62,7 +62,7 @@ const en: WelcomeStrings = {
     sub: 'SiriusOS keeps your Claude-powered agents running 24/7, talks to them on Telegram, runs scheduled work via crons, and shows you the whole orchestration in one dashboard.',
     ctaPrimary: 'Request access',
     ctaSecondary: 'Sign in',
-    statusOnline: 'Live · cortextos.unikprompt.com',
+    statusOnline: 'Live · siriusos.unikprompt.com',
   },
   pillars: {
     sectionEyebrow: 'What you get',
@@ -144,7 +144,7 @@ const es: WelcomeStrings = {
     sub: 'SiriusOS mantiene tus agentes con Claude corriendo 24/7, los hablás por Telegram, ejecutan trabajo programado con crons, y vos ves toda la orquestación en un solo dashboard.',
     ctaPrimary: 'Pedir acceso',
     ctaSecondary: 'Entrar',
-    statusOnline: 'En línea · cortextos.unikprompt.com',
+    statusOnline: 'En línea · siriusos.unikprompt.com',
   },
   pillars: {
     sectionEyebrow: 'Lo que obtenés',
