@@ -38,12 +38,12 @@ export function GoalProgress({ goals }: GoalProgressProps) {
                     <span className="font-medium truncate">{goal.title}</span>
                     {goal.stalenessStatus && (
                       <span className={`inline-flex items-center gap-1 text-[10px] shrink-0 ${
-                        goal.stalenessStatus === 'fresh' ? 'text-green-600' :
-                        goal.stalenessStatus === 'stale' ? 'text-amber-600' : 'text-red-600'
+                        goal.stalenessStatus === 'fresh' ? 'text-success' :
+                        goal.stalenessStatus === 'stale' ? 'text-warning' : 'text-destructive'
                       }`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${
-                          goal.stalenessStatus === 'fresh' ? 'bg-green-500' :
-                          goal.stalenessStatus === 'stale' ? 'bg-amber-500' : 'bg-red-500'
+                          goal.stalenessStatus === 'fresh' ? 'bg-success' :
+                          goal.stalenessStatus === 'stale' ? 'bg-warning' : 'bg-destructive'
                         }`} />
                         {goal.stalenessStatus === 'fresh' ? 'Fresh' :
                          `${goal.stalenessHours}h stale`}

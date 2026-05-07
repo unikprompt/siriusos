@@ -140,10 +140,10 @@ export default function TasksPage() {
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Tasks</h1>
         <div className="space-y-4">
-          <div className="h-10 w-full rounded-lg bg-muted/30 animate-pulse" />
+          <div className="h-10 w-full rounded-lg shimmer" />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-64 rounded-xl bg-muted/30 animate-pulse" />
+              <div key={i} className="h-64 rounded-xl shimmer" />
             ))}
           </div>
         </div>

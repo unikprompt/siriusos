@@ -230,7 +230,7 @@ export function TaskDetailSheet({
             )}
             <OrgBadge org={task.org} />
             {task.needs_approval && (
-              <span className="rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+              <span className="rounded-md bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
                 Needs Approval
               </span>
             )}

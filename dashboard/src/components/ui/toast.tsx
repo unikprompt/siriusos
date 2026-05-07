@@ -101,11 +101,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
 const variantStyles: Record<ToastVariant, string> = {
   success:
-    'bg-green-50 border-green-200 text-green-900 dark:bg-green-950/60 dark:border-green-800 dark:text-green-100',
+    'bg-success/15 border-success/30 text-success',
   error:
-    'bg-red-50 border-red-200 text-red-900 dark:bg-red-950/60 dark:border-red-800 dark:text-red-100',
+    'bg-destructive/15 border-destructive/30 text-destructive',
   warning:
-    'bg-yellow-50 border-yellow-200 text-yellow-900 dark:bg-yellow-950/60 dark:border-yellow-800 dark:text-yellow-100',
+    'bg-warning/15 border-warning/30 text-warning',
   info:
     'bg-blue-50 border-blue-200 text-blue-900 dark:bg-blue-950/60 dark:border-blue-800 dark:text-blue-100',
 };

@@ -36,7 +36,7 @@ interface FleetHealthProps {
 }
 
 function StatusDot({ stability }: { stability: number }) {
-  const color = stability >= 90 ? 'bg-green-500' : stability >= 70 ? 'bg-amber-500' : 'bg-red-500';
+  const color = stability >= 90 ? 'bg-success' : stability >= 70 ? 'bg-warning' : 'bg-destructive';
   return <span className={`inline-block h-2 w-2 rounded-full ${color}`} />;
 }
 
@@ -87,7 +87,7 @@ export function FleetHealth({ data }: FleetHealthProps) {
                 <p className="text-2xl font-semibold mt-1">{data.staleCount}</p>
               </div>
               <div className="rounded-md bg-muted/50 p-2">
-                <IconAlertTriangle size={18} className={data.staleCount > 0 ? 'text-amber-500' : 'text-muted-foreground'} />
+                <IconAlertTriangle size={18} className={data.staleCount > 0 ? 'text-warning' : 'text-muted-foreground'} />
               </div>
             </div>
           </CardContent>
@@ -100,7 +100,7 @@ export function FleetHealth({ data }: FleetHealthProps) {
                 <p className="text-2xl font-semibold mt-1">{data.errorCount}</p>
               </div>
               <div className="rounded-md bg-muted/50 p-2">
-                <IconBug size={18} className={data.errorCount > 0 ? 'text-red-500' : 'text-muted-foreground'} />
+                <IconBug size={18} className={data.errorCount > 0 ? 'text-destructive' : 'text-muted-foreground'} />
               </div>
             </div>
           </CardContent>
@@ -129,14 +129,14 @@ export function FleetHealth({ data }: FleetHealthProps) {
                       <StatusDot stability={agent.stability} />
                       <span className="font-medium">{agent.name}</span>
                       {agent.isStale && (
-                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600">stale</span>
+                        <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning">stale</span>
                       )}
                     </td>
                     <td className="py-2 text-right tabular-nums">{agent.stability}%</td>
                     <td className="py-2 text-right tabular-nums">{agent.crashes}</td>
                     <td className="py-2 text-right tabular-nums">{agent.events}</td>
                     <td className="py-2 text-right tabular-nums">
-                      <span className={agent.realErrors > 0 ? 'text-red-500 font-medium' : ''}>
+                      <span className={agent.realErrors > 0 ? 'text-destructive font-medium' : ''}>
                         {agent.realErrors}
                       </span>
                     </td>

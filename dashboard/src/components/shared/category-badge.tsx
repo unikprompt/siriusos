@@ -19,7 +19,7 @@ const categoryConfig: Record<string, { className: string; label: string }> = {
     label: 'Deployment',
   },
   'data-deletion': {
-    className: 'bg-red-500/10 text-red-600 dark:text-red-400',
+    className: 'bg-destructive/15 text-destructive',
     label: 'Data Deletion',
   },
   other: {

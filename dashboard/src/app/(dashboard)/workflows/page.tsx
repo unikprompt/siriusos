@@ -435,9 +435,9 @@ export default function WorkflowsPage() {
       <Card className={
         !healthLoading && fleetHealth &&
         (fleetHealth.failure > 0 || fleetHealth.neverFired > 0)
-          ? 'border-red-500/30'
+          ? 'border-destructive/30'
           : !healthLoading && fleetHealth && fleetHealth.warning > 0
-            ? 'border-yellow-500/30'
+            ? 'border-warning/30'
             : ''
       }>
         <CardHeader className="pb-3">
@@ -456,7 +456,7 @@ export default function WorkflowsPage() {
           {healthLoading ? (
             <div className="grid grid-cols-4 gap-2">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="h-12 rounded-md bg-muted/30 animate-pulse" />
+                <div key={i} className="h-12 rounded-md shimmer" />
               ))}
             </div>
           ) : fleetHealth ? (
@@ -468,7 +468,7 @@ export default function WorkflowsPage() {
               </div>
               {/* Healthy */}
               <div className="text-center">
-                <p className={`text-2xl font-semibold flex items-center justify-center gap-1 ${fleetHealth.healthy > 0 ? 'text-green-600 dark:text-green-400' : ''}`}>
+                <p className={`text-2xl font-semibold flex items-center justify-center gap-1 ${fleetHealth.healthy > 0 ? 'text-success' : ''}`}>
                   <IconCircleCheck size={16} className="shrink-0" />
                   {fleetHealth.healthy}
                 </p>
@@ -476,7 +476,7 @@ export default function WorkflowsPage() {
               </div>
               {/* Warning */}
               <div className="text-center">
-                <p className={`text-2xl font-semibold flex items-center justify-center gap-1 ${fleetHealth.warning > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-muted-foreground'}`}>
+                <p className={`text-2xl font-semibold flex items-center justify-center gap-1 ${fleetHealth.warning > 0 ? 'text-warning' : 'text-muted-foreground'}`}>
                   <IconAlertTriangle size={16} className="shrink-0" />
                   {fleetHealth.warning}
                 </p>
@@ -484,7 +484,7 @@ export default function WorkflowsPage() {
               </div>
               {/* Failure + Never-fired */}
               <div className="text-center">
-                <p className={`text-2xl font-semibold flex items-center justify-center gap-1 ${(fleetHealth.failure + fleetHealth.neverFired) > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
+                <p className={`text-2xl font-semibold flex items-center justify-center gap-1 ${(fleetHealth.failure + fleetHealth.neverFired) > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                   <IconCircleX size={16} className="shrink-0" />
                   {fleetHealth.failure + fleetHealth.neverFired}
                 </p>
@@ -756,7 +756,7 @@ export default function WorkflowsPage() {
         {loading && agents.length === 0 && (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 rounded-lg bg-muted/30 animate-pulse" />
+              <div key={i} className="h-24 rounded-lg shimmer" />
             ))}
           </div>
         )}
@@ -793,7 +793,7 @@ export default function WorkflowsPage() {
                 <CardContent className="pt-0 space-y-3">
                   {/* Error banner */}
                   {agent.error && (
-                    <div className="rounded-md bg-red-500/10 border border-red-500/20 px-3 py-2 text-sm text-red-600 dark:text-red-400 flex items-center justify-between">
+                    <div className="rounded-md bg-destructive/15 border border-destructive/30 px-3 py-2 text-sm text-destructive flex items-center justify-between">
                       <span>{agent.error}</span>
                       <button
                         onClick={() =>
@@ -931,7 +931,7 @@ export default function WorkflowsPage() {
                               <IconEdit size={16} />
                             </button>
                             <button
-                              className="p-1.5 rounded hover:bg-red-500/10 text-red-500"
+                              className="p-1.5 rounded hover:bg-destructive/15 text-destructive"
                               title="Delete"
                               onClick={(e) => {
                                 e.stopPropagation();

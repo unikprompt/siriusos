@@ -201,7 +201,7 @@ export function CreateAgentDialog({
             <p className="text-sm text-destructive">{error}</p>
           )}
           {success && (
-            <p className="text-sm text-green-600">Agent created!</p>
+            <p className="text-sm text-success">Agent created!</p>
           )}
 
           <DialogFooter>

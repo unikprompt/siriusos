@@ -161,7 +161,7 @@ export function AgentActions({
       {feedback && (
         <span
           className={`absolute -bottom-6 right-0 z-10 whitespace-nowrap text-xs ${
-            feedback.type === 'success' ? 'text-green-600' : 'text-destructive'
+            feedback.type === 'success' ? 'text-success' : 'text-destructive'
           }`}
         >
           {feedback.message}

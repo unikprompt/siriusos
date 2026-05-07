@@ -86,19 +86,19 @@ const STATE_ORDER: Record<HealthState, number> = {
 
 function stateColor(state: HealthState): string {
   switch (state) {
-    case 'healthy':    return 'text-green-600 dark:text-green-400';
-    case 'warning':    return 'text-yellow-600 dark:text-yellow-400';
-    case 'failure':    return 'text-red-600 dark:text-red-400';
-    case 'never-fired': return 'text-red-500 dark:text-red-400';
+    case 'healthy':    return 'text-success';
+    case 'warning':    return 'text-warning';
+    case 'failure':    return 'text-destructive';
+    case 'never-fired': return 'text-destructive';
   }
 }
 
 function stateBgColor(state: HealthState): string {
   switch (state) {
-    case 'healthy':    return 'bg-green-500/10 border-green-500/20 text-green-700 dark:text-green-400';
-    case 'warning':    return 'bg-yellow-500/10 border-yellow-500/20 text-yellow-700 dark:text-yellow-400';
-    case 'failure':    return 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400';
-    case 'never-fired': return 'bg-red-500/10 border-red-500/20 text-red-700 dark:text-red-400';
+    case 'healthy':    return 'bg-success/15 border-success/30 text-success';
+    case 'warning':    return 'bg-warning/15 border-warning/30 text-warning';
+    case 'failure':    return 'bg-destructive/15 border-destructive/30 text-destructive';
+    case 'never-fired': return 'bg-destructive/15 border-destructive/30 text-destructive';
   }
 }
 
@@ -223,7 +223,7 @@ export default function FleetHealthPage() {
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Healthy</p>
-            <p className={`text-3xl font-semibold mt-1 ${!loading && summary ? 'text-green-600 dark:text-green-400' : ''}`}>
+            <p className={`text-3xl font-semibold mt-1 ${!loading && summary ? 'text-success' : ''}`}>
               {loading ? <span className="text-muted-foreground">-</span> : (summary?.healthy ?? 0)}
             </p>
           </CardContent>
@@ -231,7 +231,7 @@ export default function FleetHealthPage() {
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Warning</p>
-            <p className={`text-3xl font-semibold mt-1 ${!loading && (summary?.warning ?? 0) > 0 ? 'text-yellow-600 dark:text-yellow-400' : ''}`}>
+            <p className={`text-3xl font-semibold mt-1 ${!loading && (summary?.warning ?? 0) > 0 ? 'text-warning' : ''}`}>
               {loading ? <span className="text-muted-foreground">-</span> : (summary?.warning ?? 0)}
             </p>
           </CardContent>
@@ -239,7 +239,7 @@ export default function FleetHealthPage() {
         <Card>
           <CardContent className="pt-4 pb-3">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Failed / Never</p>
-            <p className={`text-3xl font-semibold mt-1 ${!loading && ((summary?.failure ?? 0) + (summary?.neverFired ?? 0)) > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+            <p className={`text-3xl font-semibold mt-1 ${!loading && ((summary?.failure ?? 0) + (summary?.neverFired ?? 0)) > 0 ? 'text-destructive' : ''}`}>
               {loading ? (
                 <span className="text-muted-foreground">-</span>
               ) : (
@@ -318,7 +318,7 @@ export default function FleetHealthPage() {
             const hasIssues = (agentSummary?.warning ?? 0) + (agentSummary?.failure ?? 0) + (agentSummary?.neverFired ?? 0) > 0;
 
             return (
-              <Card key={agentName} className={hasIssues ? 'border-yellow-500/30' : ''}>
+              <Card key={agentName} className={hasIssues ? 'border-warning/30' : ''}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2">
@@ -331,22 +331,22 @@ export default function FleetHealthPage() {
                     {agentSummary && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                         {agentSummary.healthy > 0 && (
-                          <span className="text-green-600 dark:text-green-400">
+                          <span className="text-success">
                             {agentSummary.healthy} healthy
                           </span>
                         )}
                         {agentSummary.warning > 0 && (
-                          <span className="text-yellow-600 dark:text-yellow-400">
+                          <span className="text-warning">
                             {agentSummary.warning} warning
                           </span>
                         )}
                         {agentSummary.failure > 0 && (
-                          <span className="text-red-600 dark:text-red-400">
+                          <span className="text-destructive">
                             {agentSummary.failure} failed
                           </span>
                         )}
                         {agentSummary.neverFired > 0 && (
-                          <span className="text-red-500 dark:text-red-400">
+                          <span className="text-destructive">
                             {agentSummary.neverFired} never fired
                           </span>
                         )}
@@ -399,7 +399,7 @@ export default function FleetHealthPage() {
                             </td>
                             <td className="py-2.5 pr-4 text-xs text-muted-foreground hidden md:table-cell">
                               {row.firesLast24h > 0 ? (
-                                <span className={row.successRate24h < 0.8 ? 'text-yellow-600 dark:text-yellow-400' : ''}>
+                                <span className={row.successRate24h < 0.8 ? 'text-warning' : ''}>
                                   {formatSuccessRate(row.successRate24h)} ({row.firesLast24h} fires)
                                 </span>
                               ) : (

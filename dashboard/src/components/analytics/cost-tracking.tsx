@@ -29,7 +29,7 @@ interface CostTrackingProps {
 }
 
 function UsageBar({ pct, label, sublabel }: { pct: number; label: string; sublabel?: string }) {
-  const color = pct < 50 ? 'bg-green-500' : pct < 80 ? 'bg-amber-500' : 'bg-red-500';
+  const color = pct < 50 ? 'bg-success' : pct < 80 ? 'bg-warning' : 'bg-destructive';
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between text-sm">

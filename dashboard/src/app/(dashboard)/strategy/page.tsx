@@ -50,7 +50,7 @@ export default function StrategyPage() {
   if (!effectiveOrg) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Strategy</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Strategy</h1>
         <p className="text-muted-foreground">
           No organizations found. Create an org to get started.
         </p>
@@ -61,11 +61,11 @@ export default function StrategyPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Strategy</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Strategy</h1>
         <div className="space-y-4">
-          <div className="h-40 rounded-xl bg-muted/30 animate-pulse" />
-          <div className="h-24 rounded-lg bg-muted/30 animate-pulse" />
-          <div className="h-24 rounded-lg bg-muted/30 animate-pulse" />
+          <div className="h-40 rounded-xl shimmer" />
+          <div className="h-24 rounded-lg shimmer" />
+          <div className="h-24 rounded-lg shimmer" />
         </div>
       </div>
     );
@@ -73,7 +73,7 @@ export default function StrategyPage() {
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <h1 className="text-2xl font-semibold">Strategy</h1>
+      <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Strategy</h1>
 
       {dailyFocus && (
         <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4">

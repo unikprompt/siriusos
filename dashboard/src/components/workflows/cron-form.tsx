@@ -281,7 +281,7 @@ export default function CronForm({
           <>
             {values.schedule && isValidScheduleClient(values.schedule) && (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <IconCheck size={12} className="text-green-500 shrink-0" />
+                <IconCheck size={12} className="text-success shrink-0" />
                 {formatSchedule(values.schedule)}
               </p>
             )}

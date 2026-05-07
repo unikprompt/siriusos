@@ -200,7 +200,7 @@ export default function CronDetailPage({
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="h-48 animate-pulse rounded-md bg-muted/30" />
+              <div className="h-48 shimmer rounded-md" />
             ) : initialValues ? (
               <CronForm
                 mode="edit"

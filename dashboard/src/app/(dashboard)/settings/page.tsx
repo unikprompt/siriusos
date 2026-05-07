@@ -12,8 +12,10 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
+        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
+          Settings
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
           Manage integrations, system configuration, users, and appearance.
         </p>
       </div>

@@ -106,10 +106,10 @@ export default function ApprovalsPage() {
       <div className="space-y-6">
         <h1 className="text-2xl font-semibold">Approvals</h1>
         <div className="space-y-4">
-          <div className="h-10 w-48 rounded-lg bg-muted/30 animate-pulse" />
+          <div className="h-10 w-48 rounded-lg shimmer" />
           <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-24 rounded-xl bg-muted/30 animate-pulse" />
+              <div key={i} className="h-24 rounded-xl shimmer" />
             ))}
           </div>
         </div>

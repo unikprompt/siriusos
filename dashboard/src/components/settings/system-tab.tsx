@@ -119,7 +119,7 @@ export function SystemTab() {
             {saving ? 'Saving...' : 'Save'}
           </Button>
           {status === 'saved' && (
-            <span className="text-sm text-green-600">Settings saved.</span>
+            <span className="text-sm text-success">Settings saved.</span>
           )}
           {status === 'error' && (
             <span className="text-sm text-destructive">{errorMsg}</span>

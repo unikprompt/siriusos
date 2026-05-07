@@ -98,9 +98,9 @@ export function AllowedRootsTab() {
                   <TableCell className="font-mono text-xs">{entry.path}</TableCell>
                   <TableCell>
                     {entry.exists ? (
-                      <span className="text-xs text-green-600">exists</span>
+                      <span className="text-xs text-success">exists</span>
                     ) : (
-                      <span className="text-xs text-amber-600">missing</span>
+                      <span className="text-xs text-warning">missing</span>
                     )}
                   </TableCell>
                   <TableCell>
