@@ -8,7 +8,6 @@ import {
   IconCalendarEvent,
   IconArrowRight,
   IconBrandGithub,
-  IconUsers,
   IconExternalLink,
 } from '@tabler/icons-react';
 import {
@@ -222,8 +221,15 @@ export default function LandingPage() {
               {t.community.eyebrow}
             </p>
 
-            <div className="mt-5 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-accent/10 text-accent ring-1 ring-accent/30">
-              <IconUsers size={26} />
+            <div className="mt-5 inline-flex h-24 w-24 items-center justify-center rounded-2xl bg-black/80 ring-1 ring-accent/30 p-2 shadow-[0_0_24px_-4px_rgba(201,152,42,0.25)] dark:shadow-[0_0_24px_-4px_rgba(255,210,122,0.3)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/operadores-aumentados.png"
+                alt="Operadores Aumentados"
+                width={88}
+                height={88}
+                className="h-full w-full object-contain"
+              />
             </div>
 
             <h2 className="mt-4 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight md:text-3xl">
