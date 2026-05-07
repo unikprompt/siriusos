@@ -18,7 +18,7 @@ function makeSandbox(opts?: { scopes?: Array<{ paths: string[]; permissions: str
   const fakeHome = mkdtempSync(join(tmpdir(), 'obs-home-'));
   const projectRoot = mkdtempSync(join(tmpdir(), 'obs-proj-'));
   const vaultPath = mkdtempSync(join(tmpdir(), 'obs-vault-'));
-  const ctxRoot = join(fakeHome, '.cortextos', 'default');
+  const ctxRoot = join(fakeHome, '.siriusos', 'default');
   mkdirSync(join(ctxRoot, 'config'), { recursive: true });
   writeFileSync(join(ctxRoot, 'config', 'obsidian.json'), JSON.stringify({
     vault_path: vaultPath,

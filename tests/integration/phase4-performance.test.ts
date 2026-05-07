@@ -31,7 +31,7 @@ import { NextRequest } from 'next/server';
 const perfTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'phase4-perf-'));
 process.env.CTX_ROOT = perfTmp;
 
-const CRONS_DIR = '.cortextOS/state/agents';
+const CRONS_DIR = '.siriusos/state/agents';
 const CONFIG_DIR = path.join(perfTmp, 'config');
 
 // ---------------------------------------------------------------------------

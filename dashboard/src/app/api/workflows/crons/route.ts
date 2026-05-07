@@ -60,7 +60,7 @@ export interface CronSummaryRow {
 // File readers (server-side only)
 // ---------------------------------------------------------------------------
 
-const CRONS_DIR = '.cortextOS/state/agents';
+const CRONS_DIR = '.siriusos/state/agents';
 
 function readAgentCrons(agentName: string): CronDefinition[] {
   const filePath = path.join(CTX_ROOT, CRONS_DIR, agentName, 'crons.json');

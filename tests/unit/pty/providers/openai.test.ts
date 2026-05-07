@@ -66,10 +66,10 @@ describe('openaiStrategy', () => {
     const agentsPath = join(tmpDir, 'AGENTS.md');
     expect(existsSync(agentsPath)).toBe(true);
     const content = readFileSync(agentsPath, 'utf-8');
-    expect(content).toContain('<!-- cortextos:begin -->');
+    expect(content).toContain('<!-- siriusos:begin -->');
     expect(content).toContain('rule A');
     expect(content).toContain('rule B');
-    expect(content).toContain('<!-- cortextos:end -->');
+    expect(content).toContain('<!-- siriusos:end -->');
   });
 
   it('prepareWorkspace: preserves existing AGENTS.md user content outside marker block', async () => {
@@ -103,7 +103,7 @@ describe('openaiStrategy', () => {
     expect(content).toContain('version 2');
     expect(content).not.toContain('version 1');
     // Only one marker block
-    expect(content.match(/cortextos:begin/g)?.length).toBe(1);
+    expect(content.match(/siriusos:begin/g)?.length).toBe(1);
   });
 
   it('prepareWorkspace: no-op when local/ is absent', async () => {

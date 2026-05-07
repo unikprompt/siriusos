@@ -96,7 +96,7 @@ export interface FleetHealthResponse {
 // Constants
 // ---------------------------------------------------------------------------
 
-const CRONS_DIR = '.cortextOS/state/agents';
+const CRONS_DIR = '.siriusos/state/agents';
 const WARNING_MULTIPLIER = 2;
 const ONCE_GRACE_MS = 10 * 60 * 1000;
 const MS_24H = 24 * 60 * 60 * 1000;

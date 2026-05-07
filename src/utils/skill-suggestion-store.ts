@@ -135,5 +135,5 @@ export function listSuggestions(store: SuggestionStore, filter: ListFilter = {})
 }
 
 export function defaultCtxRoot(instance: string): string {
-  return join(homedir(), '.cortextos', instance);
+  return join(homedir(), '.siriusos', instance);
 }

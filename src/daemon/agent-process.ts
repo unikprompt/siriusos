@@ -6,7 +6,7 @@ import { AgentPTY } from '../pty/agent-pty.js';
 import { HermesPTY, hermesDbExists } from '../pty/hermes-pty.js';
 import { MessageDedup, injectMessage } from '../pty/inject.js';
 import { ensureDir } from '../utils/atomic.js';
-import { writeCortextosEnv } from '../utils/env.js';
+import { writeSiriusosEnv } from '../utils/env.js';
 import { getOverdueReminders } from '../bus/reminders.js';
 import { resolvePaths } from '../utils/paths.js';
 
@@ -80,9 +80,9 @@ export class AgentProcess {
       await sleep(delay * 1000);
     }
 
-    // Write .cortextos-env for backward compat (D6)
+    // Write .siriusos-env for backward compat (D6)
     if (this.env.agentDir) {
-      writeCortextosEnv(this.env.agentDir, this.env);
+      writeSiriusosEnv(this.env.agentDir, this.env);
     }
 
     // Determine start mode
@@ -335,7 +335,7 @@ export class AgentProcess {
     this.pty = null;
     this.clearSessionTimer();
 
-    // When the cortextos daemon is shut down by PM2, SIGTERM propagates to
+    // When the siriusos daemon is shut down by PM2, SIGTERM propagates to
     // the whole process group and reaches each PTY's Claude Code child
     // BEFORE the daemon's stopAll() loop has a chance to call stopAgent() on
     // it. Those children exit cleanly (code 0) but arrive at handleExit with
@@ -470,10 +470,10 @@ export class AgentProcess {
     // Codex runtime: lightweight bootstrap. Codex has tight 5-hour message quotas
     // on ChatGPT Plus and a single heavy bootstrap (12+ files, /loop, CronCreate)
     // can burn 5-10% of the weekly cap per restart. We also skip cron setup here
-    // because Codex does not expose /loop or CronCreate — cortextos manages crons
+    // because Codex does not expose /loop or CronCreate — siriusos manages crons
     // externally for openai-provider agents.
     if (this.config.provider === 'openai') {
-      return `You are starting a new session. Current UTC time: ${nowUtc}. Read ONLY these three files to orient yourself: IDENTITY.md, CLAUDE.md, AGENTS.md. Do not read the other bootstrap files (SOUL.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md) unless a specific task later requires them — read them lazily on demand. Do NOT try to call /loop, CronCreate, or CronList: this runtime does not expose them; crons in config.json are managed by the cortextos daemon, not by you. Check your inbox with \`cortextos bus check-inbox\` and update your heartbeat with \`cortextos bus update-heartbeat "online"\`.${reminderBlock} Then send one short Telegram message to the user saying you are back online and ready.${onboardingAppend}`;
+      return `You are starting a new session. Current UTC time: ${nowUtc}. Read ONLY these three files to orient yourself: IDENTITY.md, CLAUDE.md, AGENTS.md. Do not read the other bootstrap files (SOUL.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md) unless a specific task later requires them — read them lazily on demand. Do NOT try to call /loop, CronCreate, or CronList: this runtime does not expose them; crons in config.json are managed by the siriusos daemon, not by you. Check your inbox with \`siriusos bus check-inbox\` and update your heartbeat with \`siriusos bus update-heartbeat "online"\`.${reminderBlock} Then send one short Telegram message to the user saying you are back online and ready.${onboardingAppend}`;
     }
 
     const deliverablesBlock = this.buildDeliverablesBlock();
@@ -483,7 +483,7 @@ export class AgentProcess {
     // before cron restoration, before heartbeat, before anything else. Placing this instruction
     // immediately after the handoffBlock in the prompt ensures it is not buried.
     const handoffUxOverride = isHandoffRestart
-      ? ' HANDOFF UX: This is a context handoff restart — your memory is intact via the handoff doc. CRITICAL: After reading the handoff document, your VERY FIRST tool call MUST be a Bash call running: cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID \'back — [what you were just working on]\' — replace the brackets with one brief plain-English sentence about your current state. Do this BEFORE running heartbeat, BEFORE any other tool call. No cron IDs, no status report, no cold-boot phrasing. Do NOT send "Booting up... one moment" (skip AGENTS.md step 1 entirely).'
+      ? ' HANDOFF UX: This is a context handoff restart — your memory is intact via the handoff doc. CRITICAL: After reading the handoff document, your VERY FIRST tool call MUST be a Bash call running: siriusos bus send-telegram $CTX_TELEGRAM_CHAT_ID \'back — [what you were just working on]\' — replace the brackets with one brief plain-English sentence about your current state. Do this BEFORE running heartbeat, BEFORE any other tool call. No cron IDs, no status report, no cold-boot phrasing. Do NOT send "Booting up... one moment" (skip AGENTS.md step 1 entirely).'
       : '';
     const onlineMessage = isHandoffRestart
       ? ''
@@ -499,7 +499,7 @@ export class AgentProcess {
     // src/pty/providers/openai.ts for why), so the "history is preserved" line
     // would be a lie. Keep the prompt short and re-orient only with the essentials.
     if (this.config.provider === 'openai') {
-      return `Your CLI process was restarted to reload configs. Current UTC time: ${nowUtc}. Re-read ONLY these three files: IDENTITY.md, CLAUDE.md, AGENTS.md. Do not re-read the other bootstrap files unless a specific task requires them. Do NOT try to call /loop, CronCreate, or CronList — not exposed in this runtime; crons are daemon-managed. Check inbox with \`cortextos bus check-inbox\` and update heartbeat with \`cortextos bus update-heartbeat "online"\`.${reminderBlock} Send one short Telegram message saying you are back online.`;
+      return `Your CLI process was restarted to reload configs. Current UTC time: ${nowUtc}. Re-read ONLY these three files: IDENTITY.md, CLAUDE.md, AGENTS.md. Do not re-read the other bootstrap files unless a specific task requires them. Do NOT try to call /loop, CronCreate, or CronList — not exposed in this runtime; crons are daemon-managed. Check inbox with \`siriusos bus check-inbox\` and update heartbeat with \`siriusos bus update-heartbeat "online"\`.${reminderBlock} Send one short Telegram message saying you are back online.`;
     }
 
     const deliverablesBlock = this.buildDeliverablesBlock();
@@ -519,7 +519,7 @@ export class AgentProcess {
       const items = overdue.map(r =>
         `  - [${r.id}] (due ${r.fire_at}): ${r.prompt}`,
       ).join('\n');
-      return ` You also have ${overdue.length} overdue persistent reminder(s) from before this restart — handle each one, then run: cortextos bus ack-reminder <id>\n${items}`;
+      return ` You also have ${overdue.length} overdue persistent reminder(s) from before this restart — handle each one, then run: siriusos bus ack-reminder <id>\n${items}`;
     } catch {
       return '';
     }
@@ -539,7 +539,7 @@ export class AgentProcess {
       if (!existsSync(contextPath)) return '';
       const ctx = JSON.parse(readFileSync(contextPath, 'utf-8'));
       if (!ctx.require_deliverables) return '';
-      return ' DELIVERABLE STANDARD: Every task you submit for review MUST have at least one file deliverable attached via the save-output bus command. A task with zero file deliverables will be sent back. Attach files with: cortextos bus save-output <task-id> <file-path> --label "<descriptive label>". Labels must be human-readable at a glance: describe WHAT it is plus enough context to understand at a glance. Good: "Traffic Growth Plan — 10 channels, 30-day launch sequence". Bad: "traffic-growth-plan.md" or "output-1". Notes are for context only, never file paths or URLs.';
+      return ' DELIVERABLE STANDARD: Every task you submit for review MUST have at least one file deliverable attached via the save-output bus command. A task with zero file deliverables will be sent back. Attach files with: siriusos bus save-output <task-id> <file-path> --label "<descriptive label>". Labels must be human-readable at a glance: describe WHAT it is plus enough context to understand at a glance. Good: "Traffic Growth Plan — 10 channels, 30-day launch sequence". Bad: "traffic-growth-plan.md" or "output-1". Notes are for context only, never file paths or URLs.';
     } catch {
       return '';
     }
@@ -547,7 +547,7 @@ export class AgentProcess {
 
   /**
    * Consume the .handoff-doc-path marker (written by the context watchdog or the
-   * agent itself via `cortextos bus hard-restart --handoff-doc <path>`).
+   * agent itself via `siriusos bus hard-restart --handoff-doc <path>`).
    * Returns a boot-prompt fragment pointing the new session at the handoff doc,
    * or an empty string if no marker exists.
    * The marker is unlinked after reading so it fires only once per restart.

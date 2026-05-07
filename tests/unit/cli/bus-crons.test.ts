@@ -64,7 +64,7 @@ const TEST_AGENT = 'boris';
  * Mirrors the path computed by cronsFilePath() in crons.ts.
  */
 function cronsJsonPath(): string {
-  return join(tmpRoot, '.cortextOS', 'state', 'agents', TEST_AGENT, 'crons.json');
+  return join(tmpRoot, '.siriusos', 'state', 'agents', TEST_AGENT, 'crons.json');
 }
 
 /** Read the raw crons array from disk (for assertions) */
@@ -75,7 +75,7 @@ function readCronsFile(): CronDefinition[] {
 
 /** Write a crons.json with an initial set of cron definitions */
 function seedCrons(crons: CronDefinition[]): void {
-  const dir = join(tmpRoot, '.cortextOS', 'state', 'agents', TEST_AGENT);
+  const dir = join(tmpRoot, '.siriusos', 'state', 'agents', TEST_AGENT);
   mkdirSync(dir, { recursive: true });
   const envelope = { updated_at: new Date().toISOString(), crons };
   const { writeFileSync } = require('fs');
@@ -493,7 +493,7 @@ import { writeFileSync } from 'fs';
 
 /** Write a JSONL cron execution log under tmpRoot for the test agent */
 function seedExecutionLog(entries: Array<Record<string, unknown>>): void {
-  const dir = join(tmpRoot, '.cortextOS', 'state', 'agents', TEST_AGENT);
+  const dir = join(tmpRoot, '.siriusos', 'state', 'agents', TEST_AGENT);
   mkdirSync(dir, { recursive: true });
   const lines = entries.map(e => JSON.stringify(e)).join('\n') + '\n';
   writeFileSync(join(dir, 'cron-execution.log'), lines, 'utf-8');

@@ -294,7 +294,7 @@ function logHookAttempt(hook: HookEntry, event: Event): void {
   // activity-log line above stays for postmortem/audit — it records every attempt regardless.
 }
 
-// added 2026-04-29 by collie via dane dispatch — Task 1: queryable hook telemetry via cortextos bus log-event
+// added 2026-04-29 by collie via dane dispatch — Task 1: queryable hook telemetry via siriusos bus log-event
 // Best-effort: never throws, never blocks the dispatcher loop. Events go to the canonical
 // per-agent JSONL at <analyticsDir>/events/<agent>/<YYYY-MM-DD>.jsonl so they show up in
 // the same surface as task_completed, agent_message_sent, etc.
@@ -307,7 +307,7 @@ type HookEmitName = 'hook_fire' | 'hook_block' | 'hook_escalate';
 function emitHookBusEvent(name: HookEmitName, meta: Record<string, unknown>): void {
   try {
     execFile(
-      'cortextos',
+      'siriusos',
       ['bus', 'log-event', 'action', name, 'info', '--meta', JSON.stringify(meta)],
       { timeout: 5_000 },
       () => { /* fire-and-forget */ },

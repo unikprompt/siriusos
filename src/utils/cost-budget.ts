@@ -83,7 +83,7 @@ export function statePath(ctxRoot: string): string {
 }
 
 export function defaultCtxRoot(instance: string = 'default'): string {
-  return join(homedir(), '.cortextos', instance);
+  return join(homedir(), '.siriusos', instance);
 }
 
 export function loadConfig(ctxRoot: string): CostBudgetConfig | null {

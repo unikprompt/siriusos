@@ -34,7 +34,7 @@ import { routineRunsCommand } from './routine-runs.js';
 const program = new Command();
 
 program
-  .name('cortextos')
+  .name('siriusos')
   .description('Persistent 24/7 Claude Code agents with multi-agent orchestration')
   .version('0.1.1');
 

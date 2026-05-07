@@ -137,7 +137,7 @@ addBaseOptions(
   try {
     const ctxRoot = resolveCtxRoot(opts);
     const cfg = loadConfig(ctxRoot);
-    if (!cfg) fail(opts.format, 1, 'anomaly-detection config not set; run `cortextos bus anomaly-detection set --chat-id <id> --enable` first');
+    if (!cfg) fail(opts.format, 1, 'anomaly-detection config not set; run `siriusos bus anomaly-detection set --chat-id <id> --enable` first');
     const result = detectAll({ cfg, ctxRoot });
     if (opts.format === 'text') {
       const lines = [
@@ -192,7 +192,7 @@ addBaseOptions(
       for (const a of result.newly_fired) {
         const msg = buildAlertMessage(a);
         const r = spawnSync(
-          'cortextos',
+          'siriusos',
           ['bus', 'send-telegram', cfg.notify_chat_id, msg, '--plain-text'],
           { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' },
         );

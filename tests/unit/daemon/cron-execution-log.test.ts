@@ -81,7 +81,7 @@ function makeEntry(overrides: Partial<CronExecutionLogEntry> = {}): CronExecutio
 }
 
 function logFilePath(agentName = 'boris'): string {
-  return join(tmpRoot, '.cortextOS', 'state', 'agents', agentName, 'cron-execution.log');
+  return join(tmpRoot, '.siriusos', 'state', 'agents', agentName, 'cron-execution.log');
 }
 
 /** Read the log file lines as parsed objects */
@@ -248,7 +248,7 @@ describe('log rotation', () => {
     // The most reliable approach: write 1100 entries where each is ~200 bytes.
     // With padding the file will be ~220 KB > ROTATION_SIZE_BYTES (200 KB).
 
-    const agentDir = join(tmpRoot, '.cortextOS', 'state', 'agents', 'boris');
+    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris');
     mkdirSync(agentDir, { recursive: true });
     const fp = logFilePath();
 
@@ -298,7 +298,7 @@ describe('log rotation', () => {
   it('rotation keeps the most recent entries (oldest are pruned)', async () => {
     const { appendExecutionLog, ROTATION_SIZE_BYTES } = await importLog();
 
-    const agentDir = join(tmpRoot, '.cortextOS', 'state', 'agents', 'boris');
+    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris');
     mkdirSync(agentDir, { recursive: true });
     const fp = logFilePath();
 
@@ -422,7 +422,7 @@ describe('getExecutionLog', () => {
   it('skips malformed JSONL lines without throwing', async () => {
     const { getExecutionLog } = await importCrons();
 
-    const agentDir = join(tmpRoot, '.cortextOS', 'state', 'agents', 'boris');
+    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris');
     mkdirSync(agentDir, { recursive: true });
     const fp = logFilePath();
 

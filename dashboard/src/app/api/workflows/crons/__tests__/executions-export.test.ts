@@ -27,7 +27,7 @@ import type { CronExecutionLogEntry } from '../../../../../../../src/types/index
 const rootTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'exec-export-test-'));
 process.env.CTX_ROOT = rootTmp;
 
-const CRONS_DIR = '.cortextOS/state/agents';
+const CRONS_DIR = '.siriusos/state/agents';
 const AGENT = 'boris';
 const CRON_NAME = 'heartbeat';
 

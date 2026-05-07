@@ -58,7 +58,7 @@ import type { CronDefinition, CronExecutionLogEntry } from '../../src/types/inde
 
 const TICK_MS    = 30_000;
 const AGENT      = 'audit-agent';
-const CRONS_DIR  = `.cortextOS/state/agents/${AGENT}`;
+const CRONS_DIR  = `.siriusos/state/agents/${AGENT}`;
 const LOG_FILE   = `${CRONS_DIR}/cron-execution.log`;
 
 // ---------------------------------------------------------------------------

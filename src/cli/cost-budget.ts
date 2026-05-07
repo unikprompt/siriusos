@@ -144,7 +144,7 @@ addBaseOptions(
   try {
     const ctxRoot = resolveCtxRoot(opts);
     const cfg = loadConfig(ctxRoot);
-    if (!cfg) fail(opts.format, 1, 'cost-budget config not set; run `cortextos bus cost-budget set --weekly-budget <usd> --chat-id <id>` first');
+    if (!cfg) fail(opts.format, 1, 'cost-budget config not set; run `siriusos bus cost-budget set --weekly-budget <usd> --chat-id <id>` first');
     const result = runCheck({ cfg, ctxRoot });
     if (opts.format === 'text') {
       const lines = [
@@ -207,7 +207,7 @@ addBaseOptions(
         for (const t of q.newly_fired_thresholds_pct) {
           const msg = buildAlertMessage(quotaLabel, t, q, result);
           const r = spawnSync(
-            'cortextos',
+            'siriusos',
             ['bus', 'send-telegram', cfg.notify_chat_id, msg, '--plain-text'],
             { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' },
           );

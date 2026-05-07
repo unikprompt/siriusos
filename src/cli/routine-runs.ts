@@ -124,7 +124,7 @@ addBaseOptions(
   try {
     const ctxRoot = resolveCtxRoot(opts);
     const cfg = loadConfig(ctxRoot);
-    if (!cfg) fail(opts.format, 1, 'routine-runs config not set; run `cortextos bus routine-runs set --chat-id <id>` first');
+    if (!cfg) fail(opts.format, 1, 'routine-runs config not set; run `siriusos bus routine-runs set --chat-id <id>` first');
     const result = logRun({ cfg, ctxRoot, note: opts.note });
     emit(opts.format, result);
   } catch (err: any) {
@@ -140,7 +140,7 @@ addBaseOptions(
   try {
     const ctxRoot = resolveCtxRoot(opts);
     const cfg = loadConfig(ctxRoot);
-    if (!cfg) fail(opts.format, 1, 'routine-runs config not set; run `cortextos bus routine-runs set --chat-id <id>` first');
+    if (!cfg) fail(opts.format, 1, 'routine-runs config not set; run `siriusos bus routine-runs set --chat-id <id>` first');
     const result = runCheck({ cfg, ctxRoot });
     if (opts.format === 'text') {
       const lines = [
@@ -189,7 +189,7 @@ addBaseOptions(
       for (const t of result.newly_fired_thresholds_pct) {
         const msg = buildAlertMessage(t, result);
         const r = spawnSync(
-          'cortextos',
+          'siriusos',
           ['bus', 'send-telegram', cfg.notify_chat_id, msg, '--plain-text'],
           { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf-8' },
         );

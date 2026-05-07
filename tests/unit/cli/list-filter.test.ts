@@ -87,7 +87,7 @@ describe('list-agents --filter', () => {
   beforeEach(() => {
     fakeHome = mkdtempSync(join(tmpdir(), 'list-agents-filter-home-'));
     projectRoot = mkdtempSync(join(tmpdir(), 'list-agents-filter-proj-'));
-    const ctxRoot = join(fakeHome, '.cortextos', 'default');
+    const ctxRoot = join(fakeHome, '.siriusos', 'default');
     mkdirSync(join(ctxRoot, 'config'), { recursive: true });
 
     // Three agents under one org

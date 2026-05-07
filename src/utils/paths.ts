@@ -8,7 +8,7 @@ import { validateInstanceId } from './validate.js';
  * Mirrors the path resolution in bash _ctx-env.sh.
  *
  * The directory layout is:
- *   ~/.cortextos/{instance}/
+ *   ~/.siriusos/{instance}/
  *     config/                - enabled-agents.json
  *     state/{agent}/         - flat, per-agent subdirs
  *     state/{agent}/heartbeat.json - canonical heartbeat location
@@ -29,7 +29,7 @@ export function resolvePaths(
   org?: string,
 ): BusPaths {
   validateInstanceId(instanceId);
-  const ctxRoot = join(homedir(), '.cortextos', instanceId);
+  const ctxRoot = join(homedir(), '.siriusos', instanceId);
 
   // Org-scoped paths for tasks, approvals, analytics
   const orgBase = org ? join(ctxRoot, 'orgs', org) : ctxRoot;
@@ -55,7 +55,7 @@ export function resolvePaths(
 export function getIpcPath(instanceId: string = 'default'): string {
   validateInstanceId(instanceId);
   if (process.platform === 'win32') {
-    return `\\\\.\\pipe\\cortextos-${instanceId}`;
+    return `\\\\.\\pipe\\siriusos-${instanceId}`;
   }
-  return join(homedir(), '.cortextos', instanceId, 'daemon.sock');
+  return join(homedir(), '.siriusos', instanceId, 'daemon.sock');
 }

@@ -51,7 +51,7 @@ export const DEFAULT_TIMEOUT_MS = 10000;
 export const DEFAULT_VIEWPORT = { width: 1280, height: 800 };
 
 export function defaultCtxRoot(instance: string = 'default'): string {
-  return join(homedir(), '.cortextos', instance);
+  return join(homedir(), '.siriusos', instance);
 }
 
 export function getContextDir(ctxRoot: string, agent: string): string {

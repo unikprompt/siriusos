@@ -90,7 +90,7 @@ describe.skipIf(!existsSync(DIST_CLI))('bus upgrade-cron-teaching CLI', () => {
       'Heartbeat (configured in config.json).\nUse CronCreate to register.\n');
     const { stdout } = await runCli(['mixed', '--apply']);
     const after = readFileSync(file, 'utf-8');
-    expect(after).toContain('(configured via cortextos bus add-cron)');
+    expect(after).toContain('(configured via siriusos bus add-cron)');
     expect(after).not.toContain('(configured in config.json)');
     expect(after).toContain('Use CronCreate to register.');
     expect(stdout).toContain('1 substitution(s) applied');

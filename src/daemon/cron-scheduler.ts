@@ -195,7 +195,7 @@ async function fireWithRetry(
       // accrue false-positive gap nudges every 10 min past 2x interval.
       try {
         const ctxRoot = process.env.CTX_ROOT ||
-          join(homedir(), '.cortextos', process.env.CTX_INSTANCE_ID || 'default');
+          join(homedir(), '.siriusos', process.env.CTX_INSTANCE_ID || 'default');
         updateCronFire(join(ctxRoot, 'state', agentName), cron.name, cron.schedule);
       } catch (stateErr) {
         logger(
@@ -358,7 +358,7 @@ export class CronScheduler {
     // Resolve stateDir from CTX_ROOT so test sandboxes (which override CTX_ROOT
     // but not homedir) don't accidentally read production state.
     const ctxRoot = process.env.CTX_ROOT ||
-      join(homedir(), '.cortextos', process.env.CTX_INSTANCE_ID || 'default');
+      join(homedir(), '.siriusos', process.env.CTX_INSTANCE_ID || 'default');
     const stateDir = join(ctxRoot, 'state', this.agentName);
     let stateLastFireByName = new Map<string, string>();
     try {

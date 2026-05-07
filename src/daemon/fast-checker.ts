@@ -111,7 +111,7 @@ export class FastChecker {
     const agentName = this.agent.name;
     this.heartbeatTimer = setInterval(() => {
       const ts = new Date().toISOString();
-      execFile('cortextos', ['bus', 'update-heartbeat', `[watchdog] ${agentName} alive — idle session ${ts}`], (err) => {
+      execFile('siriusos', ['bus', 'update-heartbeat', `[watchdog] ${agentName} alive — idle session ${ts}`], (err) => {
         if (err) this.log(`Heartbeat watchdog error: ${err.message}`);
       });
     }, HEARTBEAT_INTERVAL_MS);
@@ -229,7 +229,7 @@ export class FastChecker {
 \`\`\`
 ${msg.text}
 \`\`\`
-Reply using: cortextos bus send-message ${msg.from} normal '<your reply>' ${msg.id}
+Reply using: siriusos bus send-message ${msg.from} normal '<your reply>' ${msg.id}
 
 `;
   }
@@ -271,7 +271,7 @@ Reply using: cortextos bus send-message ${msg.from} normal '<your reply>' ${msg.
       : `\`\`\`\n${text}\n\`\`\``;
     return `=== TELEGRAM from [USER: ${from}] (chat_id:${chatId}) ===
 ${replyCx}${historyCx}${body}
-${lastSentCtx}Reply using: cortextos bus send-telegram ${chatId} '<your reply>'
+${lastSentCtx}Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
 
 `;
   }
@@ -323,7 +323,7 @@ caption:
 ${caption}
 \`\`\`
 local_file: ${imagePath}
-Reply using: cortextos bus send-telegram ${chatId} '<your reply>'
+Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
 
 `;
   }
@@ -346,7 +346,7 @@ ${caption}
 \`\`\`
 local_file: ${filePath}
 file_name: ${fileName}
-Reply using: cortextos bus send-telegram ${chatId} '<your reply>'
+Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
 
 `;
   }
@@ -365,7 +365,7 @@ Reply using: cortextos bus send-telegram ${chatId} '<your reply>'
     return `=== TELEGRAM VOICE from ${from} (chat_id:${chatId}) ===
 duration: ${dur}s
 local_file: ${filePath}
-Reply using: cortextos bus send-telegram ${chatId} '<your reply>'
+Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
 
 `;
   }
@@ -391,7 +391,7 @@ ${caption}
 duration: ${dur}s
 local_file: ${filePath}
 file_name: ${fileName}
-Reply using: cortextos bus send-telegram ${chatId} '<your reply>'
+Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
 
 `;
   }
@@ -982,7 +982,7 @@ Reply using: cortextos bus send-telegram ${chatId} '<your reply>'
         writeFileSync(statusPath, JSON.stringify({ used_percentage: 0, exceeds_200k_tokens: false, written_at: new Date().toISOString() }));
       } catch { /* non-fatal */ }
       const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + 'Z';
-      const handoffPrompt = `[CONTEXT HANDOFF REQUIRED] Context is at ${Math.round(effectivePct)}%. Write a handoff document to memory/handoffs/handoff-${ts}.md with these sections: ## Current Tasks, ## Next Actions, ## Active Crons, ## Key Context, ## Files Modified This Session. Then run: cortextos bus hard-restart --reason "context handoff at ${Math.round(effectivePct)}%" --handoff-doc <absolute path to the handoff doc you just wrote>. Do this NOW before the context window is exhausted.`;
+      const handoffPrompt = `[CONTEXT HANDOFF REQUIRED] Context is at ${Math.round(effectivePct)}%. Write a handoff document to memory/handoffs/handoff-${ts}.md with these sections: ## Current Tasks, ## Next Actions, ## Active Crons, ## Key Context, ## Files Modified This Session. Then run: siriusos bus hard-restart --reason "context handoff at ${Math.round(effectivePct)}%" --handoff-doc <absolute path to the handoff doc you just wrote>. Do this NOW before the context window is exhausted.`;
       this.agent.injectMessage(handoffPrompt);
       this.log(`Handoff prompt injected at ${Math.round(effectivePct)}%`);
       // Pre-arm .force-fresh so the next restart is always a clean fresh session.

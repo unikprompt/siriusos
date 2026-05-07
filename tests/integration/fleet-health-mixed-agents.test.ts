@@ -65,7 +65,7 @@ afterEach(() => {
   try { rmSync(tmpRoot, { recursive: true }); } catch { /* ignore */ }
 });
 
-const CRONS_DIR = '.cortextOS/state/agents';
+const CRONS_DIR = '.siriusos/state/agents';
 
 function writeEnabledAgents(agents: Record<string, { enabled?: boolean; org?: string }>): void {
   mkdirSync(join(tmpRoot, 'config'), { recursive: true });

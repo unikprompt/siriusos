@@ -1,13 +1,13 @@
 module.exports = {
   "apps": [
     {
-      "name": "cortextos-daemon",
+      "name": "siriusos-daemon",
       "script": "/Users/mariosmacstudio/cortextos/dist/daemon.js",
       "args": "--instance default",
       "cwd": "/Users/mariosmacstudio/cortextos",
       "env": {
         "CTX_INSTANCE_ID": "default",
-        "CTX_ROOT": "/Users/mariosmacstudio/.cortextos/default",
+        "CTX_ROOT": "/Users/mariosmacstudio/.siriusos/default",
         "CTX_FRAMEWORK_ROOT": "/Users/mariosmacstudio/cortextos",
         "CTX_PROJECT_ROOT": "/Users/mariosmacstudio/cortextos",
         "CTX_ORG": "unikprompt",
