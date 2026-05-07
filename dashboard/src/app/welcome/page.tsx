@@ -229,7 +229,7 @@ export default function WelcomePage() {
           </p>
           <div className="flex items-center gap-4">
             <a
-              href="https://github.com/grandamenium/cortextos"
+              href="https://github.com/mperedwa/siriusos"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"

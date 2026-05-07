@@ -93,8 +93,8 @@ const en: WelcomeStrings = {
     steps: [
       {
         title: 'Install',
-        body: 'Clone the repo, npm install, npm link. The CLI is yours.',
-        code: 'git clone github.com/grandamenium/cortextos\ncd cortextos && npm i && npm link',
+        body: 'One command via npm. The CLI lands as siriusos in your PATH.',
+        code: 'npm install -g siriusos',
       },
       {
         title: 'Initialize an agent',
@@ -175,8 +175,8 @@ const es: WelcomeStrings = {
     steps: [
       {
         title: 'Instalar',
-        body: 'Cloná el repo, npm install, npm link. El CLI es tuyo.',
-        code: 'git clone github.com/grandamenium/cortextos\ncd cortextos && npm i && npm link',
+        body: 'Un solo comando vía npm. El CLI queda como siriusos en tu PATH.',
+        code: 'npm install -g siriusos',
       },
       {
         title: 'Iniciar un agente',
