@@ -208,7 +208,7 @@ export interface CronEntry {
 // ---------------------------------------------------------------------------
 //
 // CronDefinition is the canonical record stored in per-agent crons.json files:
-//   .siriusos/state/agents/{agent_name}/crons.json
+//   state/agents/{agent_name}/crons.json
 //
 // The file is an array of CronDefinition objects.  The daemon reads it, schedules
 // each enabled cron, and injects the prompt into the agent's PTY on schedule.
@@ -255,7 +255,7 @@ export interface CronEntry {
 /**
  * A single persistent cron definition stored in an agent's crons.json.
  *
- * Stored at: `.siriusos/state/agents/{agent_name}/crons.json`
+ * Stored at: `state/agents/{agent_name}/crons.json`
  *
  * The `schedule` field accepts two formats:
  *   - Interval shorthand: `"6h"`, `"30m"`, `"1d"`, `"2w"`
@@ -396,7 +396,7 @@ export interface CronDefinition {
 
 /**
  * A single entry in the per-agent cron execution log
- * (`$CTX_ROOT/.siriusos/state/agents/{agent}/cron-execution.log`).
+ * (`$CTX_ROOT/state/agents/{agent}/cron-execution.log`).
  *
  * The file is JSONL (one JSON object per line, newline-separated).
  * It is append-only; log rotation prunes to the last 1 000 lines.

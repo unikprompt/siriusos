@@ -5,7 +5,7 @@
  * persistent crons.json format understood by the daemon CronScheduler.
  *
  * ## Idempotency
- * A zero-byte marker file at `{CTX_ROOT}/.siriusos/state/agents/{agent}/.crons-migrated`
+ * A zero-byte marker file at `{CTX_ROOT}/state/agents/{agent}/.crons-migrated`
  * signals that migration already ran.  The migration is skipped entirely when the
  * marker exists, unless `force: true` is passed (which deletes the marker first).
  *
@@ -37,7 +37,7 @@ import { scanAgentDir } from '../utils/cron-teaching-scanner.js';
 
 /**
  * Return the absolute path to the migration marker file for an agent.
- * Path: `{ctxRoot}/.siriusos/state/agents/{agentName}/.crons-migrated`
+ * Path: `{ctxRoot}/state/agents/{agentName}/.crons-migrated`
  */
 function markerPath(ctxRoot: string, agentName: string): string {
   return join(ctxRoot, CRONS_DIRECTORY, agentName, '.crons-migrated');

@@ -4,21 +4,31 @@
  * Subtask 1.1 (schema design).  Intentionally thin: only constants and a path
  * joiner.  Read/write operations live in Subtask 1.2 (src/bus/crons.ts).
  *
- * Per-agent crons.json location:
+ * Per-agent crons.json location, relative to CTX_ROOT:
  *   {CRONS_DIRECTORY}/{agentName}/{CRONS_FILENAME}
- *   => .siriusos/state/agents/boris/crons.json
+ *   => state/agents/boris/crons.json
+ *
+ * Resolved against ~/.siriusos/<instance>:
+ *   ~/.siriusos/default/state/agents/boris/crons.json
  */
 
 import { join } from 'path';
 
 /**
- * Root directory that holds per-agent state sub-directories.
+ * Root directory that holds per-agent cron state sub-directories.
  * Relative to CTX_ROOT; callers that need an absolute path should
  * prefix with the CTX_ROOT env var or the framework root from CtxEnv.
  *
- * @example ".siriusos/state/agents"
+ * Historical note: this used to read ".siriusos/state/agents" (a leftover
+ * from when the relative path was concatenated with CTX_ROOT, which itself
+ * already ended in ".siriusos/<instance>"). The doubled prefix produced
+ * paths like ~/.siriusos/default/.siriusos/state/agents/<agent>/crons.json.
+ * Fixed in commit "fix(cli): de-double cron path"; runtime now stores cron
+ * state at ~/.siriusos/<instance>/state/agents/<agent>/.
+ *
+ * @example "state/agents"
  */
-export const CRONS_DIRECTORY = '.siriusos/state/agents';
+export const CRONS_DIRECTORY = 'state/agents';
 
 /**
  * File name for the cron definitions list inside each agent state directory.
@@ -31,11 +41,11 @@ export const CRONS_FILENAME = 'crons.json';
  * Return the path to an agent's crons.json relative to CTX_ROOT.
  *
  * @param agentName - The agent's directory name (e.g. "boris", "paul").
- * @returns Relative path string: `.siriusos/state/agents/{agentName}/crons.json`
+ * @returns Relative path string: `state/agents/{agentName}/crons.json`
  *
  * @example
  * cronsPathFor("boris")
- * // => ".siriusos/state/agents/boris/crons.json"
+ * // => "state/agents/boris/crons.json"
  */
 export function cronsPathFor(agentName: string): string {
   return join(CRONS_DIRECTORY, agentName, CRONS_FILENAME);
@@ -56,11 +66,11 @@ export const CRON_EXECUTION_LOG_FILENAME = 'cron-execution.log';
  *
  * @param agentName - The agent's directory name (e.g. "boris", "paul").
  * @returns Relative path string:
- *   `.siriusos/state/agents/{agentName}/cron-execution.log`
+ *   `state/agents/{agentName}/cron-execution.log`
  *
  * @example
  * cronExecutionLogPathFor("boris")
- * // => ".siriusos/state/agents/boris/cron-execution.log"
+ * // => "state/agents/boris/cron-execution.log"
  */
 export function cronExecutionLogPathFor(agentName: string): string {
   return join(CRONS_DIRECTORY, agentName, CRON_EXECUTION_LOG_FILENAME);
