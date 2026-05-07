@@ -203,7 +203,13 @@ export function readProjectDailyUsage(): ProjectDailyMap {
 }
 
 export function agentToProjectId(agent: string, org: string): string {
-  return `-Users-${process.env.USER || 'mariosmacstudio'}-cortextos-orgs-${org}-agents-${agent}`;
+  // process.env.USER is set by every shell in macOS/Linux. The fallback only
+  // matters in degraded environments (CI containers, init scripts) where USER
+  // may be unset. Use a neutral "user" rather than a personal value so the
+  // generated id stays a stable identifier without leaking a developer name
+  // into builds shipped on npm.
+  const user = process.env.USER || 'user';
+  return `-Users-${user}-cortextos-orgs-${org}-agents-${agent}`;
 }
 
 export function median(values: number[]): number {

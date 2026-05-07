@@ -37,8 +37,9 @@
     "node": ">=20.0.0"
   },
   "files": [
-    "dist/",
-    "templates/"
+    "dist/*.js",
+    "dist/hooks/*.js",
+    "templates"
   ],
   "dependencies": {
     "@inquirer/prompts": "^8.3.2",
