@@ -53,6 +53,12 @@ jobs:
       - name: Install dashboard dependencies
         run: npm ci --prefix dashboard
 
+      - name: Build CLI
+        # Tests depend on dist/cli.js for end-to-end assertions. Each GH
+        # Actions job runs in its own VM, so dist/ from the build job is not
+        # shared here. Cheap rebuild (~35ms via tsup).
+        run: npm run build
+
       - name: Run unit tests
         run: npm test
 
