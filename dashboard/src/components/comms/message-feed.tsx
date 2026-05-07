@@ -1,8 +1,8 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { TimeAgo } from '@/components/shared';
+import { EmptyState } from '@/components/shared/empty-state';
 import { IconArrowRight } from '@tabler/icons-react';
 
 interface BusMessage {
@@ -21,12 +21,25 @@ interface MessageFeedProps {
   onMessageClick?: (pair: string) => void;
 }
 
-export function MessageFeed({ messages, onAgentClick, onMessageClick }: MessageFeedProps) {
+function AgentChip({ name }: { name: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold uppercase text-primary ring-1 ring-primary/20">
+        {name.charAt(0)}
+      </span>
+      <span className="font-mono text-[12px] font-medium text-foreground">{name}</span>
+    </span>
+  );
+}
+
+export function MessageFeed({ messages, onMessageClick }: MessageFeedProps) {
   if (messages.length === 0) {
     return (
-      <p className="py-12 text-center text-sm text-muted-foreground">
-        No messages yet. Agent communication will appear here.
-      </p>
+      <EmptyState
+        kind="silence"
+        title="No messages yet"
+        description="When your agents start collaborating, every message lands here in real time."
+      />
     );
   }
 
@@ -35,24 +48,27 @@ export function MessageFeed({ messages, onAgentClick, onMessageClick }: MessageF
       {messages.map((msg) => (
         <Card
           key={msg.id}
-          className="cursor-pointer p-4 transition-colors hover:bg-muted/50"
+          className="group cursor-pointer p-4 transition-all hover:bg-surface-2 hover:border-primary/30"
           onClick={() => {
             const pair = [msg.from.toLowerCase(), msg.to.toLowerCase()].sort().join('--');
             onMessageClick?.(pair);
           }}
         >
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="text-sm font-semibold text-foreground">{msg.from}</span>
-            <IconArrowRight size={12} className="text-muted-foreground/40" />
-            <span className="text-sm font-semibold text-foreground">{msg.to}</span>
+          <div className="mb-2 flex items-center gap-2 flex-wrap">
+            <AgentChip name={msg.from} />
+            <IconArrowRight size={12} className="shrink-0 text-muted-foreground/50 transition-colors group-hover:text-primary" />
+            <AgentChip name={msg.to} />
             {msg.priority === 'urgent' && (
-              <Badge className="text-[9px] h-4 px-1.5 font-semibold border-0" style={{ backgroundColor: 'rgba(142,20,41,0.12)', color: '#8E1429' }}>
+              <span className="inline-flex h-5 items-center rounded-full bg-destructive/15 px-2 text-[10px] font-semibold uppercase tracking-wide text-destructive ring-1 ring-destructive/30">
                 urgent
-              </Badge>
+              </span>
             )}
-            <TimeAgo date={msg.timestamp} className="ml-auto text-[11px] text-muted-foreground tabular-nums shrink-0" />
+            <TimeAgo
+              date={msg.timestamp}
+              className="ml-auto shrink-0 font-mono text-[10.5px] tabular-nums text-muted-foreground/80"
+            />
           </div>
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words line-clamp-3">{msg.text}</p>
+          <p className="text-sm text-foreground/85 whitespace-pre-wrap break-words line-clamp-3">{msg.text}</p>
         </Card>
       ))}
     </div>

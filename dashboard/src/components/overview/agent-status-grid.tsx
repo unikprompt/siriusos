@@ -20,7 +20,7 @@ export function AgentStatusGrid({ agents, heartbeats }: AgentStatusGridProps) {
           Agent Fleet
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-0.5 pt-0">
+      <CardContent className="space-y-0.5 pt-0" data-stagger>
         {agents.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
             <svg

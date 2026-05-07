@@ -134,8 +134,15 @@ export default function CommsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Comms</h1>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
+            Comms
+          </h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Inter-agent messages and channels — every conversation in the fleet, in real time.
+          </p>
+        </div>
         <Button variant="ghost" size="sm" onClick={fetchData}>
           <IconRefresh size={14} className="mr-1" />
           Refresh
@@ -300,8 +307,22 @@ export default function CommsPage() {
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                    Select a channel to view conversation
+                  <div className="flex h-full items-center justify-center">
+                    <div className="flex flex-col items-center gap-2 text-center">
+                      <svg
+                        width="40"
+                        height="40"
+                        viewBox="0 0 64 64"
+                        className="text-muted-foreground/40"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M 32 4 L 33.5 30.5 L 60 32 L 33.5 33.5 L 32 60 L 30.5 33.5 L 4 32 L 30.5 30.5 Z"
+                          fill="currentColor"
+                        />
+                      </svg>
+                      <p className="text-sm text-muted-foreground">Select a channel to view the conversation</p>
+                    </div>
                   </div>
                 )}
               </div>
