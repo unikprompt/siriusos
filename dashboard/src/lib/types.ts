@@ -40,6 +40,7 @@ export interface Heartbeat {
   last_heartbeat?: string; // ISO timestamp
   loop_interval?: number;
   uptime_seconds?: number;
+  stopped?: boolean; // true if a .user-stop marker exists in the agent's state dir
 }
 
 // -- Task Types --

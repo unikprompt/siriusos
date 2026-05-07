@@ -18,6 +18,12 @@ export async function getHeartbeat(agentName: string): Promise<Heartbeat | null>
   try {
     const raw = await fs.readFile(hbPath, 'utf-8');
     const data = JSON.parse(raw);
+    const stopMarker = path.join(CTX_ROOT, 'state', agentName, '.user-stop');
+    let stopped = false;
+    try {
+      await fs.access(stopMarker);
+      stopped = true;
+    } catch { /* no marker */ }
     return {
       agent: agentName,
       org: data.org ?? '',
@@ -27,6 +33,7 @@ export async function getHeartbeat(agentName: string): Promise<Heartbeat | null>
       last_heartbeat: data.last_heartbeat ?? data.timestamp ?? undefined,
       loop_interval: data.loop_interval ?? undefined,
       uptime_seconds: data.uptime_seconds ?? undefined,
+      stopped,
     };
   } catch {
     return null;
@@ -98,8 +105,13 @@ export function isAgentHealthy(
 
 /**
  * Get detailed health status (healthy / stale / down).
+ *
+ * If the agent has a `.user-stop` marker, it was intentionally stopped via
+ * `siriusos stop` — report as `down` regardless of heartbeat freshness so the
+ * UI reflects the operator's intent rather than the last (now-stale) beat.
  */
 export function getHealthStatus(heartbeat: Heartbeat): HealthStatus {
+  if (heartbeat.stopped) return 'down';
   if (!heartbeat.last_heartbeat) return 'down';
 
   const lastBeat = new Date(heartbeat.last_heartbeat).getTime();
