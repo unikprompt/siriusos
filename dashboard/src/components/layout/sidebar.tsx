@@ -95,14 +95,30 @@ export function Sidebar({
   const sections = ['core', 'ops', 'intel'];
 
   return (
-    <aside className="flex h-screen w-56 shrink-0 flex-col border-r bg-card/50">
-      {/* Logo */}
-      <div className="flex h-14 items-center gap-2 px-4">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
-          sO
-        </div>
-        <span className="text-sm font-semibold tracking-tight">SiriusOS</span>
-      </div>
+    <aside className="flex h-screen w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+      {/* Logo + wordmark */}
+      <Link
+        href="/"
+        onClick={onNavigate}
+        className="flex h-14 items-center gap-2 px-4 transition-opacity hover:opacity-80"
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 64 64"
+          className="shrink-0 text-primary drop-shadow-[0_0_4px_rgba(165,201,255,0.35)]"
+          aria-hidden="true"
+        >
+          <path
+            d="M 32 4 L 34 30 L 60 32 L 34 34 L 32 60 L 30 34 L 4 32 L 30 30 Z"
+            fill="currentColor"
+          />
+          <circle cx="32" cy="32" r="2" fill="currentColor" opacity="0.5" />
+        </svg>
+        <span className="font-[family-name:var(--font-display)] text-[15px] font-semibold tracking-tight">
+          SiriusOS
+        </span>
+      </Link>
 
       {/* Search trigger */}
       <div className="px-3 pb-2">
@@ -144,10 +160,10 @@ export function Sidebar({
                     href={orgHref(item.href)}
                     onClick={onNavigate}
                     className={cn(
-                      'group flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-all',
+                      'group relative flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-all',
                       active
-                        ? 'bg-primary/10 text-primary font-medium'
-                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                        ? 'bg-primary/10 text-primary font-medium shadow-[inset_2px_0_0_0_var(--primary)]'
+                        : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
                     )}
                   >
                     <Icon
@@ -182,10 +198,10 @@ export function Sidebar({
           href={orgHref('/settings')}
           onClick={onNavigate}
           className={cn(
-            'flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-all',
+            'relative flex items-center gap-2.5 rounded-md px-3 py-1.5 text-[13px] transition-all',
             isActive('/settings')
-              ? 'bg-primary/10 text-primary font-medium'
-              : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              ? 'bg-primary/10 text-primary font-medium shadow-[inset_2px_0_0_0_var(--primary)]'
+              : 'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
           )}
         >
           <IconSettings size={16} className="shrink-0" />

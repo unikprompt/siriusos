@@ -20,11 +20,23 @@ export function AgentStatusGrid({ agents, heartbeats }: AgentStatusGridProps) {
           Agent Fleet
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-1 pt-0">
+      <CardContent className="space-y-0.5 pt-0">
         {agents.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-4 text-center">
-            No agents discovered
-          </p>
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 64 64"
+              className="text-muted-foreground/40"
+              aria-hidden="true"
+            >
+              <path
+                d="M 32 4 L 34 30 L 60 32 L 34 34 L 32 60 L 30 34 L 4 32 L 30 30 Z"
+                fill="currentColor"
+              />
+            </svg>
+            <p className="text-xs text-muted-foreground">No agents discovered yet</p>
+          </div>
         ) : (
           agents.map((agent) => {
             const hb = heartbeats[agent.name];
@@ -37,27 +49,27 @@ export function AgentStatusGrid({ agents, heartbeats }: AgentStatusGridProps) {
               <Link
                 key={agent.name}
                 href={`/agents/${encodeURIComponent(agent.name)}`}
-                className="group flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/50 transition-colors"
+                className="group flex items-center gap-3 rounded-lg px-2 py-2 transition-all hover:bg-surface-2 hover:translate-x-0.5"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-sm">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm ring-1 ring-primary/15 transition-all group-hover:ring-primary/25">
                   {agent.emoji || agent.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate">
+                    <span className="truncate text-[13px] font-medium text-foreground">
                       {agent.name}
                     </span>
                     <HealthDot status={agent.health} />
                   </div>
                   {taskPreview && (
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="truncate text-[11px] text-muted-foreground">
                       {taskPreview}
                     </p>
                   )}
                 </div>
                 <IconChevronRight
                   size={14}
-                  className="shrink-0 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors"
+                  className="shrink-0 text-muted-foreground/30 transition-all group-hover:translate-x-0.5 group-hover:text-primary"
                 />
               </Link>
             );

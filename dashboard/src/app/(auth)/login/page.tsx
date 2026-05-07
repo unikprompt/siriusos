@@ -138,21 +138,47 @@ export default function LoginPage() {
   return (
     <>
       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-    <div className={`flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-muted to-background ${showSplash ? 'invisible' : ''}`}>
-      <div className="w-full max-w-sm space-y-6 px-4">
-        {/* Logo */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
-            sO
+    <div className={`relative flex min-h-screen items-center justify-center overflow-hidden bg-background ${showSplash ? 'invisible' : ''}`}>
+      {/* Starfield backdrop */}
+      <div className="starfield pointer-events-none absolute inset-0 opacity-80" aria-hidden="true" />
+      {/* Cosmic gradient wash */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-60"
+        style={{
+          background:
+            'radial-gradient(ellipse at 50% 20%, rgba(165, 201, 255, 0.10), transparent 60%), radial-gradient(ellipse at 30% 90%, rgba(255, 210, 122, 0.06), transparent 60%)',
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="relative w-full max-w-sm space-y-7 px-4">
+        {/* Mark + wordmark */}
+        <div className="text-center space-y-3">
+          <div className="inline-flex flex-col items-center gap-2">
+            <svg
+              width="56"
+              height="56"
+              viewBox="0 0 64 64"
+              className="text-primary drop-shadow-[0_0_20px_rgba(165,201,255,0.45)]"
+              aria-hidden="true"
+            >
+              <path
+                d="M 32 4 L 34 30 L 60 32 L 34 34 L 32 60 L 30 34 L 4 32 L 30 30 Z"
+                fill="currentColor"
+              />
+              <circle cx="32" cy="32" r="2.5" fill="currentColor" opacity="0.6" />
+            </svg>
+            <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
+              SiriusOS
+            </h1>
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">SiriusOS</h1>
-          <p className="text-sm text-muted-foreground">
-            Persistent AI Agent Orchestration
+          <p className="text-xs text-muted-foreground tracking-wide">
+            Persistent AI agents · always on
           </p>
         </div>
 
         {/* Login Card */}
-        <Card>
+        <Card className="border-border bg-surface/80 backdrop-blur-sm">
           <CardHeader className="pb-4">
             <CardTitle className="text-base">Sign in</CardTitle>
             <CardDescription className="text-xs">
@@ -195,8 +221,8 @@ export default function LoginPage() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-[11px] text-muted-foreground/60">
-          SiriusOS v2
+        <p className="text-center font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/50">
+          SiriusOS · v2
         </p>
       </div>
     </div>

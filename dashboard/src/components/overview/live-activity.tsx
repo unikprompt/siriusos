@@ -21,11 +21,11 @@ interface LiveActivityProps {
 }
 
 const eventTypeIcons: Record<string, React.ReactNode> = {
-  message: <IconMessage size={14} />,
-  task: <IconCheckbox size={14} />,
-  approval: <IconShield size={14} />,
+  message: <IconMessage size={14} className="text-primary" />,
+  task: <IconCheckbox size={14} className="text-accent" />,
+  approval: <IconShield size={14} className="text-warning" />,
   error: <IconAlertTriangle size={14} className="text-destructive" />,
-  milestone: <IconFlag size={14} className="text-primary" />,
+  milestone: <IconFlag size={14} className="text-accent" />,
 };
 
 function formatEventTime(timestamp: string): string {
@@ -110,12 +110,14 @@ export function LiveActivity({ initialEvents }: LiveActivityProps) {
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Live Activity
             </span>
             <span
-              className={`inline-block h-2 w-2 rounded-full ${
-                isConnected ? 'bg-success animate-pulse' : 'bg-warning'
+              className={`inline-block h-1.5 w-1.5 rounded-full ring-2 ${
+                isConnected
+                  ? 'bg-success ring-success/30 animate-pulse shadow-[0_0_6px_var(--success)]'
+                  : 'bg-warning ring-warning/30'
               }`}
               title={isConnected ? 'Connected' : 'Reconnecting...'}
             />
@@ -123,7 +125,7 @@ export function LiveActivity({ initialEvents }: LiveActivityProps) {
           <button
             type="button"
             onClick={() => setPaused(!paused)}
-            className="rounded-md p-1 hover:bg-muted transition-colors"
+            className="rounded-md p-1 hover:bg-surface-2 transition-colors"
             title={paused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
           >
             {paused ? (
@@ -147,20 +149,20 @@ export function LiveActivity({ initialEvents }: LiveActivityProps) {
             displayEvents.map((event) => (
               <div
                 key={event.id}
-                className="flex items-start gap-2 rounded px-2 py-1.5 hover:bg-muted/50 text-sm"
+                className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-surface-2 animate-event-in"
               >
-                <span className="mt-0.5 shrink-0 text-muted-foreground">
+                <span className="shrink-0">
                   {eventTypeIcons[event.type] ?? (
-                    <IconActivity size={14} />
+                    <IconActivity size={14} className="text-muted-foreground" />
                   )}
                 </span>
                 {event.agent && (
-                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-xs font-medium">
+                  <span className="shrink-0 rounded-md bg-primary/10 px-1.5 py-0.5 font-mono text-[10.5px] font-medium text-primary ring-1 ring-primary/15">
                     {event.agent}
                   </span>
                 )}
-                <span className="truncate flex-1">{event.message}</span>
-                <span className="shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
+                <span className="truncate flex-1 text-foreground/90">{event.message}</span>
+                <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/80 tabular-nums" suppressHydrationWarning>
                   {formatEventTime(event.timestamp)}
                 </span>
               </div>

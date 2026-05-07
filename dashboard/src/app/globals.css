@@ -7,9 +7,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --font-sans: var(--font-sora), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), "JetBrains Mono", monospace;
-  --font-heading: var(--font-sora), system-ui, sans-serif;
+  --font-heading: var(--font-space-grotesk), var(--font-sora), system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), var(--font-sora), system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -93,9 +96,15 @@ button:active:not(:disabled) {
   transform: scale(0.97);
 }
 
-/* Input focus glow */
+/* Input focus glow — Sirius blue tint */
 input:focus, textarea:focus {
-  box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.1);
+  box-shadow: 0 0 0 3px rgba(165, 201, 255, 0.18);
+}
+
+/* Card hover — subtle blue-white glow instead of generic shadow */
+.dark [data-slot="card"]:hover {
+  box-shadow: 0 8px 24px -4px rgba(165, 201, 255, 0.08),
+              0 0 0 1px rgba(165, 201, 255, 0.06);
 }
 
 /* Smooth accordion expand */
@@ -107,6 +116,21 @@ input:focus, textarea:focus {
 @keyframes statusPulse {
   0%, 100% { box-shadow: 0 0 0 0 currentColor; }
   50% { box-shadow: 0 0 0 4px transparent; }
+}
+
+/* Live event entry — slide-in from top with quick fade */
+@keyframes eventIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-event-in {
+  animation: eventIn 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Sheet slide-in enhancement */
@@ -165,88 +189,114 @@ tr:hover td {
 }
 
 /* ============================================
-   SiriusOS Gold/Mustard Theme - Light Mode
+   SiriusOS — Stellar Night
+   Sirius is the brightest star visible from Earth, blue-white in color.
+   Dark-first palette inspired by deep space + the star's actual hue.
    ============================================ */
+
+/* Light mode — "Sirius A" (the bright primary star, blue-white luminous) */
 :root {
-  --background: oklch(1 0 0);                    /* #FFFFFF */
-  --foreground: oklch(0.187 0 0);                /* #1A1A1A */
+  --background: oklch(0.985 0.01 250);           /* #F8FAFF — clean cool white */
+  --foreground: oklch(0.18 0.04 265);            /* #0E1428 — deep ink */
+  --surface: oklch(1 0 0);                       /* #FFFFFF — cards */
+  --surface-2: oklch(0.97 0.012 250);            /* #F0F4FB — hover/input bg */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.187 0 0);
+  --card-foreground: oklch(0.18 0.04 265);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.187 0 0);
-  --primary: oklch(0.618 0.13 75);               /* #B8860B - dark goldenrod */
-  --primary-foreground: oklch(1 0 0);            /* white */
-  --secondary: oklch(0.975 0.005 80);            /* #F8F7F4 */
-  --secondary-foreground: oklch(0.187 0 0);
-  --muted: oklch(0.975 0.005 80);               /* #F8F7F4 */
-  --muted-foreground: oklch(0.478 0 0);          /* #666666 */
-  --accent: oklch(0.762 0.125 82);               /* #D4AF37 - gold accent */
-  --accent-foreground: oklch(0.187 0 0);
-  --destructive: oklch(0.577 0.245 27.325);      /* #DC2626 */
+  --popover-foreground: oklch(0.18 0.04 265);
+  --primary: oklch(0.59 0.18 260);               /* #3D6FE5 — saturated Sirius blue */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.95 0.018 250);            /* light blue-tinted gray */
+  --secondary-foreground: oklch(0.18 0.04 265);
+  --muted: oklch(0.95 0.018 250);
+  --muted-foreground: oklch(0.5 0.04 260);       /* readable secondary text */
+  --accent: oklch(0.7 0.13 80);                  /* #C9982A — warmer gold for light contrast */
+  --accent-foreground: oklch(0.18 0.04 265);
+  --destructive: oklch(0.62 0.21 22);            /* coral-red, softer than #DC2626 */
   --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.555 0.17 145);              /* #16A34A */
-  --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.72 0.17 75);                /* #F59E0B */
-  --warning-foreground: oklch(0.187 0 0);
-  --border: oklch(0.905 0.01 70);                /* #E5E0D8 */
-  --input: oklch(0.905 0.01 70);
-  --ring: oklch(0.618 0.13 75);                  /* matches primary */
-  --chart-1: oklch(0.762 0.125 82);              /* gold */
-  --chart-2: oklch(0.546 0.2 262);               /* blue */
-  --chart-3: oklch(0.507 0.22 293);              /* purple */
-  --chart-4: oklch(0.543 0.22 340);              /* pink */
-  --chart-5: oklch(0.555 0.17 160);              /* green */
-  --radius: 0.5rem;
-  --sidebar: oklch(0.975 0.005 80);
-  --sidebar-foreground: oklch(0.187 0 0);
-  --sidebar-primary: oklch(0.618 0.13 75);
+  --success: oklch(0.68 0.13 175);               /* mint-cyan, not generic green */
+  --success-foreground: oklch(0.15 0.04 200);
+  --warning: oklch(0.78 0.15 70);                /* amber */
+  --warning-foreground: oklch(0.18 0.04 265);
+  --border: oklch(0.9 0.015 250);                /* faint blue-tinted border */
+  --input: oklch(0.95 0.018 250);
+  --ring: oklch(0.59 0.18 260);                  /* matches primary */
+  --chart-1: oklch(0.59 0.18 260);               /* Sirius blue */
+  --chart-2: oklch(0.7 0.13 80);                 /* gold accent */
+  --chart-3: oklch(0.68 0.13 175);               /* mint */
+  --chart-4: oklch(0.55 0.22 300);               /* nebula purple */
+  --chart-5: oklch(0.78 0.15 70);                /* amber */
+  --radius: 0.625rem;
+  --sidebar: oklch(0.97 0.012 250);
+  --sidebar-foreground: oklch(0.18 0.04 265);
+  --sidebar-primary: oklch(0.59 0.18 260);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.762 0.125 82);
-  --sidebar-accent-foreground: oklch(0.187 0 0);
-  --sidebar-border: oklch(0.905 0.01 70);
-  --sidebar-ring: oklch(0.618 0.13 75);
+  --sidebar-accent: oklch(0.95 0.018 250);
+  --sidebar-accent-foreground: oklch(0.18 0.04 265);
+  --sidebar-border: oklch(0.9 0.015 250);
+  --sidebar-ring: oklch(0.59 0.18 260);
 }
 
-/* ============================================
-   SiriusOS Gold/Mustard Theme - Dark Mode
-   ============================================ */
+/* Dark mode — "Stellar Night" (deep space + Sirius blue-white) */
 .dark {
-  --background: oklch(0.145 0 0);               /* #0F0F0F */
-  --foreground: oklch(0.975 0.005 80);           /* #F8F7F4 */
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.975 0.005 80);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.975 0.005 80);
-  --primary: oklch(0.762 0.125 82);              /* #D4AF37 - gold for dark mode */
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.187 0 0);                 /* #1A1A1A */
-  --secondary-foreground: oklch(0.975 0.005 80);
-  --muted: oklch(0.187 0 0);                    /* #1A1A1A */
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.618 0.13 75);               /* #B8860B */
-  --accent-foreground: oklch(0.975 0.005 80);
-  --destructive: oklch(0.704 0.191 22.216);
+  --background: oklch(0.1 0.02 270);             /* #050510 — deep space */
+  --foreground: oklch(0.94 0.02 260);            /* #E6ECFF — starlight white */
+  --surface: oklch(0.17 0.05 265);               /* #0E1428 — cards, sidebar */
+  --surface-2: oklch(0.23 0.06 265);             /* #161E3D — hover, popover */
+  --card: oklch(0.17 0.05 265);
+  --card-foreground: oklch(0.94 0.02 260);
+  --popover: oklch(0.23 0.06 265);
+  --popover-foreground: oklch(0.94 0.02 260);
+  --primary: oklch(0.82 0.08 250);               /* #A5C9FF — Sirius blue-white */
+  --primary-foreground: oklch(0.1 0.02 270);
+  --secondary: oklch(0.23 0.06 265);
+  --secondary-foreground: oklch(0.94 0.02 260);
+  --muted: oklch(0.23 0.06 265);
+  --muted-foreground: oklch(0.65 0.05 260);      /* #7A89B8 — readable on deep bg */
+  --accent: oklch(0.86 0.13 80);                 /* #FFD27A — stellar gold */
+  --accent-foreground: oklch(0.1 0.02 270);
+  --destructive: oklch(0.7 0.17 15);             /* #FF6B7A — softened coral */
   --destructive-foreground: oklch(1 0 0);
-  --success: oklch(0.555 0.17 145);
-  --success-foreground: oklch(1 0 0);
-  --warning: oklch(0.72 0.17 75);
-  --warning-foreground: oklch(0.187 0 0);
-  --border: oklch(0.25 0.015 60);               /* #2A2520 */
-  --input: oklch(0.25 0.015 60);
-  --ring: oklch(0.762 0.125 82);
-  --chart-1: oklch(0.762 0.125 82);
-  --chart-2: oklch(0.546 0.2 262);
-  --chart-3: oklch(0.507 0.22 293);
-  --chart-4: oklch(0.543 0.22 340);
-  --chart-5: oklch(0.555 0.17 160);
-  --sidebar: oklch(0.187 0 0);
-  --sidebar-foreground: oklch(0.975 0.005 80);
-  --sidebar-primary: oklch(0.762 0.125 82);
-  --sidebar-primary-foreground: oklch(0.975 0.005 80);
-  --sidebar-accent: oklch(0.25 0.015 60);
-  --sidebar-accent-foreground: oklch(0.975 0.005 80);
-  --sidebar-border: oklch(0.25 0.015 60);
-  --sidebar-ring: oklch(0.762 0.125 82);
+  --success: oklch(0.85 0.13 175);               /* #5EEAD4 — cyan-mint */
+  --success-foreground: oklch(0.1 0.02 270);
+  --warning: oklch(0.81 0.15 70);                /* #FFB84D */
+  --warning-foreground: oklch(0.1 0.02 270);
+  --border: oklch(0.27 0.07 263);                /* #1F2A4D */
+  --input: oklch(0.23 0.06 265);
+  --ring: oklch(0.82 0.08 250);
+  --chart-1: oklch(0.82 0.08 250);               /* Sirius blue-white */
+  --chart-2: oklch(0.86 0.13 80);                /* stellar gold */
+  --chart-3: oklch(0.85 0.13 175);               /* mint */
+  --chart-4: oklch(0.7 0.18 300);                /* nebula */
+  --chart-5: oklch(0.81 0.15 70);                /* amber */
+  --sidebar: oklch(0.17 0.05 265);
+  --sidebar-foreground: oklch(0.94 0.02 260);
+  --sidebar-primary: oklch(0.82 0.08 250);
+  --sidebar-primary-foreground: oklch(0.1 0.02 270);
+  --sidebar-accent: oklch(0.23 0.06 265);
+  --sidebar-accent-foreground: oklch(0.94 0.02 260);
+  --sidebar-border: oklch(0.27 0.07 263);
+  --sidebar-ring: oklch(0.82 0.08 250);
+}
+
+/* Starfield background — three layers of radial gradients (use only on hero/empty states) */
+.starfield {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(230, 236, 255, 0.5), transparent 50%),
+    radial-gradient(1px 1px at 75% 65%, rgba(230, 236, 255, 0.35), transparent 50%),
+    radial-gradient(1px 1px at 45% 80%, rgba(230, 236, 255, 0.4), transparent 50%),
+    radial-gradient(2px 2px at 88% 18%, rgba(165, 201, 255, 0.3), transparent 50%),
+    radial-gradient(1.5px 1.5px at 12% 72%, rgba(255, 210, 122, 0.25), transparent 50%);
+  background-size: 250px 250px, 320px 320px, 180px 180px, 400px 400px, 280px 280px;
+  background-position: 0 0, 80px 60px, 160px 30px, 30px 90px, 140px 110px;
+}
+.dark .starfield {
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, rgba(230, 236, 255, 0.7), transparent 50%),
+    radial-gradient(1px 1px at 75% 65%, rgba(230, 236, 255, 0.5), transparent 50%),
+    radial-gradient(1px 1px at 45% 80%, rgba(230, 236, 255, 0.6), transparent 50%),
+    radial-gradient(2px 2px at 88% 18%, rgba(165, 201, 255, 0.45), transparent 50%),
+    radial-gradient(1.5px 1.5px at 12% 72%, rgba(255, 210, 122, 0.35), transparent 50%);
 }
 
 @keyframes pulse-dot {
