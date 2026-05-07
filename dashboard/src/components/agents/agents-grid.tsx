@@ -6,7 +6,7 @@ import { AgentCard, type AgentCardData } from './agent-card';
 import { AddAgentCard } from './add-agent-card';
 import { CreateAgentDialog } from './create-agent-dialog';
 import { HealthDot } from '@/components/shared/health-dot';
-import { IconUsers } from '@tabler/icons-react';
+import { EmptyState } from '@/components/shared/empty-state';
 import { useSSE } from '@/hooks/use-sse';
 import type { HealthStatus, SSEEvent } from '@/lib/types';
 
@@ -61,14 +61,20 @@ export function AgentsGrid({ initialAgents }: AgentsGridProps) {
 
       {/* Grid */}
       {agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <IconUsers size={48} className="text-muted-foreground/30 mb-4" />
-          <h3 className="text-lg font-medium mb-1">No agents configured</h3>
-          <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-            Add your first agent to start monitoring and managing your AI fleet.
-          </p>
-          <AddAgentCard onClick={() => setCreateOpen(true)} />
-        </div>
+        <EmptyState
+          kind="constellation"
+          title="No agents in your fleet yet"
+          description="Spin up your first agent and Sirius starts orchestrating. Each agent runs persistently in its own session."
+          action={
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-all hover:opacity-90"
+            >
+              + Add your first agent
+            </button>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {agents.map((agent) => (
