@@ -22,7 +22,10 @@
     "ai",
     "automation"
   ],
-  "author": "Cortext LLC",
+  "author": {
+    "name": "Mario Edwards",
+    "url": "https://siriusos.unikprompt.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -9,8 +9,19 @@ import type { ExecutionLogStatusFilter } from '../bus/crons.js';
 import { nextFireFromCron } from './cron-scheduler.js';
 import { parseDurationMs } from '../bus/cron-state.js';
 import { computeHealth, aggregateFleetHealth } from '../utils/cron-health.js';
+import { validateModel } from '../utils/validate.js';
 
 const WORKER_NAME_REGEX = /^[a-z0-9_-]+$/;
+
+/** Wrap validateModel (which throws) into a boolean check for IPC validation. */
+function isValidModel(model: string): boolean {
+  try {
+    validateModel(model);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Manual fire cooldown — Subtask 4.5
@@ -647,14 +658,23 @@ export class IPCServer {
             response = { success: false, error: 'spawn-worker requires: name, dir, prompt' };
           } else if (!WORKER_NAME_REGEX.test(d.name) || d.name.length > 64) {
             response = { success: false, error: 'Invalid worker name' };
+          } else if (d.model !== undefined && !isValidModel(d.model)) {
+            // Security review fix: validate model id matches the same regex used by
+            // the rest of the CLI; previously this case skipped validation while
+            // every other entrypoint enforced it.
+            response = { success: false, error: 'Invalid model' };
           } else {
             const resolvedDir = pathResolve(d.dir);
             const ctxRoot = process.env.CTX_ROOT ? pathResolve(process.env.CTX_ROOT) : '';
-            const cwd = pathResolve(process.cwd());
+            // Security review fix (HIGH): restrict worker dir strictly to CTX_ROOT.
+            // The previous implementation also accepted any path under
+            // process.cwd(), which on a daemon started from the framework repo
+            // root meant any local IPC client could spawn workers reading
+            // arbitrary directories inside the repo. Worker dirs must live
+            // under the runtime root, period.
             const underCtxRoot = ctxRoot && (resolvedDir === ctxRoot || resolvedDir.startsWith(ctxRoot + '/'));
-            const underCwd = resolvedDir === cwd || resolvedDir.startsWith(cwd + '/');
-            if (!underCtxRoot && !underCwd) {
-              response = { success: false, error: 'Invalid worker dir' };
+            if (!underCtxRoot) {
+              response = { success: false, error: 'Invalid worker dir (must be under CTX_ROOT)' };
             } else {
               this.agentManager.spawnWorker(d.name, resolvedDir, d.prompt, d.parent, d.model, d.provider)
                 .catch(err => console.error(`[ipc] spawn-worker failed:`, err));

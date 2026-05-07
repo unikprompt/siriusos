@@ -126,14 +126,27 @@ export class AgentPTY {
     } else if (process.env.TZ) {
       ptyEnv['CTX_TIMEZONE'] = process.env.TZ;
     }
-    // CTX_ORCHESTRATOR_AGENT: read from org context.json so agents can route to orchestrator
+    // CTX_ORCHESTRATOR_AGENT: read from org context.json so agents can route to orchestrator.
+    // Security review fix: validate the orchestrator field shape before forwarding it
+    // into the spawned agent's environment. context.json is filesystem-read so a
+    // misbehaving (or malicious) writer in the org dir can't inject arbitrary
+    // strings into another agent's env.
     if (this.env.projectRoot && this.env.org) {
       try {
         const contextPath = join(this.env.projectRoot, 'orgs', this.env.org, 'context.json');
         if (existsSync(contextPath)) {
-          const ctx = JSON.parse(readFileSync(contextPath, 'utf-8'));
-          if (ctx.orchestrator) {
-            ptyEnv['CTX_ORCHESTRATOR_AGENT'] = ctx.orchestrator;
+          const ctx = JSON.parse(readFileSync(contextPath, 'utf-8')) as unknown;
+          if (
+            ctx !== null &&
+            typeof ctx === 'object' &&
+            'orchestrator' in ctx &&
+            typeof (ctx as { orchestrator: unknown }).orchestrator === 'string'
+          ) {
+            const orchestrator = (ctx as { orchestrator: string }).orchestrator;
+            // Same shape as agent names: lowercase alphanumeric + dash/underscore, max 64 chars.
+            if (/^[a-z0-9_-]+$/.test(orchestrator) && orchestrator.length <= 64) {
+              ptyEnv['CTX_ORCHESTRATOR_AGENT'] = orchestrator;
+            }
           }
         }
       } catch { /* leave unset if context.json is missing or malformed */ }
