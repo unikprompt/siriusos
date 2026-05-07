@@ -36,11 +36,18 @@ const BINARY_TEMP_EXTENSIONS = new Set([
   '.log', '.tmp', '.pid', '.pyc', '.pyo', '.class', '.o', '.so', '.dylib',
 ]);
 
+// Defense in depth: even if someone removes these from .gitignore, autoCommit
+// must never stage them. memory/ holds daily heartbeat snapshots that mention
+// real users / projects, and orgs/ holds private agent state for whoever runs
+// SiriusOS. Both are operator-private and never belong on a public framework
+// repo.
 const EXCLUDED_DIR_PREFIXES = [
   'telegram-images/',
   'node_modules/',
   '__pycache__/',
   '.venv/',
+  'memory/',
+  'orgs/',
 ];
 
 const CREDENTIAL_PATTERNS = /(?:token=|key=|password=|secret=|sk-|ghp_|xoxb-|AKIA)/;
