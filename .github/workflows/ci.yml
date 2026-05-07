@@ -35,9 +35,11 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     needs: build
-    env:
-      CTX_INSTANCE_ID: ci-test
-      CTX_ORG: testorg
+    # Note: do NOT set CTX_INSTANCE_ID / CTX_ORG at the job level. The
+    # test fixtures (e.g. tests/unit/cli/obsidian.test.ts) build sandboxes
+    # under instance "default"; a job-level override broke fixture lookup
+    # in the obsidian suite while leaving local runs green. Tests that
+    # need specific values set them via process.env in beforeEach.
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
