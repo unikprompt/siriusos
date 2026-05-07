@@ -71,13 +71,10 @@ export async function middleware(request: NextRequest) {
   // Security (H7): SSE endpoints require ?token=<jwt> auth — removed from public whitelist
   if (
     pathname.startsWith('/login') ||
-    pathname.startsWith('/welcome') ||
     pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/api/waitlist') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico' ||
-    pathname === '/icon.svg' ||
-    pathname.startsWith('/logo-')
+    pathname === '/icon.svg'
   ) {
     const response = NextResponse.next();
     response.headers.set('Access-Control-Allow-Origin', corsOrigin);
