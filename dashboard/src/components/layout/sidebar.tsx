@@ -99,9 +99,9 @@ export function Sidebar({
       {/* Logo */}
       <div className="flex h-14 items-center gap-2 px-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-bold">
-          cO
+          sO
         </div>
-        <span className="text-sm font-semibold tracking-tight">cortextOS</span>
+        <span className="text-sm font-semibold tracking-tight">SiriusOS</span>
       </div>
 
       {/* Search trigger */}

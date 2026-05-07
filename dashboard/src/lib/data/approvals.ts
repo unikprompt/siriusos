@@ -1,4 +1,4 @@
-// cortextOS Dashboard - Approval data fetcher
+// SiriusOS Dashboard - Approval data fetcher
 // Reads from SQLite (synced from JSON approval files on disk).
 
 import { db } from '@/lib/db';

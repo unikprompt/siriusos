@@ -143,9 +143,9 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center space-y-2">
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground text-lg font-bold">
-            cO
+            sO
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">cortextOS</h1>
+          <h1 className="text-xl font-semibold tracking-tight">SiriusOS</h1>
           <p className="text-sm text-muted-foreground">
             Persistent AI Agent Orchestration
           </p>
@@ -196,7 +196,7 @@ export default function LoginPage() {
         </Card>
 
         <p className="text-center text-[11px] text-muted-foreground/60">
-          cortextOS v2
+          SiriusOS v2
         </p>
       </div>
     </div>
