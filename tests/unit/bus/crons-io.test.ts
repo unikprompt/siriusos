@@ -83,7 +83,7 @@ describe('readCrons', () => {
     const { readCrons } = await importCrons();
 
     // Write garbage JSON into the expected path
-    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris');
+    const agentDir = join(tmpRoot, 'state', 'agents', 'boris');
     mkdirSync(agentDir, { recursive: true });
     writeFileSync(join(agentDir, 'crons.json'), '{ this is not valid json }', 'utf-8');
 
@@ -100,7 +100,7 @@ describe('readCrons', () => {
   it('returns [] and warns for valid JSON with wrong shape (bare array)', async () => {
     const { readCrons } = await importCrons();
 
-    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', 'paul');
+    const agentDir = join(tmpRoot, 'state', 'agents', 'paul');
     mkdirSync(agentDir, { recursive: true });
     // Write a bare array — wrong envelope shape
     writeFileSync(join(agentDir, 'crons.json'), JSON.stringify([]), 'utf-8');
@@ -129,7 +129,7 @@ describe('readCronsWithStatus', () => {
   it('reports corrupt:false when the file parses to an empty crons array', async () => {
     const { readCronsWithStatus } = await importCrons();
 
-    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris');
+    const agentDir = join(tmpRoot, 'state', 'agents', 'boris');
     mkdirSync(agentDir, { recursive: true });
     writeFileSync(
       join(agentDir, 'crons.json'),
@@ -149,7 +149,7 @@ describe('readCronsWithStatus', () => {
     writeCrons('boris', [makeHeartbeat()]);
     writeCrons('boris', [makeHeartbeat({ name: 'second' })]);
 
-    const cronsPath = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris', 'crons.json');
+    const cronsPath = join(tmpRoot, 'state', 'agents', 'boris', 'crons.json');
     // Corrupt the primary, leave .bak alone (which contains [{name:'heartbeat',...}])
     writeFileSync(cronsPath, '{ broken json', 'utf-8');
 
@@ -164,7 +164,7 @@ describe('readCronsWithStatus', () => {
     writeCrons('boris', [makeHeartbeat()]);
     writeCrons('boris', [makeHeartbeat({ name: 'second' })]); // creates .bak
 
-    const cronsPath = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris', 'crons.json');
+    const cronsPath = join(tmpRoot, 'state', 'agents', 'boris', 'crons.json');
     const bakPath   = cronsPath + '.bak';
     writeFileSync(cronsPath, '{ broken', 'utf-8');
     writeFileSync(bakPath,   '<<< also broken', 'utf-8');
@@ -176,7 +176,7 @@ describe('readCronsWithStatus', () => {
   it('reports corrupt:true when primary is unparseable and .bak does not exist', async () => {
     const { readCronsWithStatus } = await importCrons();
 
-    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris');
+    const agentDir = join(tmpRoot, 'state', 'agents', 'boris');
     mkdirSync(agentDir, { recursive: true });
     writeFileSync(join(agentDir, 'crons.json'), '{ broken', 'utf-8');
     // No .bak written.
@@ -239,7 +239,7 @@ describe('writeCrons + readCrons roundtrip', () => {
     const { readCrons, writeCrons } = await importCrons();
 
     // Directory does not exist yet
-    const agentDir = join(tmpRoot, '.siriusos', 'state', 'agents', 'new-agent');
+    const agentDir = join(tmpRoot, 'state', 'agents', 'new-agent');
     expect(existsSync(agentDir)).toBe(false);
 
     writeCrons('new-agent', [makeHeartbeat()]);
@@ -259,7 +259,7 @@ describe('updated_at envelope', () => {
     writeCrons('boris', [makeHeartbeat()]);
     const after = new Date().toISOString();
 
-    const filePath = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris', 'crons.json');
+    const filePath = join(tmpRoot, 'state', 'agents', 'boris', 'crons.json');
     const raw = JSON.parse(readFileSync(filePath, 'utf-8') as string) as {
       updated_at: string;
       crons: CronDefinition[];
@@ -274,7 +274,7 @@ describe('updated_at envelope', () => {
     const { writeCrons } = await importCrons();
 
     writeCrons('boris', [makeHeartbeat()]);
-    const filePath = join(tmpRoot, '.siriusos', 'state', 'agents', 'boris', 'crons.json');
+    const filePath = join(tmpRoot, 'state', 'agents', 'boris', 'crons.json');
 
     const first = (JSON.parse(readFileSync(filePath, 'utf-8') as string) as { updated_at: string }).updated_at;
 

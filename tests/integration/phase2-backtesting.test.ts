@@ -57,7 +57,7 @@ const SIM_12H    = 12 * ONE_HOUR;
 const SIM_24H    = 24 * ONE_HOUR;
 const SIM_72H    = 72 * ONE_HOUR;
 
-const CRONS_DIR  = '.siriusos/state/agents';
+const CRONS_DIR  = 'state/agents';
 const CRONS_FILE = 'crons.json';
 const MARKER_FILE = '.crons-migrated';
 const EXEC_LOG   = 'cron-execution.log';

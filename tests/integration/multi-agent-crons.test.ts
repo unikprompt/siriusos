@@ -59,7 +59,7 @@ const ONE_MIN = 60_000;
 const ONE_HOUR = 3_600_000;
 const SIM_72H = 72 * ONE_HOUR;
 
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 const CRONS_FILE = 'crons.json';
 const MARKER_FILE = '.crons-migrated';
 
@@ -266,7 +266,7 @@ function ensureAgentStateDir(agentName: string): string {
  * Read all JSONL entries from an agent's cron-execution.log.
  */
 function readLog(agentName: string): CronExecutionLogEntry[] {
-  const logPath = join(tmpCtxRoot, '.siriusos', 'state', 'agents', agentName, 'cron-execution.log');
+  const logPath = join(tmpCtxRoot, 'state', 'agents', agentName, 'cron-execution.log');
   if (!existsSync(logPath)) return [];
   const raw = readFileSync(logPath, 'utf-8');
   return raw
@@ -334,7 +334,7 @@ function buildBusPaths(agentName: string): BusPaths {
     inflight:    join(ctxRoot, 'inflight',  agentName),
     processed:   join(ctxRoot, 'processed', agentName),
     logDir:      join(ctxRoot, 'logs',      agentName),
-    stateDir:    join(ctxRoot, '.siriusos', 'state', 'agents', agentName),
+    stateDir:    join(ctxRoot, 'state', 'agents', agentName),
     taskDir:     join(ctxRoot, 'tasks'),
     approvalDir: join(ctxRoot, 'approvals'),
     analyticsDir: join(ctxRoot, 'analytics'),
@@ -756,7 +756,7 @@ describe('Scenario 6: Per-agent log files written correctly', () => {
 
     for (const fixture of AGENT_FIXTURES) {
       const agentName   = fixture.name;
-      const logPath     = join(tmpCtxRoot, '.siriusos', 'state', 'agents', agentName, 'cron-execution.log');
+      const logPath     = join(tmpCtxRoot, 'state', 'agents', agentName, 'cron-execution.log');
 
       // Log file exists if there were any fires
       const totalFires = [...fireCounts.entries()]

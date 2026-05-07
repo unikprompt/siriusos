@@ -15,6 +15,7 @@
  */
 
 import { existsSync, readFileSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
 import { join, dirname } from 'path';
 import type { CronDefinition, CronExecutionLogEntry } from '../types/index.js';
 import { CRONS_DIRECTORY, CRONS_FILENAME, cronExecutionLogPathFor } from './crons-schema.js';
@@ -32,15 +33,29 @@ interface CronsFile {
 }
 
 /**
- * Resolve the absolute path to an agent's crons.json.
+ * Resolve the runtime root for SiriusOS state.
  *
- * Uses CTX_ROOT env var when available (production), otherwise falls back to
- * a path relative to process.cwd() so tests can supply their own root via
- * process.env.CTX_ROOT pointing to a tempdir.
+ * Priority: CTX_ROOT env var > the standard productive default at
+ * ~/.siriusos/<CTX_INSTANCE_ID|default>. We never fall back to
+ * process.cwd() — that produced the long-standing UX bug where
+ * `siriusos bus list-crons <agent>` from the repo root said
+ * "No crons configured" because it looked for crons under
+ * /Users/.../cortextos/state/agents/<agent>/crons.json instead of
+ * the actual ~/.siriusos/default/state/agents/<agent>/crons.json.
+ *
+ * Tests still inject CTX_ROOT pointing to a tempdir as before, so
+ * removing the cwd fallback is safe.
+ */
+function ctxRootFromEnv(): string {
+  if (process.env.CTX_ROOT) return process.env.CTX_ROOT;
+  return join(homedir(), '.siriusos', process.env.CTX_INSTANCE_ID || 'default');
+}
+
+/**
+ * Resolve the absolute path to an agent's crons.json.
  */
 function cronsFilePath(agentName: string): string {
-  const ctxRoot = process.env.CTX_ROOT ?? process.cwd();
-  return join(ctxRoot, CRONS_DIRECTORY, agentName, CRONS_FILENAME);
+  return join(ctxRootFromEnv(), CRONS_DIRECTORY, agentName, CRONS_FILENAME);
 }
 
 /**
@@ -346,8 +361,7 @@ export function getExecutionLogPage(
   offset = 0,
   statusFilter: ExecutionLogStatusFilter = 'all',
 ): ExecutionLogPage {
-  const ctxRoot = process.env.CTX_ROOT ?? process.cwd();
-  const filePath = join(ctxRoot, cronExecutionLogPathFor(agentName));
+  const filePath = join(ctxRootFromEnv(), cronExecutionLogPathFor(agentName));
 
   if (!existsSync(filePath)) {
     return { entries: [], total: 0, hasMore: false };

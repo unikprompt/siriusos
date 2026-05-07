@@ -24,7 +24,7 @@ import { NextRequest } from 'next/server';
 const rootTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'health-route-test-'));
 process.env.CTX_ROOT = rootTmp;
 
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 const CONFIG_DIR = path.join(rootTmp, 'config');
 
 const NOW_MS = Date.now();

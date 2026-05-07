@@ -103,7 +103,7 @@ afterEach(() => {
  * Create the agent state directory under the current tmpRoot.
  */
 function ensureAgentDir(agentName: string): string {
-  const dir = join(tmpRoot, '.siriusos', 'state', 'agents', agentName);
+  const dir = join(tmpRoot, 'state', 'agents', agentName);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -164,7 +164,7 @@ async function advanceSim(totalMs: number, stepMs = ONE_MIN): Promise<void> {
 function readLog(agentName: string): CronExecutionLogEntry[] {
   const logPath = join(
     tmpRoot,
-    '.siriusos', 'state', 'agents', agentName, 'cron-execution.log',
+    'state', 'agents', agentName, 'cron-execution.log',
   );
   if (!existsSync(logPath)) return [];
   const raw = readFileSync(logPath, 'utf-8');
@@ -361,7 +361,7 @@ describe('Scenario 3: Corrupted crons.json', () => {
     expect(firedB.length).toBeGreaterThanOrEqual(2);
 
     // Corrupt agentB's crons.json mid-sim
-    const badCronsPath = join(tmpRoot, '.siriusos', 'state', 'agents', agentB, 'crons.json');
+    const badCronsPath = join(tmpRoot, 'state', 'agents', agentB, 'crons.json');
     writeFileSync(badCronsPath, '{ "corrupted": true, "crons": [INVALID JSON!!!', 'utf-8');
 
     // Reload agentB's scheduler — should log error but NOT crash

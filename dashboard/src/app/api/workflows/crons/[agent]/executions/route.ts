@@ -45,7 +45,7 @@ export interface ExecutionLogPage {
 // File reader with pagination + filter
 // ---------------------------------------------------------------------------
 
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 const VALID_AGENT = /^[a-z0-9_-]+$/i;
 
 export function readExecutionLogPage(

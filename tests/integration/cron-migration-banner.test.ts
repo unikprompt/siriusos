@@ -27,7 +27,7 @@ import {
   isTeachingChecked,
 } from '../../src/daemon/cron-migration.js';
 
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 const TEACHING_MARKER = '.cron-teaching-checked';
 
 let tmpCtxRoot: string;

@@ -13,7 +13,7 @@ import type { CronDefinition } from '../../../src/types/index';
 
 describe('cronsPathFor', () => {
   it('returns the expected path for agent "boris"', () => {
-    const expected = join('.siriusos', 'state', 'agents', 'boris', 'crons.json');
+    const expected = join('state', 'agents', 'boris', 'crons.json');
     expect(cronsPathFor('boris')).toBe(expected);
   });
 

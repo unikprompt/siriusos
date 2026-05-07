@@ -45,7 +45,7 @@ import type { CronDefinition, CronExecutionLogEntry } from '../../src/types/inde
 
 const ROOT = process.cwd();
 
-const CRONS_DIR   = '.siriusos/state/agents';
+const CRONS_DIR   = 'state/agents';
 const CRONS_FILE  = 'crons.json';
 const MARKER_FILE = '.crons-migrated';
 const EXEC_LOG    = 'cron-execution.log';

@@ -37,7 +37,7 @@ import type { CronDefinition } from '../../src/types/index.js';
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 const CRONS_FILE = 'crons.json';
 const MARKER_FILE = '.crons-migrated';
 

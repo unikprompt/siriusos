@@ -41,7 +41,7 @@ afterEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const LOG_DIR = '.siriusos/state/agents';
+const LOG_DIR = 'state/agents';
 
 function writeLogEntries(agentName: string, entries: CronExecutionLogEntry[]): void {
   const dir = join(tmpRoot, LOG_DIR, agentName);

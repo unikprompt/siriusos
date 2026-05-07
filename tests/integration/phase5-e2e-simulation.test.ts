@@ -106,7 +106,7 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 function ensureAgentDir(agentName: string): string {
-  const dir = join(tmpRoot, '.siriusos', 'state', 'agents', agentName);
+  const dir = join(tmpRoot, 'state', 'agents', agentName);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -149,7 +149,7 @@ async function advanceSim(totalMs: number, stepMs = ONE_MIN): Promise<void> {
 function readLog(agentName: string): CronExecutionLogEntry[] {
   const logPath = join(
     tmpRoot,
-    '.siriusos', 'state', 'agents', agentName, 'cron-execution.log',
+    'state', 'agents', agentName, 'cron-execution.log',
   );
   if (!existsSync(logPath)) return [];
   const raw = readFileSync(logPath, 'utf-8');
@@ -160,7 +160,7 @@ function readLog(agentName: string): CronExecutionLogEntry[] {
 }
 
 function cronsFilePath(agentName: string): string {
-  return join(tmpRoot, '.siriusos', 'state', 'agents', agentName, 'crons.json');
+  return join(tmpRoot, 'state', 'agents', agentName, 'crons.json');
 }
 
 // ---------------------------------------------------------------------------
@@ -1156,7 +1156,7 @@ describe('Scenario 7: Dashboard polling accuracy throughout simulation', () => {
   // CTX_ROOT set to our tmpRoot, enabled-agents.json written to config dir.
 
   const CONFIG_DIR_REL = 'config';
-  const CRONS_STATE_REL = '.siriusos/state/agents';
+  const CRONS_STATE_REL = 'state/agents';
 
   function writeEnabledAgents(agents: Record<string, { enabled?: boolean; org?: string }>): void {
     const configDir = join(tmpRoot, CONFIG_DIR_REL);

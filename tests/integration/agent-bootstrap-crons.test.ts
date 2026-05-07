@@ -42,7 +42,7 @@ import type { CronDefinition } from '../../src/types/index.js';
 // ---------------------------------------------------------------------------
 
 const TICK_MS = 30_000; // CronScheduler.TICK_INTERVAL_MS
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 const CRONS_FILE = 'crons.json';
 
 // ---------------------------------------------------------------------------

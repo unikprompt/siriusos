@@ -801,6 +801,7 @@ describe('FastChecker', () => {
       expect(execFile).toHaveBeenCalledWith(
         'siriusos',
         expect.arrayContaining(['bus', 'update-heartbeat', expect.stringContaining('[watchdog] my-agent alive — idle session')]),
+        expect.objectContaining({ env: expect.objectContaining({ CTX_AGENT_NAME: 'my-agent' }) }),
         expect.any(Function),
       );
       checker.stop();

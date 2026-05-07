@@ -39,7 +39,7 @@ const execFileAsync = promisify(execFile);
 
 const REPO_ROOT = join(__dirname, '..', '..');
 const DIST_CLI  = join(REPO_ROOT, 'dist', 'cli.js');
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 
 let tmpRoot: string;
 const originalCtxRoot = process.env.CTX_ROOT;

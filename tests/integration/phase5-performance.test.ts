@@ -85,7 +85,7 @@ afterEach(() => {
 // Constants
 // ---------------------------------------------------------------------------
 
-const AGENTS_DIR = '.siriusos/state/agents';
+const AGENTS_DIR = 'state/agents';
 const TICK_MS    = 30_000;
 const ONE_HOUR   = 3_600_000;
 

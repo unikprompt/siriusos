@@ -43,7 +43,7 @@ afterEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 
 function writeEnabledAgents(
   agents: Record<string, { enabled?: boolean; org?: string }>,

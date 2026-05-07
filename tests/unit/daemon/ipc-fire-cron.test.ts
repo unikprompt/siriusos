@@ -52,7 +52,7 @@ afterEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const CRONS_DIR = '.siriusos/state/agents';
+const CRONS_DIR = 'state/agents';
 
 function writeCronsJson(agentName: string, crons: CronDefinition[]): void {
   const dir = join(tmpRoot, CRONS_DIR, agentName);
