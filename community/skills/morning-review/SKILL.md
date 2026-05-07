@@ -43,8 +43,8 @@ Execute each phase in order.
 ### 0A: Check all agent heartbeats
 
 ```bash
-cortextos bus read-all-heartbeats
-cortextos bus check-inbox
+siriusos bus read-all-heartbeats
+siriusos bus check-inbox
 ```
 
 For each agent, note:
@@ -55,8 +55,8 @@ For each agent, note:
 ### 0B: Check overnight task completions
 
 ```bash
-cortextos bus list-tasks --status completed
-cortextos bus list-tasks --status in_progress
+siriusos bus list-tasks --status completed
+siriusos bus list-tasks --status in_progress
 ```
 
 Note what was completed overnight, by which agents, and what key deliverables were produced.
@@ -76,7 +76,7 @@ Extract: tasks worked on, pending items, promises made, notes carried forward.
 Cross-reference memory COMPLETED entries against tasks still showing in_progress.
 
 ```bash
-cortextos bus list-tasks --status in_progress
+siriusos bus list-tasks --status in_progress
 TODAY=$(date -u +%Y-%m-%d)
 grep "COMPLETED:" memory/${TODAY}.md 2>/dev/null
 grep "COMPLETED:" memory/${YESTERDAY}.md 2>/dev/null
@@ -84,7 +84,7 @@ grep "COMPLETED:" memory/${YESTERDAY}.md 2>/dev/null
 
 For each mismatch, mark completed:
 ```bash
-cortextos bus complete-task "$TASK_ID" --result "<what was produced>"
+siriusos bus complete-task "$TASK_ID" --result "<what was produced>"
 ```
 
 ---
@@ -131,11 +131,11 @@ For each agent in the roster:
    ```
 3. Regenerate GOALS.md:
    ```bash
-   cortextos goals generate-md --agent <agent> --org $CTX_ORG
+   siriusos goals generate-md --agent <agent> --org $CTX_ORG
    ```
 4. Notify agent:
    ```bash
-   cortextos bus send-message <agent> normal "New goals for today. Check GOALS.md and create tasks."
+   siriusos bus send-message <agent> normal "New goals for today. Check GOALS.md and create tasks."
    ```
 
 If an agent's `goals.json` already has `daily_focus_set_at` matching today: skip — don't overwrite.
@@ -144,7 +144,7 @@ If an agent's `goals.json` already has `daily_focus_set_at` matching today: skip
 
 Write your orchestrator-level goals for today, then regenerate:
 ```bash
-cortextos goals generate-md --agent $CTX_AGENT_NAME --org $CTX_ORG
+siriusos goals generate-md --agent $CTX_AGENT_NAME --org $CTX_ORG
 ```
 
 ---
@@ -167,10 +167,10 @@ From the overnight summary, identify:
 
 For each agent support or autonomous task, create and dispatch:
 ```bash
-TASK_ID=$(cortextos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME --priority high)
-cortextos bus update-task "$TASK_ID" in_progress
-cortextos bus send-message <agent> high '<task details with full context>'
-cortextos bus log-event action task_dispatched info --meta '{"to":"<agent>","task":"<title>"}'
+TASK_ID=$(siriusos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME --priority high)
+siriusos bus update-task "$TASK_ID" in_progress
+siriusos bus send-message <agent> high '<task details with full context>'
+siriusos bus log-event action task_dispatched info --meta '{"to":"<agent>","task":"<title>"}'
 ```
 
 ---
@@ -180,7 +180,7 @@ cortextos bus log-event action task_dispatched info --meta '{"to":"<agent>","tas
 **Telegram has a 4096 character limit.** Send as separate messages with brief pauses between.
 
 ```bash
-cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "<message>"
+siriusos bus send-telegram $CTX_TELEGRAM_CHAT_ID "<message>"
 ```
 
 ### Briefing structure
@@ -230,10 +230,10 @@ When user replies with approval (e.g., `go all`, `go 1,2`):
 
 For each approved task:
 ```bash
-TASK_ID=$(cortextos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME --priority high)
-cortextos bus update-task "$TASK_ID" in_progress
-cortextos bus send-message <agent> high '<full task details>'
-cortextos bus log-event action task_dispatched info --meta '{"to":"<agent>","task":"<title>"}'
+TASK_ID=$(siriusos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME --priority high)
+siriusos bus update-task "$TASK_ID" in_progress
+siriusos bus send-message <agent> high '<full task details>'
+siriusos bus log-event action task_dispatched info --meta '{"to":"<agent>","task":"<title>"}'
 ```
 
 ---
@@ -242,10 +242,10 @@ cortextos bus log-event action task_dispatched info --meta '{"to":"<agent>","tas
 
 ```bash
 # Log event
-cortextos bus log-event action briefing_sent info --meta '{"type":"morning_review"}'
+siriusos bus log-event action briefing_sent info --meta '{"type":"morning_review"}'
 
 # Update heartbeat
-cortextos bus update-heartbeat "morning review complete - dispatched N tasks"
+siriusos bus update-heartbeat "morning review complete - dispatched N tasks"
 
 # Write to memory
 TODAY=$(date -u +%Y-%m-%d)

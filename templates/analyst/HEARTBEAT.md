@@ -8,7 +8,7 @@ Skipping steps = broken system. The dashboard monitors your compliance.
 Quick `update-heartbeat` so the dashboard sees you alive while you do the rest of the cycle. The full structured update happens in Step 4.
 
 ```bash
-cortextos bus update-heartbeat "starting heartbeat cycle"
+siriusos bus update-heartbeat "starting heartbeat cycle"
 ```
 
 If this fails, your agent shows as DEAD on the dashboard. Fix it before anything else.
@@ -16,13 +16,13 @@ If this fails, your agent shows as DEAD on the dashboard. Fix it before anything
 ## Step 2: Check inbox
 
 ```bash
-cortextos bus check-inbox
+siriusos bus check-inbox
 ```
 
 Process ALL messages. ACK every single one:
 
 ```bash
-cortextos bus ack-inbox "<message_id>"
+siriusos bus ack-inbox "<message_id>"
 ```
 
 Un-ACK'd messages are re-delivered in 5 minutes. Do not ignore them.
@@ -34,28 +34,28 @@ Full reference: `.claude/skills/agent-management/SKILL.md`
 
 ```bash
 # Check all agent heartbeats — flag any silent for >5 hours
-cortextos bus read-all-heartbeats
+siriusos bus read-all-heartbeats
 
 # Check for agents with no recent activity
-cortextos bus list-tasks --status in_progress 2>/dev/null | head -20
+siriusos bus list-tasks --status in_progress 2>/dev/null | head -20
 ```
 
 For each agent: if heartbeat is older than 5 hours, send a message to that agent:
 ```bash
-cortextos bus send-message <agent_name> normal "Heartbeat check: are you running? Last heartbeat was more than 5 hours ago."
+siriusos bus send-message <agent_name> normal "Heartbeat check: are you running? Last heartbeat was more than 5 hours ago."
 ```
 
 If an agent is unresponsive for >8 hours, notify the orchestrator and log the issue:
 ```bash
-cortextos bus send-message $CTX_ORCHESTRATOR_AGENT normal "Agent <name> appears unresponsive — last heartbeat >8h ago. May need restart."
-cortextos bus log-event action agent_unresponsive warning --meta '{"agent":"<name>","hours_silent":8}'
+siriusos bus send-message $CTX_ORCHESTRATOR_AGENT normal "Agent <name> appears unresponsive — last heartbeat >8h ago. May need restart."
+siriusos bus log-event action agent_unresponsive warning --meta '{"agent":"<name>","hours_silent":8}'
 ```
 
 ## Step 3b: Check own task queue + stale task detection
 
 ```bash
-cortextos bus list-tasks --agent $CTX_AGENT_NAME --status pending
-cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
+siriusos bus list-tasks --agent $CTX_AGENT_NAME --status pending
+siriusos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 ```
 
 - If you have pending tasks: pick the highest priority one
@@ -68,10 +68,10 @@ Stale tasks are visible on the dashboard. They make you look broken.
 
 Single structured call that wraps update-heartbeat + log-event + update-cron-fire + memory append. Each substep runs independently and partial failures are reported in the output (the wrap never silently swallows a failed step).
 
-Full reference: `cortextos bus heartbeat-respond --help`
+Full reference: `siriusos bus heartbeat-respond --help`
 
 ```bash
-cortextos bus heartbeat-respond \
+siriusos bus heartbeat-respond \
   --status ok \
   --inbox-count <N from Step 2> \
   --tasks-count <N from Step 3b> \
@@ -87,9 +87,9 @@ Exit code is 1 if any substep (heartbeat / event / cron-fire / memory) failed. I
 
 | Substep failed | Re-run |
 |----------------|--------|
-| `heartbeat: FAIL` | `cortextos bus update-heartbeat "<status>"` |
-| `event: FAIL`     | `cortextos bus log-event heartbeat agent_heartbeat info --meta '{...}'` |
-| `cron-fire: FAIL` | `cortextos bus update-cron-fire heartbeat --interval <i>` |
+| `heartbeat: FAIL` | `siriusos bus update-heartbeat "<status>"` |
+| `event: FAIL`     | `siriusos bus log-event heartbeat agent_heartbeat info --meta '{...}'` |
+| `cron-fire: FAIL` | `siriusos bus update-cron-fire heartbeat --interval <i>` |
 | `memory: FAIL`    | manually append to `memory/$(date -u +%Y-%m-%d).md` |
 
 Skipping cron-fire triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min — that is why partial-failure visibility matters here.
@@ -100,7 +100,7 @@ Read GOALS.md for any new objectives from the user.
 If goals changed since last check, create tasks to address them:
 
 ```bash
-cortextos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME --priority normal
+siriusos bus create-task "<title>" --desc "<description>" --assignee $CTX_AGENT_NAME --priority normal
 ```
 
 ## Step 6: Resume work
@@ -109,12 +109,12 @@ Pick your highest priority task and work on it.
 
 When starting:
 ```bash
-cortextos bus update-task "<task_id>" in_progress
+siriusos bus update-task "<task_id>" in_progress
 ```
 
 When done:
 ```bash
-cortextos bus complete-task "<task_id>" "<summary of what was produced>"
+siriusos bus complete-task "<task_id>" "<summary of what was produced>"
 ```
 
 ## Step 7: Update long-term memory (if applicable)

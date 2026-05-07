@@ -95,7 +95,7 @@ Five files were in scope across the worktree:
 
 `skills/cron-management/SKILL.md` — full rewrite to daemon model:
 - Removed all `/loop`, `CronCreate`, `config.json` references
-- Added `cortextos bus list-crons`, `add-cron`, `update-cron`, `remove-cron`
+- Added `siriusos bus list-crons`, `add-cron`, `update-cron`, `remove-cron`
 - Added test-fire via dashboard, `manualFireDisabled`, `lastGoodSchedule` troubleshooting, `.bak` recovery
 
 `community/skills/cron-management/SKILL.md` — additive patches:
@@ -154,7 +154,7 @@ gap to be resolved in the main-repo sync after the branch merges.
 | Migration auto-run + `.crons-migrated` marker | `CRONS_MIGRATION_GUIDE.md` What Changed + Verification | PASS |
 | Catch-up-once policy in scheduler | `CRONS_MIGRATION_GUIDE.md` (pre-existing) | PASS |
 | Retry 3 attempts 1s/4s/16s | `CRONS_MIGRATION_GUIDE.md` Cron fires but agent does not react | PASS |
-| `cortextos bus add-cron / list-crons / remove-cron` | `CRONS_MIGRATION_GUIDE.md` Backward Compat + Troubleshooting | PASS |
+| `siriusos bus add-cron / list-crons / remove-cron` | `CRONS_MIGRATION_GUIDE.md` Backward Compat + Troubleshooting | PASS |
 
 ---
 

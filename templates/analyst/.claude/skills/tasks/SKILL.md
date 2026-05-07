@@ -17,26 +17,26 @@ Every significant piece of work must have a corresponding task. Tasks enable coo
 
 ### 1. Create (BEFORE starting work)
 ```bash
-cortextos bus create-task "<title>" \
+siriusos bus create-task "<title>" \
   --desc "<description>" \
   [--assignee <agent>] [--priority <p>] [--project <name>]
 ```
 
 ### 2. Mark in progress
 ```bash
-cortextos bus update-task <task_id> in_progress
+siriusos bus update-task <task_id> in_progress
 ```
 
 ### 3. Execute the work
 
 ### 4. Complete
 ```bash
-cortextos bus complete-task <task_id> "[output summary]"
+siriusos bus complete-task <task_id> "[output summary]"
 ```
 
 ### 5. Log KPI (if measurable)
 ```bash
-cortextos bus log-event action task_completed info \
+siriusos bus log-event action task_completed info \
   '{"task_id":"ID","kpi_key":"metric_name","value":1}'
 ```
 
@@ -51,11 +51,11 @@ Tasks with `needs_approval: true` create an approval item that must be reviewed 
 
 | Action | Command |
 |--------|---------|
-| Create | `cortextos bus create-task "<title>" --desc "<desc>" [--assignee A] [--priority P] [--project N]` |
-| List | `cortextos bus list-tasks [--status S] [--agent A] [--priority P]` |
-| Update | `cortextos bus update-task <id> <status> [note]` |
-| Complete | `cortextos bus complete-task <id> "[summary]"` |
-| Log event | `cortextos bus log-event <category> <event> <severity> '[json]'` |
+| Create | `siriusos bus create-task "<title>" --desc "<desc>" [--assignee A] [--priority P] [--project N]` |
+| List | `siriusos bus list-tasks [--status S] [--agent A] [--priority P]` |
+| Update | `siriusos bus update-task <id> <status> [note]` |
+| Complete | `siriusos bus complete-task <id> "[summary]"` |
+| Log event | `siriusos bus log-event <category> <event> <severity> '[json]'` |
 
 **Statuses:** pending, in_progress, blocked, completed
 

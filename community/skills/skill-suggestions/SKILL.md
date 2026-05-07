@@ -6,7 +6,7 @@ version: 1
 
 # Skill Suggestions
 
-cortextOS scans an agent's recent activity (events, processed inbox, daily memory, completed tasks) for three pattern types and stores candidates in `state/<agent>/skill-suggestions.json`. Approval generates a DRAFT `SKILL.md` in `state/<agent>/skill-drafts/<id>/` — it is **never** auto-loaded into `.claude/skills/`. Promoting a draft to a real skill is a deliberate human/agent step.
+SiriusOS scans an agent's recent activity (events, processed inbox, daily memory, completed tasks) for three pattern types and stores candidates in `state/<agent>/skill-suggestions.json`. Approval generates a DRAFT `SKILL.md` in `state/<agent>/skill-drafts/<id>/` — it is **never** auto-loaded into `.claude/skills/`. Promoting a draft to a real skill is a deliberate human/agent step.
 
 This is the safety-gated precursor to a future "Skill Workshop" auto-generator. The detector finds candidates; humans (or the agent in collaboration with the human) decide.
 
@@ -24,22 +24,22 @@ Defaults: 7-day window, N=3 occurrences.
 
 ```bash
 # Run detector + merge new candidates into the store
-cortextos bus skill-suggestions detect --agent <name> --org <org>
+siriusos bus skill-suggestions detect --agent <name> --org <org>
 
 # List pending suggestions (human-readable)
-cortextos bus skill-suggestions list --agent <name> --status pending --format text
+siriusos bus skill-suggestions list --agent <name> --status pending --format text
 
 # Inspect one with full evidence
-cortextos bus skill-suggestions show <id> --agent <name> --format text
+siriusos bus skill-suggestions show <id> --agent <name> --format text
 
 # Approve → writes a DRAFT SKILL.md to state/<agent>/skill-drafts/<id>/
-cortextos bus skill-suggestions approve <id> --agent <name>
+siriusos bus skill-suggestions approve <id> --agent <name>
 
 # Reject → suppresses redetection for 30 days
-cortextos bus skill-suggestions reject <id> --agent <name> --reason "..."
+siriusos bus skill-suggestions reject <id> --agent <name> --reason "..."
 
 # Print pending suggestions formatted for a daily notification (also marks them notified)
-cortextos bus skill-suggestions notify --agent <name> --since yesterday --format text
+siriusos bus skill-suggestions notify --agent <name> --since yesterday --format text
 ```
 
 All commands accept `--instance <id>` (defaults to `$CTX_INSTANCE_ID` or `default`), `--agent <name>` (defaults to `$CTX_AGENT_NAME`), `--format json|text` (default json).
@@ -72,8 +72,8 @@ A rejected suggestion that is detected again **after** the 30-day cooldown is re
 The orquestador (or any agent) runs `notify --since yesterday --format text` once a day, then forwards the digest to the human via Telegram:
 
 ```bash
-DIGEST=$(cortextos bus skill-suggestions notify --agent developer --since yesterday --format text)
-cortextos bus send-telegram $CHAT_ID "$DIGEST"
+DIGEST=$(siriusos bus skill-suggestions notify --agent developer --since yesterday --format text)
+siriusos bus send-telegram $CHAT_ID "$DIGEST"
 ```
 
 `notify` marks listed items as `notified` so they are not re-sent the next day.
@@ -84,7 +84,7 @@ When the human approves a candidate, the draft lives in `state/<agent>/skill-dra
 
 1. Edit the draft — replace the placeholder body with concrete instructions, commands, and guardrails.
 2. Move it to `community/skills/<slug>/SKILL.md` (or the agent's framework-specific path) once it is ready.
-3. The agent's next session will pick it up via the regular skill discovery path (`cortextos bus list-skills`).
+3. The agent's next session will pick it up via the regular skill discovery path (`siriusos bus list-skills`).
 
 Drafts are **never** auto-promoted. This is the safety boundary between #2 (Skill Suggestion) and the future #5 (Skill Workshop full auto-generation).
 

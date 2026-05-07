@@ -1,12 +1,12 @@
 ---
 name: browser-automation
-description: Drive a real browser via Playwright through cortextos bus browser. Per-agent persistent context (cookies, localStorage). Use for sites without APIs, login flows, smoke tests, screenshots.
+description: Drive a real browser via Playwright through siriusos bus browser. Per-agent persistent context (cookies, localStorage). Use for sites without APIs, login flows, smoke tests, screenshots.
 version: 1
 ---
 
 # Browser automation
 
-cortextOS exposes browser automation through `cortextos bus browser <action>`. Each agent gets its own persistent browser context (cookies + localStorage + IndexedDB) under `~/.cortextos/<instance>/state/<agent>/browser/`, so login state survives across invocations.
+SiriusOS exposes browser automation through `siriusos bus browser <action>`. Each agent gets its own persistent browser context (cookies + localStorage + IndexedDB) under `~/.siriusos/<instance>/state/<agent>/browser/`, so login state survives across invocations.
 
 **When to use:** scraping sites without APIs, login flows that lack OAuth, smoke-testing your own dashboards, capturing evidence screenshots, automating repetitive form fills.
 
@@ -29,19 +29,19 @@ Each call launches a browser, runs the action, and closes. Cookies/auth persist 
 
 ```bash
 # Open a URL and report title/status (validates connectivity, warms the context)
-cortextos bus browser open https://example.com
+siriusos bus browser open https://example.com
 
 # Click a selector after navigating
-cortextos bus browser click "#submit" --url https://example.com/form
+siriusos bus browser click "#submit" --url https://example.com/form
 
 # Fill an input
-cortextos bus browser fill "#email" "user@example.com" --url https://example.com/login
+siriusos bus browser fill "#email" "user@example.com" --url https://example.com/login
 
 # Extract text from the first matching element
-cortextos bus browser extract "h1" --url https://example.com
+siriusos bus browser extract "h1" --url https://example.com
 
 # Full-page screenshot
-cortextos bus browser screenshot /tmp/page.png --url https://example.com
+siriusos bus browser screenshot /tmp/page.png --url https://example.com
 ```
 
 ## Multi-step scripts (use this for login flows)
@@ -59,14 +59,14 @@ cat > /tmp/login.json <<'EOF'
   {"action": "screenshot", "path": "/tmp/dashboard.png"}
 ]
 EOF
-cortextos bus browser exec --file /tmp/login.json
+siriusos bus browser exec --file /tmp/login.json
 ```
 
 Or pipe a script in:
 
 ```bash
 echo '[{"action":"open","url":"https://example.com"},{"action":"extract","selector":"h1"}]' \
-  | cortextos bus browser exec --from-stdin
+  | siriusos bus browser exec --from-stdin
 ```
 
 After the login script runs once, the session cookie is saved in the agent's context dir. Subsequent single-step calls (`extract`, `screenshot`) navigate as the logged-in user.

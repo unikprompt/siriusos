@@ -56,12 +56,12 @@ When you set up recurring workflows during onboarding, add them as persistent cr
 
 ```bash
 # Example: heartbeat every 6h
-cortextos bus add-cron $CTX_AGENT_NAME heartbeat 6h Read HEARTBEAT.md and follow its instructions.
+siriusos bus add-cron $CTX_AGENT_NAME heartbeat 6h Read HEARTBEAT.md and follow its instructions.
 ```
 
 The daemon reads `${CTX_ROOT}/state/${CTX_AGENT_NAME}/crons.json` on every start and re-schedules all entries. Your crons will fire even after crashes or hard restarts.
 
-Do NOT use `/loop` for persistent scheduling — it is session-only and dies on restart. Use `cortextos bus add-cron` for any workflow that must keep running.
+Do NOT use `/loop` for persistent scheduling — it is session-only and dies on restart. Use `siriusos bus add-cron` for any workflow that must keep running.
 
 For full details, see the `## External Persistent Crons` section in `AGENTS.md`.
 

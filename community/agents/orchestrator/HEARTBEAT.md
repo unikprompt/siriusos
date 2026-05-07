@@ -8,7 +8,7 @@ Skipping steps = broken system. The dashboard monitors your compliance.
 Quick `update-heartbeat` so the dashboard sees you alive while you do the rest of the cycle. The full structured update happens in Step 4.
 
 ```bash
-cortextos bus update-heartbeat "starting heartbeat cycle"
+siriusos bus update-heartbeat "starting heartbeat cycle"
 ```
 
 If this fails, your agent shows as DEAD on the dashboard. Fix it before anything else.
@@ -20,13 +20,13 @@ Messages arrive in real time via the fast-checker daemon — you don't need to p
 Full reference: `.claude/skills/comms/SKILL.md`
 
 ```bash
-cortextos bus check-inbox
+siriusos bus check-inbox
 ```
 
 For any messages returned: process and ACK each one:
 
 ```bash
-cortextos bus ack-inbox "<message_id>"
+siriusos bus ack-inbox "<message_id>"
 ```
 
 Un-ACK'd messages are re-delivered after 5 minutes. Target: 0 un-ACK'd after this sweep.
@@ -39,13 +39,13 @@ Human tasks reference: `.claude/skills/human-tasks/SKILL.md`
 
 ```bash
 # Check all agent heartbeats
-cortextos bus read-all-heartbeats
+siriusos bus read-all-heartbeats
 
 # Check all pending approvals
-cortextos bus list-approvals --format json 2>/dev/null
+siriusos bus list-approvals --format json 2>/dev/null
 
 # Check stale human tasks
-cortextos bus list-tasks --project human-tasks --status pending 2>/dev/null
+siriusos bus list-tasks --project human-tasks --status pending 2>/dev/null
 ```
 
 For each agent: if heartbeat is older than 5 hours, send an alert to that agent and flag in memory.
@@ -55,8 +55,8 @@ For any [HUMAN] task pending longer than 4 hours: ping the user via Telegram.
 
 ```bash
 # Example: ping user about stale approval or human task
-cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pending approval needs your decision: <title> — check dashboard"
-cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "[HUMAN] task waiting on you: <title> — blocking <agent> on <parent task>"
+siriusos bus send-telegram $CTX_TELEGRAM_CHAT_ID "Pending approval needs your decision: <title> — check dashboard"
+siriusos bus send-telegram $CTX_TELEGRAM_CHAT_ID "[HUMAN] task waiting on you: <title> — blocking <agent> on <parent task>"
 ```
 
 ## Step 3b: Check own task queue + stale task detection
@@ -64,8 +64,8 @@ cortextos bus send-telegram $CTX_TELEGRAM_CHAT_ID "[HUMAN] task waiting on you: 
 Full reference: `.claude/skills/tasks/SKILL.md`
 
 ```bash
-cortextos bus list-tasks --agent $CTX_AGENT_NAME --status pending
-cortextos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
+siriusos bus list-tasks --agent $CTX_AGENT_NAME --status pending
+siriusos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 ```
 
 - If you have pending tasks: pick the highest priority one
@@ -78,10 +78,10 @@ Stale tasks are visible on the dashboard. They make you look broken. Remember th
 
 Single structured call that wraps update-heartbeat + log-event + update-cron-fire + memory append. Each substep runs independently and partial failures are reported in the output (the wrap never silently swallows a failed step).
 
-Full reference: `cortextos bus heartbeat-respond --help`
+Full reference: `siriusos bus heartbeat-respond --help`
 
 ```bash
-cortextos bus heartbeat-respond \
+siriusos bus heartbeat-respond \
   --status ok \
   --inbox-count <N from Step 2> \
   --tasks-count <N from Step 3b> \
@@ -97,9 +97,9 @@ Exit code is 1 if any substep (heartbeat / event / cron-fire / memory) failed. I
 
 | Substep failed | Re-run |
 |----------------|--------|
-| `heartbeat: FAIL` | `cortextos bus update-heartbeat "<status>"` |
-| `event: FAIL`     | `cortextos bus log-event heartbeat agent_heartbeat info --meta '{...}'` |
-| `cron-fire: FAIL` | `cortextos bus update-cron-fire heartbeat --interval <i>` |
+| `heartbeat: FAIL` | `siriusos bus update-heartbeat "<status>"` |
+| `event: FAIL`     | `siriusos bus log-event heartbeat agent_heartbeat info --meta '{...}'` |
+| `cron-fire: FAIL` | `siriusos bus update-cron-fire heartbeat --interval <i>` |
 | `memory: FAIL`    | manually append to `memory/$(date -u +%Y-%m-%d).md` |
 
 Skipping cron-fire triggers `[SYSTEM] Cron gap detected for "heartbeat"` nudges every 10min — that is why partial-failure visibility matters here.
@@ -126,12 +126,12 @@ Pick your highest priority task and work on it. Tasks should trace back to your 
 
 When starting:
 ```bash
-cortextos bus update-task "<task_id>" in_progress
+siriusos bus update-task "<task_id>" in_progress
 ```
 
 When done:
 ```bash
-cortextos bus complete-task "<task_id>" --result "<summary of what was produced>"
+siriusos bus complete-task "<task_id>" --result "<summary of what was produced>"
 ```
 
 ## Step 7: Guardrail self-check
@@ -142,7 +142,7 @@ Ask yourself: did I skip any procedures this cycle? Did I rationalize not doing 
 
 If yes, log it:
 ```bash
-cortextos bus log-event action guardrail_triggered info --meta '{"guardrail":"<which one>","context":"<what happened>"}'
+siriusos bus log-event action guardrail_triggered info --meta '{"guardrail":"<which one>","context":"<what happened>"}'
 ```
 
 If you discovered a new pattern that should be a guardrail, add it to GUARDRAILS.md now.
@@ -164,7 +164,7 @@ Full reference: `.claude/skills/knowledge-base/SKILL.md`
 Keep your memory collection searchable and current:
 
 ```bash
-cortextos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
+siriusos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
   --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private --force
 ```
 

@@ -1,6 +1,6 @@
 # Agent Migration Skill
 
-> Port any existing agent workspace — cortextOS legacy, custom Claude setup, or any other agent system — into a cortextOS v2 agent. This skill is for the orchestrator. Run it when the user wants to bring an existing agent into the system.
+> Port any existing agent workspace — SiriusOS legacy, custom Claude setup, or any other agent system — into a SiriusOS v2 agent. This skill is for the orchestrator. Run it when the user wants to bring an existing agent into the system.
 
 ---
 
@@ -51,7 +51,7 @@ Tell the user what you found in each category and ask for confirmation before pr
 
 ```bash
 cd "$CTX_FRAMEWORK_ROOT"
-cortextos add-agent <new_name> --template agent --org $CTX_ORG
+siriusos add-agent <new_name> --template agent --org $CTX_ORG
 ```
 
 Get a Telegram bot token from the user (they must create via @BotFather). Get chat ID via getUpdates after user sends /start + any message.
@@ -186,7 +186,7 @@ cat > "$CTX_FRAMEWORK_ROOT/orgs/$CTX_ORG/agents/<new_name>/goals.json" << EOF
   "updated_by": "$CTX_AGENT_NAME"
 }
 EOF
-cortextos goals generate-md --agent <new_name> --org $CTX_ORG
+siriusos goals generate-md --agent <new_name> --org $CTX_ORG
 ```
 
 ### SOUL.md
@@ -211,11 +211,11 @@ After all files are copied:
 cd "$CTX_FRAMEWORK_ROOT/orgs/$CTX_ORG/agents/<new_name>"
 
 # Shared org knowledge (meetings, research, docs)
-cortextos bus kb-ingest ./meetings --org $CTX_ORG --scope shared
-cortextos bus kb-ingest ./docs --org $CTX_ORG --scope shared
+siriusos bus kb-ingest ./meetings --org $CTX_ORG --scope shared
+siriusos bus kb-ingest ./docs --org $CTX_ORG --scope shared
 
 # Private agent knowledge (CRM, personal memory)
-cortextos bus kb-ingest ./MEMORY.md ./crm/contacts.json \
+siriusos bus kb-ingest ./MEMORY.md ./crm/contacts.json \
   --org $CTX_ORG --agent <new_name> --scope private
 ```
 
@@ -224,14 +224,14 @@ cortextos bus kb-ingest ./MEMORY.md ./crm/contacts.json \
 ## Phase 7: Boot + Onboarding
 
 ```bash
-cd "$CTX_FRAMEWORK_ROOT" && cortextos start <new_name>
+cd "$CTX_FRAMEWORK_ROOT" && siriusos start <new_name>
 ```
 
 Send a workspace orientation message via the bus. This is the first message the agent will receive. It must instruct the agent to read the entire migrated workspace before doing anything else — including before contacting the user — and then run a migration-aware onboarding:
 
 ```bash
-cortextos bus send-message <new_name> normal \
-  'You have been migrated from a legacy agent workspace into cortextOS v2. Before doing anything else — before messaging the user, before setting up crons, before running onboarding — read your entire workspace:
+siriusos bus send-message <new_name> normal \
+  'You have been migrated from a legacy agent workspace into SiriusOS v2. Before doing anything else — before messaging the user, before setting up crons, before running onboarding — read your entire workspace:
 
 1. Bootstrap files: IDENTITY.md, SOUL.md, MEMORY.md, USER.md, GUARDRAILS.md, GOALS.md, HEARTBEAT.md
 2. All files in .claude/skills/ — understand what each skill does
@@ -240,13 +240,13 @@ cortextos bus send-message <new_name> normal \
 
 Once you have read everything, send the user a Telegram message confirming what you found: your role, what skills you have, what docs are loaded, and any gaps or missing credentials you noticed.
 
-Then proceed with cortextOS onboarding (/onboarding), but treat it as a migration-aware onboarding: skip or fast-track any steps that are already handled by the pre-loaded files (identity, role, voice, goals). Focus onboarding on: tool access verification, API key setup, cron confirmation, and any gaps specific to your domain.'
+Then proceed with SiriusOS onboarding (/onboarding), but treat it as a migration-aware onboarding: skip or fast-track any steps that are already handled by the pre-loaded files (identity, role, voice, goals). Focus onboarding on: tool access verification, API key setup, cron confirmation, and any gaps specific to your domain.'
 ```
 
 Log the dispatch:
 
 ```bash
-cortextos bus log-event action task_dispatched info \
+siriusos bus log-event action task_dispatched info \
   --meta '{"to":"<new_name>","task":"workspace orientation + migration-aware onboarding"}'
 ```
 
@@ -276,13 +276,13 @@ Update SYSTEM.md team roster:
 | config.json crons | Selectively | Port user-defined schedules, update paths |
 | .env (tokens/secrets) | Never | Source fresh from user |
 | Daily memory files | No | These are session logs — discard |
-| Old bus script references | Never | Update all paths to v2 cortextos bus commands |
+| Old bus script references | Never | Update all paths to v2 siriusos bus commands |
 
 ---
 
 ## Notes
 
 - Always present the audit to the user before executing — confirm what to include/exclude
-- If the source uses old bash bus scripts (`bus/send-message.sh`, etc.), translate all commands to `cortextos bus <command>` equivalents
+- If the source uses old bash bus scripts (`bus/send-message.sh`, etc.), translate all commands to `siriusos bus <command>` equivalents
 - If the source workspace has custom tools or MCP configs, check with user whether to port them
 - The permission-prompt issue (agent getting stuck at file edit approval dialog) is fixed in v2 via pre-approved .claude settings — verify the new agent's .claude/settings.json allows edits
