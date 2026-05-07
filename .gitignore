@@ -56,3 +56,7 @@ BRAINDUMP*.md
 AGENTS.md
 dashboard/screenshots/
 dashboard/test-*.py
+
+# Daily memory snapshots written by agents — operational, NEVER public.
+# templates/*/MEMORY.md is intentionally tracked (it's a placeholder).
+/memory/
