@@ -106,14 +106,26 @@ export class FastChecker {
     await this.waitForBootstrap();
     this.log('Bootstrap complete. Beginning poll loop.');
 
-    // Idle-session heartbeat watchdog: fires every 50 min regardless of REPL state
+    // Idle-session heartbeat watchdog: fires every 50 min regardless of REPL state.
+    //
+    // The child `siriusos bus update-heartbeat` resolves the agent name from
+    // CTX_AGENT_NAME if present, otherwise falls back to basename(cwd). The
+    // daemon's cwd is the framework repo root ("cortextos"), so without an
+    // explicit override the heartbeat would write to state/cortextos/heartbeat.json
+    // with agent="cortextos" — confusing the dashboard. Set CTX_AGENT_NAME on
+    // the child env so the heartbeat lands in the right state dir.
     const HEARTBEAT_INTERVAL_MS = 50 * 60 * 1000;
     const agentName = this.agent.name;
     this.heartbeatTimer = setInterval(() => {
       const ts = new Date().toISOString();
-      execFile('siriusos', ['bus', 'update-heartbeat', `[watchdog] ${agentName} alive — idle session ${ts}`], (err) => {
-        if (err) this.log(`Heartbeat watchdog error: ${err.message}`);
-      });
+      execFile(
+        'siriusos',
+        ['bus', 'update-heartbeat', `[watchdog] ${agentName} alive — idle session ${ts}`],
+        { env: { ...process.env, CTX_AGENT_NAME: agentName } },
+        (err) => {
+          if (err) this.log(`Heartbeat watchdog error: ${err.message}`);
+        },
+      );
     }, HEARTBEAT_INTERVAL_MS);
 
     while (this.running) {
