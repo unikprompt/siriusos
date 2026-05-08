@@ -167,6 +167,14 @@ export function classifyRiskLevel(surface: string): ExperimentRiskLevel {
 
 /**
  * Create a new experiment proposal.
+ *
+ * Fields with no explicit option fall back to the matching cycle in
+ * `experiments/config.json` (same metric + same agent) before using the
+ * static default. The autoresearch skill registers its measurement method,
+ * direction, window, and surface once in the cycle config; with the cycle
+ * fallback, repeat experiments on that metric stop losing the measurement
+ * description because the agent forgot to pass --measurement.
+ * Explicit options always win over the cycle so ad-hoc overrides still work.
  */
 export function createExperiment(
   agentDir: string,
@@ -179,7 +187,8 @@ export function createExperiment(
   const rand = randomString(5);
   const id = `exp_${epoch}_${rand}`;
 
-  const surface = options?.surface || '';
+  const cycleDefaults = findCycleDefaults(agentDir, agentName, metric);
+  const surface = options?.surface ?? cycleDefaults.surface ?? '';
   const riskLevel: ExperimentRiskLevel = options?.risk_level ?? classifyRiskLevel(surface);
 
   const experiment: Experiment = {
@@ -188,9 +197,9 @@ export function createExperiment(
     metric,
     hypothesis,
     surface,
-    direction: options?.direction || 'higher',
-    window: options?.window || '24h',
-    measurement: options?.measurement || '',
+    direction: options?.direction ?? cycleDefaults.direction ?? 'higher',
+    window: options?.window ?? cycleDefaults.window ?? '24h',
+    measurement: options?.measurement ?? cycleDefaults.measurement ?? '',
     status: 'proposed',
     baseline_value: 0,
     result_value: null,
@@ -225,6 +234,35 @@ export function setExperimentApprovalId(
   const experiment = loadExperiment(agentDir, experimentId);
   experiment.approval_id = approvalId;
   saveExperiment(agentDir, experiment);
+}
+
+/**
+ * Look up cycle-level defaults for a new experiment on the given metric.
+ * Matches a cycle by metric + agent. Returns an empty object if no cycle
+ * is configured — createExperiment then falls through to its static
+ * defaults. Best-effort: any config-read error returns empty so the
+ * experiment create path never breaks on malformed config.
+ */
+function findCycleDefaults(
+  agentDir: string,
+  agentName: string,
+  metric: string,
+): Partial<Pick<ExperimentCreateOptions, 'surface' | 'direction' | 'window' | 'measurement'>> {
+  try {
+    const config = loadConfig(agentDir);
+    const cycle = config.cycles?.find(
+      (c) => c.metric === metric && c.agent === agentName,
+    );
+    if (!cycle) return {};
+    return {
+      surface: cycle.surface || undefined,
+      direction: cycle.direction || undefined,
+      window: cycle.window || undefined,
+      measurement: cycle.measurement || undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 /**
