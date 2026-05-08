@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { IconHistory } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { TimeAgo } from '@/components/shared/time-ago';
+import { useT } from '@/lib/i18n';
 
 interface GoalHistoryProps {
   events: Array<{ timestamp: string; change: string }>;
@@ -12,6 +13,7 @@ interface GoalHistoryProps {
 const PAGE_SIZE = 20;
 
 export function GoalHistory({ events }: GoalHistoryProps) {
+  const t = useT();
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? events : events.slice(0, PAGE_SIZE);
 
@@ -23,7 +25,7 @@ export function GoalHistory({ events }: GoalHistoryProps) {
     <div className="space-y-3">
       <h2 className="text-lg font-semibold flex items-center gap-2">
         <IconHistory className="h-5 w-5 text-muted-foreground" />
-        Goal History
+        {t.pages.strategy.goalHistory.title}
       </h2>
 
       <div className="relative pl-6">
@@ -57,7 +59,7 @@ export function GoalHistory({ events }: GoalHistoryProps) {
           onClick={() => setShowAll(true)}
           className="text-muted-foreground"
         >
-          Show {events.length - PAGE_SIZE} more
+          {t.pages.strategy.goalHistory.showMore.replace('{count}', String(events.length - PAGE_SIZE))}
         </Button>
       )}
     </div>

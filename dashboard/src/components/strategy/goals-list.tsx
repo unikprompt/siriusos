@@ -26,6 +26,7 @@ import {
   deleteGoal,
   reorderGoals,
 } from '@/lib/actions/goals';
+import { useT } from '@/lib/i18n';
 import type { Goal } from '@/lib/types';
 
 interface GoalsListProps {
@@ -35,6 +36,7 @@ interface GoalsListProps {
 }
 
 export function GoalsList({ goals: initialGoals, org, onRefresh }: GoalsListProps) {
+  const t = useT();
   const [goals, setGoals] = useState<Goal[]>(
     [...initialGoals].sort((a, b) => a.order - b.order),
   );
@@ -114,10 +116,10 @@ export function GoalsList({ goals: initialGoals, org, onRefresh }: GoalsListProp
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Goals</h2>
+        <h2 className="text-lg font-semibold">{t.pages.strategy.goals.title}</h2>
         {isSaving && (
           <span className="text-xs text-muted-foreground animate-pulse">
-            Saving...
+            {t.pages.strategy.goals.saving}
           </span>
         )}
       </div>
@@ -125,14 +127,14 @@ export function GoalsList({ goals: initialGoals, org, onRefresh }: GoalsListProp
       {goals.length === 0 && !isAdding ? (
         <div className="rounded-xl border border-dashed border-foreground/10 p-8 text-center">
           <IconTarget className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3" />
-          <p className="text-muted-foreground mb-3">No goals yet</p>
+          <p className="text-muted-foreground mb-3">{t.pages.strategy.goals.empty}</p>
           <Button
             onClick={() => setIsAdding(true)}
             variant="outline"
             className="border-warning/30 text-warning hover:bg-warning/15"
           >
             <IconPlus className="h-4 w-4 mr-1.5" />
-            Add your first goal
+            {t.pages.strategy.goals.addFirst}
           </Button>
         </div>
       ) : (
@@ -165,7 +167,7 @@ export function GoalsList({ goals: initialGoals, org, onRefresh }: GoalsListProp
               <Input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="New goal title"
+                placeholder={t.pages.strategy.goals.addPlaceholder}
                 className="text-sm"
                 maxLength={200}
                 autoFocus
@@ -183,7 +185,7 @@ export function GoalsList({ goals: initialGoals, org, onRefresh }: GoalsListProp
                   onClick={handleAdd}
                   disabled={isSaving || newTitle.trim().length === 0}
                 >
-                  Add Goal
+                  {t.pages.strategy.goals.addSubmit}
                 </Button>
                 <Button
                   size="sm"
@@ -193,7 +195,7 @@ export function GoalsList({ goals: initialGoals, org, onRefresh }: GoalsListProp
                     setNewTitle('');
                   }}
                 >
-                  Cancel
+                  {t.pages.strategy.goals.addCancel}
                 </Button>
               </div>
             </div>
@@ -205,7 +207,7 @@ export function GoalsList({ goals: initialGoals, org, onRefresh }: GoalsListProp
               className="border-warning/30 text-warning hover:bg-warning/15"
             >
               <IconPlus className="h-3.5 w-3.5 mr-1.5" />
-              Add Goal
+              {t.pages.strategy.goals.addInline}
             </Button>
           )}
         </>

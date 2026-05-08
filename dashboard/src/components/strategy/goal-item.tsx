@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress, ProgressTrack, ProgressIndicator } from '@/components/ui/progress';
+import { useT } from '@/lib/i18n';
 import type { Goal } from '@/lib/types';
 
 interface GoalItemProps {
@@ -22,6 +23,7 @@ interface GoalItemProps {
 }
 
 export function GoalItem({ goal, onUpdate, onDelete }: GoalItemProps) {
+  const t = useT();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(goal.title);
   const [editProgress, setEditProgress] = useState(goal.progress);
@@ -79,7 +81,7 @@ export function GoalItem({ goal, onUpdate, onDelete }: GoalItemProps) {
         <Input
           value={editTitle}
           onChange={(e) => setEditTitle(e.target.value)}
-          placeholder="Goal title"
+          placeholder={t.pages.strategy.goalItem.editPlaceholder}
           className="text-sm"
           maxLength={200}
           autoFocus
@@ -104,11 +106,11 @@ export function GoalItem({ goal, onUpdate, onDelete }: GoalItemProps) {
         <div className="flex gap-2">
           <Button size="sm" onClick={handleSave} variant="default">
             <IconCheck className="h-3.5 w-3.5 mr-1" />
-            Save
+            {t.pages.strategy.goalItem.save}
           </Button>
           <Button size="sm" onClick={handleCancel} variant="outline">
             <IconX className="h-3.5 w-3.5 mr-1" />
-            Cancel
+            {t.pages.strategy.goalItem.cancel}
           </Button>
         </div>
       </div>
@@ -128,7 +130,7 @@ export function GoalItem({ goal, onUpdate, onDelete }: GoalItemProps) {
         {...attributes}
         {...listeners}
         className="shrink-0 cursor-grab text-muted-foreground/40 hover:text-muted-foreground active:cursor-grabbing"
-        aria-label="Drag to reorder"
+        aria-label={t.pages.strategy.goalItem.dragToReorder}
       >
         <IconGripVertical className="h-4 w-4" />
       </button>
@@ -168,7 +170,7 @@ export function GoalItem({ goal, onUpdate, onDelete }: GoalItemProps) {
           <IconTrash className="h-3.5 w-3.5" />
         </Button>
         {confirmDelete && (
-          <span className="text-xs text-destructive animate-pulse">Click again</span>
+          <span className="text-xs text-destructive animate-pulse">{t.pages.strategy.goalItem.clickAgain}</span>
         )}
       </div>
     </div>

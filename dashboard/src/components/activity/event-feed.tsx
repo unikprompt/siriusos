@@ -10,9 +10,11 @@ import {
   IconActivity,
 } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
+import { es as dfnsEs, enUS as dfnsEn } from 'date-fns/locale';
 import { AgentAvatar } from '@/components/shared/agent-avatar';
 import { EmptyState } from '@/components/shared/empty-state';
 import { useSSE } from '@/hooks/use-sse';
+import { useT, useLocale } from '@/lib/i18n';
 import type { Event, SSEEvent, EventType } from '@/lib/types';
 
 // -- Icon mapping (color by event type, matches LiveActivity card) --
@@ -33,11 +35,11 @@ const severityBg: Record<string, string> = {
   error: 'bg-destructive/8 ring-1 ring-destructive/15',
 };
 
-function formatEventTime(timestamp: string): string {
+function formatEventTime(timestamp: string, dfnsLocale: typeof dfnsEs | typeof dfnsEn): string {
   try {
-    return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: dfnsLocale });
   } catch {
-    return 'unknown';
+    return '—';
   }
 }
 
@@ -59,6 +61,9 @@ interface EventFeedProps {
 // -- Component --
 
 export function EventFeed({ initialEvents, filters }: EventFeedProps) {
+  const t = useT();
+  const { locale } = useLocale();
+  const dfnsLocale = locale === 'es' ? dfnsEs : dfnsEn;
   const [allEvents, setAllEvents] = useState<Event[]>(initialEvents);
 
   // SSE for live updates
@@ -132,10 +137,10 @@ export function EventFeed({ initialEvents, filters }: EventFeedProps) {
           }`}
         />
         <span className="font-mono text-[10.5px] uppercase tracking-[0.14em] text-muted-foreground">
-          {isConnected ? 'Live' : 'Reconnecting...'}
+          {isConnected ? t.pages.activity.live : t.pages.activity.reconnecting}
         </span>
         <span className="ml-auto font-mono text-[10.5px] tabular-nums text-muted-foreground">
-          {displayEvents.length} events
+          {t.pages.activity.eventsCount.replace('{count}', String(displayEvents.length))}
         </span>
       </div>
 
@@ -143,8 +148,8 @@ export function EventFeed({ initialEvents, filters }: EventFeedProps) {
       {displayEvents.length === 0 ? (
         <EmptyState
           kind="silence"
-          title="No events match"
-          description="Adjust the filters above or wait for new activity. The connected stream will pick up new events as soon as they arrive."
+          title={t.pages.activity.empty.title}
+          description={t.pages.activity.empty.description}
         />
       ) : (
         displayEvents.map((event) => (
@@ -156,7 +161,7 @@ export function EventFeed({ initialEvents, filters }: EventFeedProps) {
           >
             {/* Timestamp */}
             <span className="shrink-0 w-[7rem] pt-0.5 font-mono text-[10.5px] tabular-nums text-muted-foreground/80" suppressHydrationWarning>
-              {formatEventTime(event.timestamp)}
+              {formatEventTime(event.timestamp, dfnsLocale)}
             </span>
 
             {/* Agent avatar */}

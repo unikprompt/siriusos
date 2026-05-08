@@ -56,9 +56,19 @@ flowchart TD
 
 ## Inicio rápido
 
-**Requisitos:** Node.js 20+, API key de Claude, PM2, token de bot de Telegram (@BotFather).
+**Requisitos:** Node.js 20+, API key de Claude, token de bot de Telegram (@BotFather).
 
-### Opción A — Setup interactivo (recomendado)
+### Opción A — Instalador en una línea (recomendado)
+
+```bash
+curl -sSL https://siriusos.unikprompt.com/install.sh | bash -s -- --lang es
+```
+
+Verifica Node 20+, instala PM2 y el CLI de SiriusOS, compila y arranca el dashboard, y abre `http://localhost:3013` en tu navegador. Desde ahí un wizard visual te guía idioma, organización, orquestador y Telegram. Cero terminal después de pegar el comando.
+
+Flags: `--lang en|es`, `--port 3013`, `--instance default`, `--version <npm-tag>`.
+
+### Opción B — Wizard interactivo en terminal
 
 ```bash
 npm install -g pm2
@@ -66,9 +76,9 @@ npm install -g siriusos
 siriusos setup --lang es
 ```
 
-El wizard te pregunta el idioma, crea la organización, configura el orquestador, valida Telegram y arranca el daemon. Todos los pasos en español si elegís `es`.
+El wizard de terminal te pregunta el idioma, crea la organización, configura el orquestador, valida Telegram y arranca el daemon. Útil si no querés que el script automático te cambie nada del entorno.
 
-### Opción B — Setup visual desde el dashboard
+### Opción C — Wizard visual desde el dashboard
 
 ```bash
 npm install -g pm2
@@ -78,7 +88,7 @@ siriusos dashboard --build
 
 Abrís `http://localhost:3013`, te logueás con las credenciales que aparecen en `~/.siriusos/default/dashboard.env` y el dashboard te lleva al wizard `/onboarding` automáticamente si no hay organizaciones todavía.
 
-### Opción C — Manual (avanzado)
+### Opción D — Manual (avanzado)
 
 ```bash
 # 1. PM2 global si no lo tenés

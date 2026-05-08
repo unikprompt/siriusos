@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CategoryBadge, OrgBadge, TimeAgo } from '@/components/shared';
 import { FilterBar } from '@/components/shared';
+import { useT } from '@/lib/i18n';
 import type { Approval } from '@/lib/types';
 import type { FilterConfig } from '@/components/shared';
 
@@ -29,24 +30,25 @@ export function ApprovalHistoryList({
   onClearFilters,
   onApprovalClick,
 }: ApprovalHistoryListProps) {
+  const t = useT();
   const filterConfigs: FilterConfig[] = [
     {
       key: 'agent',
-      label: 'Agent',
+      label: t.pages.approvals.historyFilters.agent,
       value: filters.agent,
       onChange: (v) => onFilterChange('agent', v),
       options: [
-        { value: 'all', label: 'All Agents' },
+        { value: 'all', label: t.pages.approvals.historyFilters.allAgents },
         ...agents.map((a) => ({ value: a, label: a })),
       ],
     },
     {
       key: 'category',
-      label: 'Category',
+      label: t.pages.approvals.historyFilters.category,
       value: filters.category,
       onChange: (v) => onFilterChange('category', v),
       options: [
-        { value: 'all', label: 'All Categories' },
+        { value: 'all', label: t.pages.approvals.historyFilters.allCategories },
         ...categories.map((c) => ({ value: c, label: c.charAt(0).toUpperCase() + c.slice(1) })),
       ],
     },
@@ -58,7 +60,7 @@ export function ApprovalHistoryList({
 
       {approvals.length === 0 ? (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          No resolved approvals found
+          {t.pages.approvals.empty.history}
         </p>
       ) : (
         <div className="grid gap-2">
@@ -75,7 +77,7 @@ export function ApprovalHistoryList({
                     <CategoryBadge category={approval.category} />
                     <OrgBadge org={approval.org} />
                     <span className="text-xs text-muted-foreground">
-                      by {approval.agent}
+                      {t.pages.approvals.historyBy} {approval.agent}
                     </span>
                   </div>
                 </div>
@@ -83,7 +85,7 @@ export function ApprovalHistoryList({
                   <Badge
                     variant={approval.status === 'approved' ? 'default' : 'destructive'}
                   >
-                    {approval.status === 'approved' ? 'Approved' : 'Rejected'}
+                    {approval.status === 'approved' ? t.pages.approvals.detail.approved : t.pages.approvals.detail.rejected}
                   </Badge>
                   {approval.resolved_at && (
                     <TimeAgo date={approval.resolved_at} className="text-xs" />

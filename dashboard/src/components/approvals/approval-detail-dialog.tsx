@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { CategoryBadge, OrgBadge, TimeAgo } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
+import { useT } from '@/lib/i18n';
 import type { Approval } from '@/lib/types';
 
 interface ApprovalDetailDialogProps {
@@ -30,6 +31,7 @@ export function ApprovalDetailDialog({
   onOpenChange,
   onResolve,
 }: ApprovalDetailDialogProps) {
+  const t = useT();
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,7 +56,7 @@ export function ApprovalDetailDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{approval.title}</DialogTitle>
-          <DialogDescription>Approval ID: {approval.id}</DialogDescription>
+          <DialogDescription>{t.pages.approvals.detail.idLabel}: {approval.id}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
@@ -66,7 +68,7 @@ export function ApprovalDetailDialog({
               <Badge
                 variant={approval.status === 'approved' ? 'default' : 'destructive'}
               >
-                {approval.status === 'approved' ? 'Approved' : 'Rejected'}
+                {approval.status === 'approved' ? t.pages.approvals.detail.approved : t.pages.approvals.detail.rejected}
               </Badge>
             )}
           </div>
@@ -74,21 +76,21 @@ export function ApprovalDetailDialog({
           {/* Details */}
           <div className="grid grid-cols-2 gap-y-2 text-sm">
             <div>
-              <span className="text-muted-foreground">Requested by</span>
+              <span className="text-muted-foreground">{t.pages.approvals.detail.requestedBy}</span>
               <p className="font-medium">{approval.agent}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Created</span>
+              <span className="text-muted-foreground">{t.pages.approvals.detail.created}</span>
               <div><TimeAgo date={approval.created_at} /></div>
             </div>
             {approval.resolved_at && (
               <>
                 <div>
-                  <span className="text-muted-foreground">Resolved by</span>
-                  <p className="font-medium">{approval.resolved_by ?? '-'}</p>
+                  <span className="text-muted-foreground">{t.pages.approvals.detail.resolvedBy}</span>
+                  <p className="font-medium">{approval.resolved_by ?? '—'}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Resolved at</span>
+                  <span className="text-muted-foreground">{t.pages.approvals.detail.resolvedAt}</span>
                   <div><TimeAgo date={approval.resolved_at} /></div>
                 </div>
               </>
@@ -100,7 +102,7 @@ export function ApprovalDetailDialog({
             <>
               <Separator />
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Context</p>
+                <p className="text-sm text-muted-foreground mb-1">{t.pages.approvals.detail.contextLabel}</p>
                 <p className="text-sm whitespace-pre-wrap">{approval.description}</p>
               </div>
             </>
@@ -111,7 +113,7 @@ export function ApprovalDetailDialog({
             <>
               <Separator />
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Resolution note</p>
+                <p className="text-sm text-muted-foreground mb-1">{t.pages.approvals.detail.resolutionNoteLabel}</p>
                 <p className="text-sm whitespace-pre-wrap">{approval.resolution_note}</p>
               </div>
             </>
@@ -122,10 +124,10 @@ export function ApprovalDetailDialog({
             <>
               <Separator />
               <div className="grid gap-2">
-                <Label htmlFor="approval-note">Note (optional)</Label>
+                <Label htmlFor="approval-note">{t.pages.approvals.detail.noteLabel}</Label>
                 <Textarea
                   id="approval-note"
-                  placeholder="Add a note for your decision..."
+                  placeholder={t.pages.approvals.detail.notePlaceholder}
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   maxLength={1000}
@@ -142,13 +144,13 @@ export function ApprovalDetailDialog({
               disabled={submitting}
               onClick={() => handleResolve('rejected')}
             >
-              Reject
+              {t.pages.approvals.detail.reject}
             </Button>
             <Button
               disabled={submitting}
               onClick={() => handleResolve('approved')}
             >
-              Approve
+              {t.pages.approvals.detail.approve}
             </Button>
           </DialogFooter>
         )}

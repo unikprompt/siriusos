@@ -55,48 +55,59 @@ flowchart TD
 
 ## Quick Start
 
-**Requirements:** Node.js 20+, Claude API key, PM2, Telegram bot token from @BotFather.
+**Requirements:** Node.js 20+, Claude API key, Telegram bot token from @BotFather.
+
+### Option A — One-line installer (recommended)
 
 ```bash
-# 1. Install PM2 globally if you don't have it
-npm install -g pm2
+curl -sSL https://siriusos.unikprompt.com/install.sh | bash
+```
 
-# 2. Install SiriusOS
+Verifies Node 20+, installs PM2 and the SiriusOS CLI, builds and starts the dashboard, then opens `http://localhost:3013`. From there a visual wizard handles language, organization, orchestrator and Telegram setup. No more terminal.
+
+Flags: `--lang en|es`, `--port 3013`, `--instance default`, `--version <npm-tag>`.
+
+### Option B — Visual wizard from the dashboard
+
+```bash
+npm install -g pm2
+npm install -g siriusos
+siriusos dashboard --build
+```
+
+Open `http://localhost:3013`, sign in with the credentials from `~/.siriusos/default/dashboard.env`, and you are routed automatically to `/onboarding` if no organization exists yet.
+
+### Option C — Manual (advanced)
+
+```bash
+npm install -g pm2
 npm install -g siriusos
 
-# 3. Set up state directories and your first organization
 siriusos install
 siriusos init myorg
-
-# 4. Add your first agents
 siriusos add-agent boss --template orchestrator --org myorg
 siriusos add-agent analyst --template analyst --org myorg
 
-# 5. Wire Telegram for each agent
 cat > orgs/myorg/agents/boss/.env <<EOF
 BOT_TOKEN=<your-bot-token>
 CHAT_ID=<your-chat-id>
 ALLOWED_USER=<your-telegram-user-id>
 EOF
 
-# 6. Generate PM2 config and bring the fleet online
 siriusos ecosystem
 pm2 start ecosystem.config.js && pm2 save && pm2 startup
 ```
 
-Your Orchestrator comes online in Telegram and finishes the rest of its own setup there.
+The orchestrator comes online in Telegram and you finish setup from there.
 
-### Open the dashboard
+### Open the dashboard later
 
 ```bash
 siriusos dashboard --build --port 3013
+cat ~/.siriusos/default/dashboard.env  # credentials
 ```
 
-Default credentials are auto-generated on first run; print them with:
-
-```bash
-cat ~/.siriusos/default/dashboard.env
-```
+The ES|EN toggle lives in the navbar and in Settings → Appearance → Language.
 
 ---
 

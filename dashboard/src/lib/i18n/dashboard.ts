@@ -194,6 +194,30 @@ export interface DashboardStrings {
       title: string;
       subtitle: string;
       filters: string;
+      eventTypesLabel: string;
+      eventTypes: {
+        message: string;
+        task: string;
+        approval: string;
+        error: string;
+        milestone: string;
+        heartbeat: string;
+        action: string;
+      };
+      filterAgent: string;
+      filterOrg: string;
+      filterFrom: string;
+      filterTo: string;
+      allAgents: string;
+      allOrgs: string;
+      clear: string;
+      live: string;
+      reconnecting: string;
+      eventsCount: string; // "{count} events"
+      empty: {
+        title: string;
+        description: string;
+      };
     };
     workflows: {
       subtitle: string;
@@ -266,15 +290,71 @@ export interface DashboardStrings {
         humanTitle: string;
         humanDescription: string;
         pending: string;
+        history: string;
       };
       from: string;
       done: string;
+      detail: {
+        idLabel: string;
+        approved: string;
+        rejected: string;
+        requestedBy: string;
+        created: string;
+        resolvedBy: string;
+        resolvedAt: string;
+        contextLabel: string;
+        resolutionNoteLabel: string;
+        noteLabel: string;
+        notePlaceholder: string;
+        approve: string;
+        reject: string;
+      };
+      historyFilters: {
+        agent: string;
+        category: string;
+        allAgents: string;
+        allCategories: string;
+      };
+      historyBy: string;
     };
     analytics: { subtitle: string };
     strategy: {
       subtitle: string;
       noOrgs: string;
       todaysFocus: string;
+      bottleneck: {
+        title: string;
+        placeholder: string;
+        recentChanges: string;
+        saving: string;
+        saved: string;
+        errorSaving: string;
+      };
+      goals: {
+        title: string;
+        saving: string;
+        empty: string;
+        addFirst: string;
+        addInline: string;
+        addPlaceholder: string;
+        addSubmit: string;
+        addCancel: string;
+      };
+      goalHistory: {
+        title: string;
+        showMore: string; // "Show {count} more"
+      };
+      goalItem: {
+        progress: string;
+        editTitle: string;
+        editPlaceholder: string;
+        dragToReorder: string;
+        deleteConfirm: string;
+        clickAgain: string;
+        delete: string;
+        save: string;
+        cancel: string;
+      };
     };
     skills: { subtitle: string };
     experiments: { subtitle: string };
@@ -499,6 +579,30 @@ const en: DashboardStrings = {
       title: 'Activity',
       subtitle: 'Real-time event stream from across the fleet.',
       filters: 'Filters',
+      eventTypesLabel: 'Event Types',
+      eventTypes: {
+        message: 'Message',
+        task: 'Task',
+        approval: 'Approval',
+        error: 'Error',
+        milestone: 'Milestone',
+        heartbeat: 'Heartbeat',
+        action: 'Action',
+      },
+      filterAgent: 'Agent',
+      filterOrg: 'Org',
+      filterFrom: 'From',
+      filterTo: 'To',
+      allAgents: 'All agents',
+      allOrgs: 'All orgs',
+      clear: 'Clear',
+      live: 'Live',
+      reconnecting: 'Reconnecting…',
+      eventsCount: '{count} events',
+      empty: {
+        title: 'No events match',
+        description: 'Adjust the filters above or wait for new activity. The connected stream will pick up new events as soon as they arrive.',
+      },
     },
     workflows: {
       subtitle: 'Scheduled crons across all agents.',
@@ -571,15 +675,71 @@ const en: DashboardStrings = {
         humanTitle: 'Inbox clear',
         humanDescription: 'No tasks assigned to you right now. Your agents will route here when they need a decision.',
         pending: 'No pending approvals — you are all caught up.',
+        history: 'No resolved approvals found',
       },
       from: 'from',
       done: 'Done',
+      detail: {
+        idLabel: 'Approval ID',
+        approved: 'Approved',
+        rejected: 'Rejected',
+        requestedBy: 'Requested by',
+        created: 'Created',
+        resolvedBy: 'Resolved by',
+        resolvedAt: 'Resolved at',
+        contextLabel: 'Context',
+        resolutionNoteLabel: 'Resolution note',
+        noteLabel: 'Note (optional)',
+        notePlaceholder: 'Add a note for your decision…',
+        approve: 'Approve',
+        reject: 'Reject',
+      },
+      historyFilters: {
+        agent: 'Agent',
+        category: 'Category',
+        allAgents: 'All Agents',
+        allCategories: 'All Categories',
+      },
+      historyBy: 'by',
     },
     analytics: { subtitle: 'Performance metrics and cost tracking.' },
     strategy: {
       subtitle: 'Goals, milestones and bottlenecks.',
       noOrgs: 'No organizations found. Create an org to get started.',
       todaysFocus: "Today's Focus",
+      bottleneck: {
+        title: 'Current Bottleneck',
+        placeholder: 'What is the current bottleneck for your team?',
+        recentChanges: 'Recent Changes',
+        saving: 'Saving…',
+        saved: 'Saved',
+        errorSaving: 'Error saving',
+      },
+      goals: {
+        title: 'Goals',
+        saving: 'Saving…',
+        empty: 'No goals yet',
+        addFirst: 'Add your first goal',
+        addInline: 'Add Goal',
+        addPlaceholder: 'New goal title',
+        addSubmit: 'Add Goal',
+        addCancel: 'Cancel',
+      },
+      goalHistory: {
+        title: 'Goal History',
+        showMore: 'Show {count} more',
+      },
+      goalItem: {
+        progress: 'Progress',
+        editTitle: 'Edit goal',
+        editPlaceholder: 'Goal title',
+        dragToReorder: 'Drag to reorder',
+        deleteConfirm: 'Delete this goal? This cannot be undone.',
+        clickAgain: 'Click again',
+        delete: 'Delete',
+        save: 'Save',
+        cancel: 'Cancel',
+      },
     },
     skills: { subtitle: 'Browse and install skills from the catalog to your agents.' },
     experiments: { subtitle: 'Track ongoing experiments across agents.' },
@@ -804,6 +964,30 @@ const es: DashboardStrings = {
       title: 'Actividad',
       subtitle: 'Stream de eventos en tiempo real de toda la flota.',
       filters: 'Filtros',
+      eventTypesLabel: 'Tipos de evento',
+      eventTypes: {
+        message: 'Mensaje',
+        task: 'Tarea',
+        approval: 'Aprobación',
+        error: 'Error',
+        milestone: 'Hito',
+        heartbeat: 'Heartbeat',
+        action: 'Acción',
+      },
+      filterAgent: 'Agente',
+      filterOrg: 'Org',
+      filterFrom: 'Desde',
+      filterTo: 'Hasta',
+      allAgents: 'Todos los agentes',
+      allOrgs: 'Todas las orgs',
+      clear: 'Limpiar',
+      live: 'En vivo',
+      reconnecting: 'Reconectando…',
+      eventsCount: '{count} eventos',
+      empty: {
+        title: 'No hay eventos que coincidan',
+        description: 'Ajustá los filtros o esperá nueva actividad. El stream conectado va a recoger eventos nuevos en cuanto lleguen.',
+      },
     },
     workflows: {
       subtitle: 'Crons programados de toda la flota.',
@@ -876,15 +1060,71 @@ const es: DashboardStrings = {
         humanTitle: 'Inbox limpio',
         humanDescription: 'No tenés tareas asignadas ahora mismo. Tus agentes te rutean acá cuando necesitan una decisión.',
         pending: 'No hay aprobaciones pendientes — estás al día.',
+        history: 'No se encontraron aprobaciones resueltas',
       },
       from: 'de',
       done: 'Listo',
+      detail: {
+        idLabel: 'ID de la aprobación',
+        approved: 'Aprobada',
+        rejected: 'Rechazada',
+        requestedBy: 'Solicitado por',
+        created: 'Creada',
+        resolvedBy: 'Resuelta por',
+        resolvedAt: 'Resuelta',
+        contextLabel: 'Contexto',
+        resolutionNoteLabel: 'Nota de resolución',
+        noteLabel: 'Nota (opcional)',
+        notePlaceholder: 'Agregá una nota para tu decisión…',
+        approve: 'Aprobar',
+        reject: 'Rechazar',
+      },
+      historyFilters: {
+        agent: 'Agente',
+        category: 'Categoría',
+        allAgents: 'Todos los agentes',
+        allCategories: 'Todas las categorías',
+      },
+      historyBy: 'por',
     },
     analytics: { subtitle: 'Métricas de performance y seguimiento de costos.' },
     strategy: {
       subtitle: 'Objetivos, hitos y cuellos de botella.',
       noOrgs: 'No hay organizaciones. Creá una para empezar.',
       todaysFocus: 'Foco del día',
+      bottleneck: {
+        title: 'Cuello de botella actual',
+        placeholder: '¿Cuál es el cuello de botella actual del equipo?',
+        recentChanges: 'Cambios recientes',
+        saving: 'Guardando…',
+        saved: 'Guardado',
+        errorSaving: 'Error al guardar',
+      },
+      goals: {
+        title: 'Objetivos',
+        saving: 'Guardando…',
+        empty: 'Aún no hay objetivos',
+        addFirst: 'Agregá tu primer objetivo',
+        addInline: 'Agregar objetivo',
+        addPlaceholder: 'Nuevo objetivo',
+        addSubmit: 'Agregar',
+        addCancel: 'Cancelar',
+      },
+      goalHistory: {
+        title: 'Historial de objetivos',
+        showMore: 'Ver {count} más',
+      },
+      goalItem: {
+        progress: 'Progreso',
+        editTitle: 'Editar objetivo',
+        editPlaceholder: 'Título del objetivo',
+        dragToReorder: 'Arrastrar para reordenar',
+        deleteConfirm: '¿Eliminar este objetivo? No se puede deshacer.',
+        clickAgain: 'Hacé clic de nuevo',
+        delete: 'Eliminar',
+        save: 'Guardar',
+        cancel: 'Cancelar',
+      },
     },
     skills: { subtitle: 'Explorá e instalá skills del catálogo en tus agentes.' },
     experiments: { subtitle: 'Seguimiento de experimentos en curso entre agentes.' },

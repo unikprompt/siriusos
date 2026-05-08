@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { updateBottleneck } from '@/lib/actions/goals';
 import { TimeAgo } from '@/components/shared/time-ago';
+import { useT } from '@/lib/i18n';
 
 interface BottleneckSectionProps {
   bottleneck: string;
@@ -16,6 +17,7 @@ export function BottleneckSection({
   org,
   history,
 }: BottleneckSectionProps) {
+  const t = useT();
   const [value, setValue] = useState(initialBottleneck);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -52,20 +54,20 @@ export function BottleneckSection({
       <div className="rounded-xl border-2 border-warning/40 bg-warning/8 p-6">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-warning">
-            Current Bottleneck
+            {t.pages.strategy.bottleneck.title}
           </h2>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-muted-foreground tabular-nums">
               {charCount}/{charLimit}
             </span>
             {saveStatus === 'saving' && (
-              <span className="text-warning animate-pulse">Saving...</span>
+              <span className="text-warning animate-pulse">{t.pages.strategy.bottleneck.saving}</span>
             )}
             {saveStatus === 'saved' && (
-              <span className="text-success">Saved</span>
+              <span className="text-success">{t.pages.strategy.bottleneck.saved}</span>
             )}
             {saveStatus === 'error' && (
-              <span className="text-destructive">Error saving</span>
+              <span className="text-destructive">{t.pages.strategy.bottleneck.errorSaving}</span>
             )}
           </div>
         </div>
@@ -73,7 +75,7 @@ export function BottleneckSection({
           value={value}
           onChange={(e) => setValue(e.target.value.slice(0, charLimit))}
           onBlur={handleSave}
-          placeholder="What is the current bottleneck for your team?"
+          placeholder={t.pages.strategy.bottleneck.placeholder}
           className="min-h-24 text-lg border-warning/30 bg-transparent focus-visible:border-warning/50 focus-visible:ring-warning/20 resize-none"
         />
       </div>
@@ -82,7 +84,7 @@ export function BottleneckSection({
       {history.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium text-muted-foreground">
-            Recent Changes
+            {t.pages.strategy.bottleneck.recentChanges}
           </h3>
           <div className="space-y-1">
             {history.slice(0, 5).map((entry, i) => (

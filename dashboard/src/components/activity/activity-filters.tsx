@@ -12,17 +12,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { IconX } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 import type { EventType } from '@/lib/types';
 import type { EventFeedFilters } from './event-feed';
 
-const EVENT_TYPES: { value: EventType; label: string }[] = [
-  { value: 'message', label: 'Message' },
-  { value: 'task', label: 'Task' },
-  { value: 'approval', label: 'Approval' },
-  { value: 'error', label: 'Error' },
-  { value: 'milestone', label: 'Milestone' },
-  { value: 'heartbeat', label: 'Heartbeat' },
-  { value: 'action', label: 'Action' },
+const EVENT_TYPE_KEYS: EventType[] = [
+  'message', 'task', 'approval', 'error', 'milestone', 'heartbeat', 'action',
 ];
 
 interface ActivityFiltersProps {
@@ -38,6 +33,7 @@ export function ActivityFilters({
   agents,
   orgs,
 }: ActivityFiltersProps) {
+  const t = useT();
   const toggleType = (type: EventType) => {
     const types = filters.types.includes(type)
       ? filters.types.filter((t) => t !== type)
@@ -67,16 +63,16 @@ export function ActivityFilters({
       {/* Type checkboxes */}
       <div>
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Event Types
+          {t.pages.activity.eventTypesLabel}
         </span>
         <div className="flex flex-wrap gap-3 mt-2">
-          {EVENT_TYPES.map((et) => (
-            <label key={et.value} className="flex items-center gap-1.5 cursor-pointer">
+          {EVENT_TYPE_KEYS.map((key) => (
+            <label key={key} className="flex items-center gap-1.5 cursor-pointer">
               <Checkbox
-                checked={filters.types.includes(et.value)}
-                onCheckedChange={() => toggleType(et.value)}
+                checked={filters.types.includes(key)}
+                onCheckedChange={() => toggleType(key)}
               />
-              <Label className="text-sm cursor-pointer">{et.label}</Label>
+              <Label className="text-sm cursor-pointer">{t.pages.activity.eventTypes[key]}</Label>
             </label>
           ))}
         </div>
@@ -85,7 +81,7 @@ export function ActivityFilters({
       {/* Agent + Org + Date range */}
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <Label className="text-xs text-muted-foreground">Agent</Label>
+          <Label className="text-xs text-muted-foreground">{t.pages.activity.filterAgent}</Label>
           <Select
             value={filters.agent || 'all'}
             onValueChange={(v) =>
@@ -93,10 +89,10 @@ export function ActivityFilters({
             }
           >
             <SelectTrigger size="sm" className="w-[160px]">
-              <SelectValue placeholder="All agents" />
+              <SelectValue placeholder={t.pages.activity.allAgents} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All agents</SelectItem>
+              <SelectItem value="all">{t.pages.activity.allAgents}</SelectItem>
               {agents.map((a) => (
                 <SelectItem key={a} value={a}>
                   {a}
@@ -107,7 +103,7 @@ export function ActivityFilters({
         </div>
 
         <div>
-          <Label className="text-xs text-muted-foreground">Org</Label>
+          <Label className="text-xs text-muted-foreground">{t.pages.activity.filterOrg}</Label>
           <Select
             value={filters.org || 'all'}
             onValueChange={(v) =>
@@ -115,10 +111,10 @@ export function ActivityFilters({
             }
           >
             <SelectTrigger size="sm" className="w-[160px]">
-              <SelectValue placeholder="All orgs" />
+              <SelectValue placeholder={t.pages.activity.allOrgs} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All orgs</SelectItem>
+              <SelectItem value="all">{t.pages.activity.allOrgs}</SelectItem>
               {orgs.map((o) => (
                 <SelectItem key={o} value={o}>
                   {o}
@@ -129,7 +125,7 @@ export function ActivityFilters({
         </div>
 
         <div>
-          <Label className="text-xs text-muted-foreground">From</Label>
+          <Label className="text-xs text-muted-foreground">{t.pages.activity.filterFrom}</Label>
           <Input
             type="date"
             value={filters.from ?? ''}
@@ -144,7 +140,7 @@ export function ActivityFilters({
         </div>
 
         <div>
-          <Label className="text-xs text-muted-foreground">To</Label>
+          <Label className="text-xs text-muted-foreground">{t.pages.activity.filterTo}</Label>
           <Input
             type="date"
             value={filters.to ?? ''}
@@ -166,7 +162,7 @@ export function ActivityFilters({
             className="h-8 gap-1 text-xs text-muted-foreground"
           >
             <IconX className="size-3" />
-            Clear
+            {t.pages.activity.clear}
           </Button>
         )}
       </div>
