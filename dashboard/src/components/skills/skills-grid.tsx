@@ -9,6 +9,7 @@ interface SkillInfo {
   slug: string;
   name: string;
   description: string;
+  source?: 'core' | 'community';
   installed: boolean;
   installedFor: string[];
 }

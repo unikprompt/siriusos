@@ -11,6 +11,7 @@ interface SkillInfo {
   slug: string;
   name: string;
   description: string;
+  source?: 'core' | 'community';
   installed: boolean;
   installedFor: string[];
 }
@@ -70,11 +71,18 @@ export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <CardTitle>{skill.name}</CardTitle>
-          {skill.installed ? (
-            <Badge variant="secondary">{t.pages.skills.installedBadge}</Badge>
-          ) : (
-            <Badge variant="outline">{t.pages.skills.availableBadge}</Badge>
-          )}
+          <div className="flex shrink-0 items-center gap-1.5">
+            {skill.source === 'community' && (
+              <Badge variant="outline" className="border-accent/40 text-accent">
+                community
+              </Badge>
+            )}
+            {skill.installed ? (
+              <Badge variant="secondary">{t.pages.skills.installedBadge}</Badge>
+            ) : (
+              <Badge variant="outline">{t.pages.skills.availableBadge}</Badge>
+            )}
+          </div>
         </div>
         <CardDescription>{skill.description}</CardDescription>
       </CardHeader>
