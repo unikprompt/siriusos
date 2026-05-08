@@ -102,6 +102,9 @@ EOF
 
 siriusos ecosystem
 pm2 start ecosystem.config.js && pm2 save && pm2 startup
+
+# Windows: pm2 startup is unsupported. Use Task Scheduler instead:
+#   powershell -ExecutionPolicy Bypass -File scripts\install-windows-pm2-startup.ps1
 ```
 
 The orchestrator comes online in Telegram and you finish setup from there.
@@ -122,7 +125,7 @@ The ES|EN toggle lives in the navbar and in Settings → Appearance → Language
 | Dependency | Notes |
 |---|---|
 | Node.js 20+ | [nodejs.org](https://nodejs.org) |
-| macOS or Linux | Windows: not yet supported |
+| macOS, Linux, or Windows 10/11 | Windows uses Task Scheduler for reboot persistence — see `scripts/install-windows-pm2-startup.ps1` |
 | Claude Code | `npm install -g @anthropic-ai/claude-code` + `claude login` |
 | PM2 | `npm install -g pm2` |
 | Telegram bot token | Create via @BotFather |
