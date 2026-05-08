@@ -10,11 +10,22 @@
  */
 import { Command } from 'commander';
 import { createInterface, type Interface } from 'readline';
-import { existsSync, writeFileSync, chmodSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { spawnSync } from 'child_process';
-import { TelegramAPI, formatValidateError } from '../telegram/api.js';
+import { formatValidateError } from '../telegram/api.js';
+import {
+  validateAgentName,
+  validateOrgName,
+  writeAgentEnv,
+  fetchChatId as fetchChatIdRaw,
+  validateTelegramCreds,
+  findProjectRoot,
+} from '../services/onboarding.js';
+import { t as tStrings, format as fmt, detectLocale, isLocale, type CliStrings } from './i18n/index.js';
+import type { Locale } from '../types/index.js';
+
+let strings: CliStrings = tStrings('en');
 
 function rl(): Interface {
   return createInterface({ input: process.stdin, output: process.stdout });
@@ -71,36 +82,18 @@ function runCli(cwd: string, args: string[], label: string): boolean {
   return true;
 }
 
-function writeAgentEnv(agentDir: string, botToken: string, chatId: string): void {
-  const envPath = join(agentDir, '.env');
-  const content = `BOT_TOKEN=${botToken}\nCHAT_ID=${chatId}\n`;
-  writeFileSync(envPath, content, 'utf-8');
-  try { chmodSync(envPath, 0o600); } catch { /* ignore on Windows */ }
-}
-
 /**
- * Fetch the most recent chat ID for a bot token via getUpdates.
- * Uses spawnSync with array args — no shell, no injection risk.
- * Returns empty string if the fetch fails or no updates exist.
+ * Wrap the pure service helper so the CLI can echo the detected chat
+ * id (or a "couldn't find one" hint) without leaking that UX into the
+ * dashboard endpoint that consumes the same probe.
  */
 function fetchChatId(botToken: string): string {
-  const script = [
-    `fetch('https://api.telegram.org/bot' + process.argv[1] + '/getUpdates')`,
-    `.then(r => r.json())`,
-    `.then(d => { const m = d.result?.slice(-1)[0]?.message; console.log(m?.chat?.id || ''); })`,
-    `.catch(() => console.log(''))`,
-  ].join('');
-  const result = spawnSync(process.execPath, ['-e', script, botToken], {
-    encoding: 'utf-8',
-    stdio: 'pipe',
-    timeout: 10000,
-  });
-  const id = result.stdout?.trim() ?? '';
-  if (id && /^\d+$/.test(id)) {
-    console.log(`  Chat ID: ${id}`);
+  const id = fetchChatIdRaw(botToken);
+  if (id) {
+    console.log(fmt(strings.telegram.chatIdEcho, { id }));
     return id;
   }
-  console.log('  Could not auto-detect chat ID.');
+  console.log(strings.telegram.chatIdNotFound);
   return '';
 }
 
@@ -124,105 +117,103 @@ async function validateTelegramCredsInteractive(
   let chatId = initialChatId;
   // Allow up to 3 re-entry attempts before giving up.
   for (let attempt = 0; attempt < 3; attempt++) {
-    const api = new TelegramAPI(botToken);
     let result;
     try {
-      result = await api.validateCredentials(chatId);
+      result = await validateTelegramCreds(botToken, chatId);
     } catch (err) {
-      console.log(`  Warning: Telegram validator crashed: ${err instanceof Error ? err.message : String(err)}. Writing .env anyway.`);
+      const reason = err instanceof Error ? err.message : String(err);
+      console.log(fmt(strings.telegram.validationCrashed, { reason }));
       return chatId;
     }
 
     if (result.ok) {
       const titleHint = result.chatTitle ? ` (${result.chatTitle})` : '';
-      console.log(`  Validated ${label}: bot=@${result.botUsername} chat=${chatId} type=${result.chatType}${titleHint}`);
+      console.log(fmt(strings.telegram.validationOk, {
+        label,
+        bot: result.botUsername,
+        chat: chatId,
+        type: result.chatType,
+        titleHint,
+      }));
       return chatId;
     }
 
     if (result.reason === 'network_error' || result.reason === 'rate_limited') {
-      console.log(`  Warning: ${formatValidateError(result)}`);
-      console.log('  Writing .env with unvalidated values. Re-run siriusos enable later to confirm.');
+      console.log(fmt(strings.telegram.validationWarning, { reason: formatValidateError(result) }));
       return chatId;
     }
 
-    console.log(`  Validation failed: ${formatValidateError(result)}`);
+    console.log(fmt(strings.telegram.validationFailed, { reason: formatValidateError(result) }));
 
     if (result.reason === 'bad_token') {
-      // Can't recover from a bad token inside the wizard loop — the user
-      // needs to fix the token at @BotFather and re-run setup. Bail.
-      console.log('  Re-run siriusos setup after fixing the bot token.');
+      console.log(strings.telegram.validationBadTokenAdvice);
       return null;
     }
 
-    const answer = await ask(iface, `  Enter a different chat_id for ${label} (or blank to give up): `);
+    const answer = await ask(iface, fmt(strings.telegram.differentChatIdPrompt, { label }));
     if (!answer) {
-      console.log('  Giving up on validation. No .env will be written for this agent.');
+      console.log(strings.telegram.giveUpNoEnv);
       return null;
     }
     chatId = answer;
   }
-  console.log(`  Too many failed attempts — giving up on ${label}.`);
+  console.log(fmt(strings.telegram.tooManyAttempts, { label }));
   return null;
-}
-
-function validateAgentName(name: string): boolean {
-  return /^[a-z0-9_-]+$/.test(name);
-}
-
-function validateOrgName(name: string): boolean {
-  return /^[a-z0-9_-]+$/.test(name);
-}
-
-function findProjectRoot(): string {
-  // Prefer CTX_FRAMEWORK_ROOT if set (running inside SiriusOS session)
-  if (process.env.CTX_FRAMEWORK_ROOT && existsSync(join(process.env.CTX_FRAMEWORK_ROOT, 'dist', 'cli.js'))) {
-    return process.env.CTX_FRAMEWORK_ROOT;
-  }
-  const cwd = process.cwd();
-  if (existsSync(join(cwd, 'dist', 'cli.js'))) return cwd;
-  // Walk up to find package.json with siriusos name
-  let dir = cwd;
-  for (let i = 0; i < 4; i++) {
-    const pkg = join(dir, 'package.json');
-    if (existsSync(pkg)) {
-      try {
-        const { name } = JSON.parse(require('fs').readFileSync(pkg, 'utf-8'));
-        if (name === 'siriusos' && existsSync(join(dir, 'dist', 'cli.js'))) return dir;
-      } catch { /* ignore */ }
-    }
-    const parent = join(dir, '..');
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return cwd;
 }
 
 export const setupCommand = new Command('setup')
   .option('--instance <id>', 'Instance ID', 'default')
+  .option('--lang <locale>', 'UI language for the wizard (en, es). Defaults to LANG/LC_ALL detection.')
   .description('Interactive first-run setup wizard — install, create org, configure agents, start daemon')
-  .action(async (options: { instance: string }) => {
+  .action(async (options: { instance: string; lang?: string }) => {
     const instanceId = options.instance;
     const projectRoot = findProjectRoot();
     const ctxRoot = join(homedir(), '.siriusos', instanceId);
 
     const iface = rl();
 
-    console.log('\n  Welcome to SiriusOS setup\n');
-    console.log('  This wizard will:');
-    console.log('    1. Check and install dependencies');
-    console.log('    2. Create your organization');
-    console.log('    3. Configure your orchestrator agent');
-    console.log('    4. Optionally add more agents');
-    console.log('    5. Start the system\n');
-    console.log('  Press Ctrl+C at any time to exit.\n');
+    // ─── Step 0: Pick language ───────────────────────────────────────────────
+    // Precedence: --lang flag > LANG/LC_ALL detection > 'en'. The user can
+    // still override interactively. The chosen locale is persisted into the
+    // org context after init succeeds.
+    let locale: Locale = 'en';
+    if (options.lang && isLocale(options.lang)) {
+      locale = options.lang;
+    } else {
+      const detected = detectLocale();
+      if (detected) locale = detected;
+    }
+    if (!options.lang) {
+      // Confirm interactively with whatever we detected as default.
+      const promptDefault = locale;
+      const enStrings = tStrings('en');
+      // Show prompt in both languages so a fresh install isn't gated on guessing.
+      const promptEn = fmt(enStrings.setup.languagePrompt, { default: promptDefault });
+      const answer = (await ask(iface, '\n' + promptEn)).toLowerCase();
+      if (isLocale(answer)) {
+        locale = answer;
+      } else if (answer && answer !== promptDefault) {
+        console.log(enStrings.setup.languageInvalid);
+        // keep the detected default
+      }
+    }
+    strings = tStrings(locale);
+
+    console.log('\n' + strings.setup.welcomeHeading + '\n');
+    console.log(strings.setup.welcomeStep1);
+    console.log(strings.setup.welcomeStep2);
+    console.log(strings.setup.welcomeStep3);
+    console.log(strings.setup.welcomeStep4);
+    console.log(strings.setup.welcomeStep5 + '\n');
+    console.log(strings.setup.welcomeExitHint + '\n');
     console.log('  ─────────────────────────────────────\n');
 
     // ─── Step 1: Install ─────────────────────────────────────────────────────
 
-    console.log('  Step 1: Checking dependencies and creating state directories...\n');
+    console.log(strings.setup.step1Title + '\n');
     const installOk = runCli(projectRoot, ['install', '--instance', instanceId], 'siriusos install');
     if (!installOk) {
-      console.error('\n  Install step failed. Fix the errors above and re-run siriusos setup.');
+      console.error('\n' + strings.setup.step1InstallFailed);
       iface.close();
       process.exit(1);
     }
@@ -230,15 +221,15 @@ export const setupCommand = new Command('setup')
     // ─── Step 2: Org name ────────────────────────────────────────────────────
 
     console.log('\n  ─────────────────────────────────────\n');
-    console.log('  Step 2: Create your organization\n');
-    console.log('  This is the name for your team or project (e.g. "acme", "myco", "demo").');
-    console.log('  Lowercase letters, numbers, hyphens, and underscores only.\n');
+    console.log(strings.setup.step2Title + '\n');
+    console.log(strings.setup.step2OrgIntro);
+    console.log(strings.setup.step2OrgRules + '\n');
 
     let orgName = '';
     while (true) {
-      orgName = await askRequired(iface, '  Organization name: ', 'Organization name cannot be empty.');
+      orgName = await askRequired(iface, strings.setup.step2OrgPrompt, strings.setup.step2OrgEmpty);
       if (!validateOrgName(orgName)) {
-        console.log('  Invalid name. Use lowercase letters, numbers, hyphens, and underscores only.');
+        console.log(strings.setup.step2OrgInvalid);
         continue;
       }
       break;
@@ -246,27 +237,32 @@ export const setupCommand = new Command('setup')
 
     const initOk = runCli(projectRoot, ['init', orgName, '--instance', instanceId], 'siriusos init');
     if (!initOk) {
-      console.error('\n  Org creation failed. Fix the errors above and re-run siriusos setup.');
+      console.error('\n' + strings.setup.step2InitFailed);
       iface.close();
       process.exit(1);
+    }
+
+    // Persist the chosen language into the org context so later commands and
+    // the dashboard pick it up. Best-effort — failure here doesn't abort.
+    try {
+      persistOrgLanguage(projectRoot, orgName, locale);
+    } catch (err) {
+      console.log(`  (Could not persist language preference: ${err instanceof Error ? err.message : String(err)})`);
     }
 
     // ─── Step 3: Orchestrator agent ──────────────────────────────────────────
 
     console.log('\n  ─────────────────────────────────────\n');
-    console.log('  Step 3: Create your orchestrator agent\n');
-    console.log('  The orchestrator coordinates all other agents, routes messages,');
-    console.log('  and sends you morning/evening briefings via Telegram.\n');
-    console.log('  You need a Telegram bot token. Create one via @BotFather on Telegram:');
-    console.log('    1. Open Telegram, search @BotFather');
-    console.log('    2. Send /newbot, follow the prompts');
-    console.log('    3. Copy the token it gives you (looks like 123456789:AAA...)\n');
+    console.log(strings.setup.step3Title + '\n');
+    console.log(strings.setup.step3Intro + '\n');
+    console.log(strings.setup.step3BotFatherIntro);
+    console.log(strings.setup.step3BotFatherSteps + '\n');
 
     let orchName = '';
     while (true) {
-      orchName = await askDefault(iface, '  Orchestrator agent name', 'boss');
+      orchName = await askDefault(iface, strings.setup.step3OrchPrompt, 'boss');
       if (!validateAgentName(orchName)) {
-        console.log('  Invalid name. Use lowercase letters, numbers, hyphens, and underscores only.');
+        console.log(strings.setup.step3InvalidName);
         continue;
       }
       break;
@@ -274,25 +270,21 @@ export const setupCommand = new Command('setup')
 
     const orchToken = await askRequired(
       iface,
-      '  Orchestrator bot token (from @BotFather): ',
-      'Bot token is required.'
+      strings.setup.step3TokenPrompt,
+      strings.setup.step3TokenRequired,
     );
 
-    console.log('\n  Now send a message to your new bot in Telegram (any message).');
-    console.log('  This lets us fetch your chat ID.\n');
-    await ask(iface, '  Press Enter when done...');
+    console.log('\n' + strings.setup.step3SendMessageHint + '\n');
+    await ask(iface, strings.setup.step3PressEnter);
 
     let orchChatId = '';
-    console.log('\n  Fetching your chat ID...');
+    console.log('\n' + strings.setup.step3FetchingChatId);
     orchChatId = fetchChatId(orchToken);
 
     if (!orchChatId) {
-      orchChatId = await askRequired(iface, '  Enter your Telegram chat ID manually: ', 'Chat ID is required.');
+      orchChatId = await askRequired(iface, strings.setup.step3ChatIdPrompt, strings.setup.step3ChatIdRequired);
     }
 
-    // self-chat trap preflight: validate credentials against the live Telegram API
-    // BEFORE writing .env. Catches bad tokens, unreachable chats, bot
-    // recipients, and the self_chat trap (CHAT_ID == bot's own user id).
     const validatedOrchChatId = await validateTelegramCredsInteractive(
       iface,
       orchToken,
@@ -300,85 +292,79 @@ export const setupCommand = new Command('setup')
       `orchestrator ${orchName}`,
     );
     if (!validatedOrchChatId) {
-      console.error('\n  Cannot continue without validated orchestrator credentials.');
+      console.error('\n' + strings.setup.step3ValidationContinueAbort);
       iface.close();
       process.exit(1);
     }
     orchChatId = validatedOrchChatId;
 
-    // Create orchestrator agent
     const addOrchOk = runCli(
       projectRoot,
       ['add-agent', orchName, '--template', 'orchestrator', '--org', orgName, '--instance', instanceId],
       'siriusos add-agent orchestrator'
     );
     if (!addOrchOk) {
-      console.error('\n  Failed to create orchestrator agent.');
+      console.error('\n' + strings.setup.step3AddOrchFailed);
       iface.close();
       process.exit(1);
     }
 
-    // Write .env
     const orchDir = join(projectRoot, 'orgs', orgName, 'agents', orchName);
     writeAgentEnv(orchDir, orchToken, orchChatId);
-    console.log(`  Wrote .env for ${orchName}`);
+    console.log(fmt(strings.setup.step3WroteEnv, { agent: orchName }));
 
-    // Enable orchestrator
     const enableOrchOk = runCli(
       projectRoot,
       ['enable', orchName, '--org', orgName, '--instance', instanceId],
       'siriusos enable orchestrator'
     );
     if (!enableOrchOk) {
-      console.error(`\n  Failed to enable ${orchName}. Check .env and try: siriusos enable ${orchName}`);
+      console.error('\n' + fmt(strings.setup.step3EnableFailed, { agent: orchName }));
     }
 
     // ─── Step 4: Additional agents ───────────────────────────────────────────
 
     console.log('\n  ─────────────────────────────────────\n');
-    console.log('  Step 4: Add more agents (optional)\n');
-    console.log('  Common additions:');
-    console.log('    - analyst: reviews data, generates reports');
-    console.log('    - agent: general-purpose specialist\n');
+    console.log(strings.setup.step4Title + '\n');
+    console.log(strings.setup.step4Intro + '\n');
 
     const addedAgents: string[] = [orchName];
 
     while (true) {
-      const addMore = await askYN(iface, '  Add another agent?', false);
+      const addMore = await askYN(iface, strings.setup.step4AddMore, false);
       if (!addMore) break;
 
       let agentName = '';
       while (true) {
-        agentName = await askRequired(iface, '  Agent name: ', 'Agent name is required.');
+        agentName = await askRequired(iface, strings.setup.step4AgentNamePrompt, strings.setup.step4AgentNameRequired);
         if (!validateAgentName(agentName)) {
-          console.log('  Invalid name. Use lowercase letters, numbers, hyphens, and underscores only.');
+          console.log(strings.setup.step4AgentNameInvalid);
           continue;
         }
         if (addedAgents.includes(agentName)) {
-          console.log(`  Agent "${agentName}" already added.`);
+          console.log(fmt(strings.setup.step4AgentNameDuplicate, { name: agentName }));
           continue;
         }
         break;
       }
 
       const templateChoices = ['orchestrator', 'analyst', 'agent'];
-      let template = await askDefault(iface, `  Template for ${agentName} (orchestrator/analyst/agent)`, 'agent');
+      let template = await askDefault(iface, fmt(strings.setup.step4TemplatePrompt, { name: agentName }), 'agent');
       if (!templateChoices.includes(template)) template = 'agent';
 
-      console.log(`\n  Create a Telegram bot for ${agentName} via @BotFather, then enter its token.\n`);
-      const agentToken = await askRequired(iface, `  Bot token for ${agentName}: `, 'Bot token is required.');
+      console.log('\n' + fmt(strings.setup.step4CreateBotHint, { name: agentName }) + '\n');
+      const agentToken = await askRequired(iface, fmt(strings.setup.step4TokenPrompt, { name: agentName }), strings.setup.step3TokenRequired);
 
-      console.log(`\n  Send a message to the ${agentName} bot in Telegram, then press Enter.`);
-      await ask(iface, '  Press Enter when done...');
+      console.log('\n' + fmt(strings.setup.step4SendMessageHint, { name: agentName }));
+      await ask(iface, strings.setup.step3PressEnter);
 
       let agentChatId = '';
       agentChatId = fetchChatId(agentToken);
 
       if (!agentChatId) {
-        agentChatId = await askRequired(iface, `  Enter chat ID for ${agentName} manually: `, 'Chat ID is required.');
+        agentChatId = await askRequired(iface, fmt(strings.setup.step4ChatIdPrompt, { name: agentName }), strings.setup.step3ChatIdRequired);
       }
 
-      // self-chat trap preflight (see validateTelegramCredsInteractive above).
       const validatedAgentChatId = await validateTelegramCredsInteractive(
         iface,
         agentToken,
@@ -386,7 +372,7 @@ export const setupCommand = new Command('setup')
         `agent ${agentName}`,
       );
       if (!validatedAgentChatId) {
-        console.log(`  Skipping ${agentName} — fix the credentials and re-run siriusos setup or siriusos enable ${agentName}.`);
+        console.log(fmt(strings.setup.step4SkippingAgent, { name: agentName }));
         continue;
       }
       agentChatId = validatedAgentChatId;
@@ -400,7 +386,7 @@ export const setupCommand = new Command('setup')
       if (addOk) {
         const agentDir = join(projectRoot, 'orgs', orgName, 'agents', agentName);
         writeAgentEnv(agentDir, agentToken, agentChatId);
-        console.log(`  Wrote .env for ${agentName}`);
+        console.log(fmt(strings.setup.step3WroteEnv, { agent: agentName }));
 
         runCli(projectRoot, ['enable', agentName, '--org', orgName, '--instance', instanceId], `enable ${agentName}`);
         addedAgents.push(agentName);
@@ -410,7 +396,7 @@ export const setupCommand = new Command('setup')
     // ─── Step 5: Ecosystem + start ───────────────────────────────────────────
 
     console.log('\n  ─────────────────────────────────────\n');
-    console.log('  Step 5: Generating ecosystem config and starting daemon...\n');
+    console.log(strings.setup.step5Title + '\n');
 
     const ecoEnv = { ...process.env, CTX_INSTANCE_ID: instanceId, CTX_ORG: orgName };
     const ecoResult = spawnSync(process.execPath, [join(projectRoot, 'dist', 'cli.js'), 'ecosystem', '--instance', instanceId], {
@@ -420,18 +406,16 @@ export const setupCommand = new Command('setup')
     });
 
     if (ecoResult.status !== 0) {
-      console.error('  Failed to generate ecosystem config. Run manually: siriusos ecosystem');
+      console.error(strings.setup.step5EcoFailed);
     } else {
-      // Try PM2 start
       const pm2Result = spawnSync('pm2', ['start', 'ecosystem.config.js'], {
         cwd: projectRoot,
         stdio: 'inherit',
       });
       if (pm2Result.status === 0) {
         spawnSync('pm2', ['save'], { cwd: projectRoot, stdio: 'inherit' });
-        console.log('\n  Daemon started via PM2.');
+        console.log('\n' + strings.setup.step5DaemonStarted);
       } else {
-        // Fallback: siriusos start
         runCli(projectRoot, ['start', '--instance', instanceId], 'siriusos start');
       }
     }
@@ -441,13 +425,34 @@ export const setupCommand = new Command('setup')
     iface.close();
 
     console.log('\n  ─────────────────────────────────────\n');
-    console.log('  Setup complete!\n');
-    console.log(`  Organization: ${orgName}`);
-    console.log(`  Agents: ${addedAgents.join(', ')}`);
-    console.log(`  State: ${ctxRoot}\n`);
-    console.log('  Next steps:');
-    console.log('    - Check agent status: siriusos status');
-    console.log('    - Start dashboard:    siriusos dashboard');
-    console.log('    - View PM2 logs:      pm2 logs');
-    console.log('    - Talk to your agent via Telegram!\n');
+    console.log(strings.setup.completeHeading + '\n');
+    console.log(fmt(strings.setup.completeOrg, { org: orgName }));
+    console.log(fmt(strings.setup.completeAgents, { agents: addedAgents.join(', ') }));
+    console.log(fmt(strings.setup.completeState, { path: ctxRoot }) + '\n');
+    console.log(strings.setup.completeNextStepsHeading);
+    console.log(strings.setup.completeNextStepStatus);
+    console.log(strings.setup.completeNextStepDashboard);
+    console.log(strings.setup.completeNextStepLogs);
+    console.log(strings.setup.completeNextStepTalk + '\n');
   });
+
+/**
+ * Persist the chosen language into orgs/<org>/context.json. Best-effort:
+ * if the context file does not exist yet (init was supposed to create it),
+ * we create a minimal one with just the language field.
+ */
+function persistOrgLanguage(projectRoot: string, orgName: string, locale: Locale): void {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require('fs') as typeof import('fs');
+  const ctxPath = join(projectRoot, 'orgs', orgName, 'context.json');
+  let ctx: Record<string, unknown> = {};
+  if (fs.existsSync(ctxPath)) {
+    try {
+      ctx = JSON.parse(fs.readFileSync(ctxPath, 'utf-8'));
+    } catch {
+      ctx = {};
+    }
+  }
+  ctx.language = locale;
+  fs.writeFileSync(ctxPath, JSON.stringify(ctx, null, 2) + '\n', 'utf-8');
+}

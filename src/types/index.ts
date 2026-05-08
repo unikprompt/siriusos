@@ -429,6 +429,8 @@ export interface CronExecutionLogEntry {
   error: string | null;
 }
 
+export type Locale = 'en' | 'es';
+
 export interface OrgContext {
   name?: string;
   description?: string;
@@ -442,6 +444,10 @@ export interface OrgContext {
   default_approval_categories?: string[];
   communication_style?: string;
   dashboard_url?: string;
+  /** Preferred language for CLI output and agent-facing copy.
+   *  Set during setup, persisted alongside the rest of the org context.
+   *  Treated as 'en' when missing for backward compatibility. */
+  language?: Locale;
   /** When true, agents are instructed at startup that every task submitted
    *  for review must have at least one file deliverable attached via
    *  save-output. The instruction is injected into the boot prompt
