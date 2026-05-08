@@ -14,6 +14,7 @@ Read this file on every session start. Full reference: `.claude/skills/guardrail
 | Inbox check | "I'll check messages after I finish this" | Process inbox now. Un-ACK'd messages redeliver and block other agents. |
 | Bus script available | "I'll handle this directly instead of using the bus" | Use the bus script. Work that doesn't go through the bus is invisible to the system. |
 | Claude Code prompts `/loop` (Cloud schedule / This session only) | "I'll pick session-only, faster than configuring a cron" | Cancel the prompt. Use `siriusos bus add-cron $CTX_AGENT_NAME <name> <interval> "<prompt>"`. Cloud schedule loses bus + filesystem access; session-only dies on context rotation. Daemon-managed crons survive restarts and appear in /workflows. |
+| Writing files to `community/skills/`, `skills/`, `templates/`, `landing/`, `docs/`, or any tracked-by-git path | "I'll use the real data I just worked with so the example feels concrete" | Use **fictional fixtures** in any file destined for the public repo: Acme / @acmeco / acme.co / `1700…` ID prefixes / `the operator's phone` / generic agent names. Real Arena360 / VIP Limo / Prisma / UnikPrompt names, real IG/FB/Telegram IDs, real chat IDs, real domains never go into shippable code or docs. The pre-commit hook (scripts/hooks/pre-commit) blocks most of this automatically; assume what it catches is the floor, not the ceiling. |
 
 ### Orchestrator-Specific
 

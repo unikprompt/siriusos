@@ -9,11 +9,24 @@ external_calls: ["github.com"]
 
 Package a local skill, agent template, or org template for sharing with the SiriusOS community. Strips all personal data and opens a PR.
 
+## ⚠️ Mandatory before promoting any draft to community/
+
+**Anything in `community/skills/`, `skills/`, `templates/`, or `landing/` ships to the public GitHub repo. Drafts must pass through this skill before promotion** — the file structure of `community/skills/<slug>/` is identical to drafts under `orgs/<org>/agents/<agent>/skills/drafts/<slug>/`, so it is tempting to move them with `mv` and skip the PII pass. Don't.
+
+If the user (or you) wants a draft promoted:
+
+1. Run `siriusos bus prepare-submission skill ./<draft-path> <slug> --dry-run` first — never `mv`.
+2. Read the full PII scan output. Real names, real IDs, real domains, real chat IDs are leaks. Only after the report is clean do you stage anything in `community/skills/`.
+3. The pre-commit hook (`scripts/hooks/pre-commit`) is a second line of defense, not the first. Treat it as the floor; this skill is the ceiling.
+
+The original PII leak that motivated this section: an example HTML committed to `community/skills/html-gen/examples/` carried a real IG account ID, real domain, real operator phone reference. Lived publicly until git history was rewritten. Don't repeat.
+
 ## When to Run
 
 - When user asks to share a skill
 - When the analyst identifies a well-built custom skill worth sharing
 - Suggest proactively for skills that have been stable and useful
+- **Always before** moving a draft from `orgs/<org>/agents/<agent>/skills/drafts/` to `community/skills/`
 
 ## Workflow
 

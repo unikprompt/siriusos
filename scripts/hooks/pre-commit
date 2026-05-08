@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+# pre-commit — block commits that leak personal/project info into the public
+# tree (community/, skills/, templates/, landing/, docs/).
+#
+# Why this exists: an agent committed an example HTML to community/skills/
+# pre-populated with real Arena360 IG IDs, Mario's phone, ContentForge refs.
+# The repo is public on GitHub, so any leak goes live the next push. This
+# hook is the cheapest guardrail — block at staging time, not at PR review.
+#
+# Scope: only files that ship to the public repo or the npm tarball:
+#   community/  skills/  templates/  landing/  docs/  README.md  README.es.md
+#
+# Files outside that set (orgs/, memory/, ~/.siriusos/, .env, dashboard/.env*)
+# are not scanned because they are either gitignored or not part of any
+# public surface even if accidentally tracked.
+#
+# Override (rare, you should know why): commit with `--no-verify`.
+
+set -o pipefail
+
+# ── Patterns to flag ─────────────────────────────────────────────────────────
+# Each pattern is a grep -E regex matched case-insensitively. Tune by adding
+# rows; don't remove without thinking — these are tuned to Mario's stack
+# (UnikPrompt brands, his name, his phone-as-deploy-target).
+
+# Personal identifiers (case-insensitive)
+PII_PATTERNS=(
+  # Mario's name and account handles
+  'mperedwa@gmail|mario.perez|mario\s+edwards|@mperedwa'
+  # Mario's phone references in instructions
+  "mario['’]s phone|mariosmacstudio"
+  # Brand names that should never appear as fixtures (only in real config)
+  'arena360|arena_360'
+  'vip[- ]?limo|vip_limo'
+  'prisma cleaning|prisma_cleaning'
+  'son de nudos|sondenudos'
+  'bodegas el limon|bodegas_el_limon|el limon'
+  'kamuk\b|matchvibe|contentforge'
+  # Internal product names that aren't supposed to ship as examples
+  'unikprompt'
+  # Domains tied to Mario's projects
+  'arena360\.app|kamuk\.|unikprompt\.com|matchvibe\.|prisma\.'
+)
+
+# Operational identifiers that indicate real API state, not fixture
+OPS_PATTERNS=(
+  # Long numeric IDs likely to be Meta/Telegram/Stripe (>=15 digits)
+  '\b[0-9]{15,}\b'
+  # Telegram bot tokens (numeric:alpha pattern)
+  '\b[0-9]{8,12}:[A-Za-z0-9_-]{30,}\b'
+  # OpenAI / Anthropic-style API keys
+  'sk-[A-Za-z0-9_-]{20,}'
+  'sk-ant-[A-Za-z0-9_-]{30,}'
+  # Stripe live keys
+  'sk_live_[A-Za-z0-9]{20,}|rk_live_[A-Za-z0-9]{20,}'
+  # AWS keys
+  'AKIA[0-9A-Z]{16}'
+  # Generic high-entropy bearer-looking strings (40+ hex)
+  '[A-Fa-f0-9]{40,}'
+)
+
+# Paths that are always scanned. Anything matching one of these prefixes is
+# subject to the patterns above.
+PUBLIC_PATHS=(
+  'community/'
+  'skills/'
+  'templates/'
+  'landing/'
+  'docs/'
+  'README.md'
+  'README.es.md'
+  'AGENTS.md'
+  'CLAUDE.md'
+  'GUARDRAILS.md'
+  'package.json'
+)
+
+# Paths that are NEVER scanned (binary, dependencies, generated)
+EXCLUDE_REGEX='\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|otf|mp3|mp4|wav|zip|tar|gz|tsbuildinfo|lock)$|node_modules/|\.next/|dist/|out/|^landing/public/install\.mjs$|^dashboard/public/install\.mjs$'
+
+# ── Collect staged files ─────────────────────────────────────────────────────
+# macOS ships bash 3.2 which lacks mapfile; use a portable while-read loop.
+STAGED=()
+while IFS= read -r line; do
+  STAGED+=("$line")
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [[ ${#STAGED[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+# Filter to public paths only.
+candidates=()
+for f in "${STAGED[@]}"; do
+  for prefix in "${PUBLIC_PATHS[@]}"; do
+    if [[ "$f" == "$prefix"* ]] || [[ "$f" == "$prefix" ]]; then
+      if [[ ! "$f" =~ $EXCLUDE_REGEX ]]; then
+        candidates+=("$f")
+      fi
+      break
+    fi
+  done
+done
+
+if [[ ${#candidates[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+# ── Scan ─────────────────────────────────────────────────────────────────────
+violations=0
+report=""
+
+scan_pattern_set() {
+  local label="$1"; shift
+  local -a patterns=("$@")
+  for f in "${candidates[@]}"; do
+    [[ -f "$f" ]] || continue
+    for p in "${patterns[@]}"; do
+      # -I skip binary, -n line numbers, -i case insensitive, -E extended regex.
+      # Drop hits that look like placeholder IDs (5+ zeros in a row, or
+      # the digit-followed-by-many-zeros fingerprint of fictional Acme IDs
+      # like 17000000000000000). Real Meta/Telegram/Stripe IDs almost never
+      # carry that many consecutive zeros.
+      hits=$(grep -InE -i "$p" "$f" 2>/dev/null | grep -vE '0{5,}' || true)
+      if [[ -n "$hits" ]]; then
+        report+="
+  ${label} match in ${f}:
+$(echo "$hits" | sed 's/^/    /' | head -5)"
+        ((violations++)) || true
+      fi
+    done
+  done
+}
+
+scan_pattern_set "[PII]" "${PII_PATTERNS[@]}"
+scan_pattern_set "[OPS-ID]" "${OPS_PATTERNS[@]}"
+
+if [[ "$violations" -gt 0 ]]; then
+  echo ""
+  echo "  ✗ pre-commit blocked: ${violations} suspected leak(s) in staged files"
+  echo "$report"
+  echo ""
+  echo "  These paths ship to the public GitHub repo (and some to the npm"
+  echo "  tarball). Replace with fictional fixtures (Acme, @example, etc.)"
+  echo "  or pull the file out of the commit."
+  echo ""
+  echo "  If a hit is a false positive (rare — most numeric IDs longer than"
+  echo "  15 digits really are Meta/Telegram IDs), re-run with --no-verify"
+  echo "  AFTER you've confirmed by eye that the line is safe."
+  exit 1
+fi
+
+exit 0

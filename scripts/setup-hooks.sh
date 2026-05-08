@@ -33,5 +33,6 @@ install_hook() {
 }
 
 echo "Installing SiriusOS git hooks..."
+install_hook pre-commit
 install_hook pre-push
 echo "Done. Hooks active for this repo clone."
