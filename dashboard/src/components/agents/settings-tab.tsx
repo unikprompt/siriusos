@@ -5,6 +5,7 @@ import { IconDeviceFloppy, IconSettings } from '@tabler/icons-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type Provider = 'anthropic' | 'openai';
+type Runtime = 'claude-code' | 'codex' | 'hermes';
 
 const MODELS_BY_PROVIDER: Record<Provider, string[]> = {
   anthropic: [
@@ -38,6 +39,7 @@ interface AgentConfig {
     never_ask?: string[];
   };
   provider?: Provider;
+  runtime?: Runtime;
   model?: string;
   max_session_seconds?: number;
   max_crashes_per_day?: number;
@@ -70,6 +72,7 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
   const [agSaving, setAgSaving] = useState(false);
   const [agMessage, setAgMessage] = useState<MessageState>(null);
   const [initialProvider, setInitialProvider] = useState<Provider>('anthropic');
+  const [initialRuntime, setInitialRuntime] = useState<Runtime>('claude-code');
   const [restarting, setRestarting] = useState(false);
 
   useEffect(() => {
@@ -80,6 +83,7 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
         if (!controller.signal.aborted && d.config) {
           setConfig(d.config);
           setInitialProvider((d.config.provider as Provider) || 'anthropic');
+          setInitialRuntime((d.config.runtime as Runtime) || 'claude-code');
         }
         if (!controller.signal.aborted) setLoading(false);
       })
@@ -172,6 +176,7 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
     saveSection(
       {
         provider: config.provider,
+        runtime: config.runtime,
         model: config.model,
         max_session_seconds: config.max_session_seconds,
         max_crashes_per_day: config.max_crashes_per_day,
@@ -196,6 +201,7 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
       } else {
         setAgMessage({ type: 'success', text: 'Agent restarted. New backend now active.' });
         setInitialProvider((config.provider as Provider) || 'anthropic');
+        setInitialRuntime((config.runtime as Runtime) || 'claude-code');
       }
     } catch {
       setAgMessage({ type: 'error', text: 'Network error during restart' });
@@ -371,6 +377,26 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
             </p>
           </div>
 
+          <div>
+            <label className="text-xs text-muted-foreground">Runtime</label>
+            <select
+              value={config.runtime || 'claude-code'}
+              onChange={e => setConfig(p => ({ ...p, runtime: e.target.value as Runtime }))}
+              className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+            >
+              <option value="claude-code">Claude Code (default)</option>
+              <option value="codex">CodexPTY (recommended for Codex)</option>
+              <option value="hermes">Hermes (experimental)</option>
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {config.runtime === 'codex'
+                ? 'Dedicated Codex adapter: fresh `codex exec` per turn, better quota handling. Requires provider=openai + codex CLI.'
+                : config.runtime === 'hermes'
+                ? 'Hermes runtime — internal/experimental. Not recommended for daily use.'
+                : 'Standard Claude Code PTY (works with provider=anthropic and the legacy provider=openai path).'}
+            </p>
+          </div>
+
           {(() => {
             const provider: Provider = config.provider || 'anthropic';
             const knownModels = MODELS_BY_PROVIDER[provider];
@@ -452,6 +478,12 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
           {(config.provider || 'anthropic') !== initialProvider && (
             <div className="rounded-md border border-warning/30 bg-warning/15 px-3 py-2 text-xs text-warning">
               Provider changed from <strong>{initialProvider}</strong> to <strong>{config.provider || 'anthropic'}</strong>. Save and restart the agent for the change to take effect.
+            </div>
+          )}
+
+          {(config.runtime || 'claude-code') !== initialRuntime && (
+            <div className="rounded-md border border-warning/30 bg-warning/15 px-3 py-2 text-xs text-warning">
+              Runtime changed from <strong>{initialRuntime}</strong> to <strong>{config.runtime || 'claude-code'}</strong>. Save and restart the agent for the change to take effect.
             </div>
           )}
 
