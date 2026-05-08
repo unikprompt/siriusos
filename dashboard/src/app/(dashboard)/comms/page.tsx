@@ -147,7 +147,7 @@ export default function CommsPage() {
         </div>
         <Button variant="ghost" size="sm" onClick={fetchData}>
           <IconRefresh size={14} className="mr-1" />
-          Refresh
+          {t.common.refresh}
         </Button>
       </div>
 
@@ -155,11 +155,11 @@ export default function CommsPage() {
         <TabsList>
           <TabsTrigger value="meeting-room">
             <IconMessages size={14} className="mr-1" />
-            Meeting Room
+            {t.pages.comms.tabs.meetingRoom}
           </TabsTrigger>
           <TabsTrigger value="channels">
             <IconUsers size={14} className="mr-1" />
-            Active Channels
+            {t.pages.comms.tabs.activeChannels}
             {channels.length > 0 && (
               <span className="ml-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground tabular-nums">
                 {channels.length}
@@ -174,8 +174,8 @@ export default function CommsPage() {
             <div className="flex items-center pt-1">
               <span className="text-xs text-muted-foreground">
                 {debouncedMeetingSearch
-                  ? `${feedMessages.length} result${feedMessages.length !== 1 ? 's' : ''}`
-                  : `${feedMessages.length} message${feedMessages.length !== 1 ? 's' : ''}`}
+                  ? t.pages.comms.resultsCount.replace('{count}', String(feedMessages.length))
+                  : t.pages.comms.messagesCount.replace('{count}', String(feedMessages.length))}
               </span>
             </div>
             {/* Search bar — matches Knowledge Base pattern */}
@@ -184,7 +184,7 @@ export default function CommsPage() {
                 <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search messages..."
+                  placeholder={t.pages.comms.searchPlaceholder}
                   value={meetingSearch}
                   onChange={(e) => setMeetingSearch(e.target.value)}
                   className="w-full rounded-md border bg-background pl-9 pr-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/30"
@@ -199,7 +199,7 @@ export default function CommsPage() {
                     : 'bg-primary text-primary-foreground hover:bg-primary/90'
                 }`}
               >
-                {meetingSearch ? 'Clear' : 'Search'}
+                {meetingSearch ? t.pages.comms.searchClear : t.pages.comms.searchSubmit}
               </button>
             </div>
 
@@ -239,7 +239,7 @@ export default function CommsPage() {
                   id="show-archived"
                 />
                 <Label htmlFor="show-archived" className="text-xs">
-                  Show archived
+                  {t.pages.comms.showArchived}
                 </Label>
               </div>
               <span className="text-xs text-muted-foreground">

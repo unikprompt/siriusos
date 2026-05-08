@@ -233,7 +233,7 @@ export default function WorkflowsPage() {
               org: agent.org,
               crons: [],
               loading: false,
-              error: 'Failed to load crons',
+              error: t.pages.workflows.loadFailed,
             };
           }
         }),
@@ -421,12 +421,12 @@ export default function WorkflowsPage() {
             onClick={() => router.push('/workflows/new')}
           >
             <IconPlus size={14} className="mr-1" />
-            New Cron
+            {t.pages.workflows.newCron}
           </Button>
           <button
             onClick={handleRefresh}
             className="p-2 rounded-md hover:bg-muted transition-colors"
-            title="Refresh"
+            title={t.common.refresh}
           >
             <IconRefresh size={18} className={(loading || statusLoading) ? 'animate-spin' : ''} />
           </button>
@@ -444,12 +444,12 @@ export default function WorkflowsPage() {
       }>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-medium">Fleet Health</CardTitle>
+            <CardTitle className="text-sm font-medium">{t.pages.workflows.fleetHealth}</CardTitle>
             <button
               onClick={() => router.push('/workflows/health')}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
-              View all
+              {t.pages.workflows.viewAll}
               <IconArrowRight size={12} />
             </button>
           </div>
@@ -466,7 +466,7 @@ export default function WorkflowsPage() {
               {/* Total */}
               <div className="text-center">
                 <p className="text-2xl font-semibold">{fleetHealth.total}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">total</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.pages.workflows.health.total}</p>
               </div>
               {/* Healthy */}
               <div className="text-center">
@@ -474,7 +474,7 @@ export default function WorkflowsPage() {
                   <IconCircleCheck size={16} className="shrink-0" />
                   {fleetHealth.healthy}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">healthy</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.pages.workflows.health.healthy}</p>
               </div>
               {/* Warning */}
               <div className="text-center">
@@ -482,7 +482,7 @@ export default function WorkflowsPage() {
                   <IconAlertTriangle size={16} className="shrink-0" />
                   {fleetHealth.warning}
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">warning</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{t.pages.workflows.health.warning}</p>
               </div>
               {/* Failure + Never-fired */}
               <div className="text-center">
@@ -491,14 +491,14 @@ export default function WorkflowsPage() {
                   {fleetHealth.failure + fleetHealth.neverFired}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  failed
-                  {fleetHealth.neverFired > 0 && ` / ${fleetHealth.neverFired} new`}
+                  {t.pages.workflows.health.failed}
+                  {fleetHealth.neverFired > 0 && ` / ${fleetHealth.neverFired} ${t.pages.workflows.health.new}`}
                 </p>
               </div>
             </div>
           ) : (
             <p className="text-xs text-muted-foreground text-center py-2">
-              Health data unavailable
+              {t.pages.workflows.health.unavailable}
             </p>
           )}
         </CardContent>
@@ -508,7 +508,7 @@ export default function WorkflowsPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <Card>
           <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Crons</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">{t.pages.workflows.summary.totalCrons}</p>
             <p className="text-2xl font-semibold mt-1">
               {loading && agents.length === 0
                 ? <span className="text-muted-foreground">-</span>
@@ -518,7 +518,7 @@ export default function WorkflowsPage() {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Agents</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">{t.pages.workflows.summary.agents}</p>
             <p className="text-2xl font-semibold mt-1">
               {loading && agents.length === 0 ? (
                 <span className="text-muted-foreground">-</span>
@@ -535,7 +535,7 @@ export default function WorkflowsPage() {
         </Card>
         <Card className="col-span-2 md:col-span-1">
           <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground uppercase tracking-wide">Most Active</p>
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">{t.pages.workflows.summary.mostActive}</p>
             <p className="text-2xl font-semibold mt-1 truncate">
               {loading && agents.length === 0
                 ? <span className="text-muted-foreground">-</span>
@@ -551,7 +551,7 @@ export default function WorkflowsPage() {
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <CardTitle className="text-base">Cron Status</CardTitle>
+            <CardTitle className="text-base">{t.pages.workflows.cronStatus.title}</CardTitle>
             {/* Filter controls */}
             <div className="flex items-center gap-2 flex-wrap">
               {/* Search */}
@@ -564,9 +564,9 @@ export default function WorkflowsPage() {
                   type="text"
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search crons..."
+                  placeholder={t.pages.workflows.cronStatus.searchPlaceholder}
                   className="h-8 w-48 rounded-md border bg-background pl-8 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  aria-label="Search crons"
+                  aria-label={t.pages.workflows.cronStatus.searchAria}
                 />
               </div>
               {/* Agent filter */}
@@ -579,11 +579,11 @@ export default function WorkflowsPage() {
                   value={agentFilter}
                   onChange={e => setAgentFilter(e.target.value)}
                   className="h-8 rounded-md border bg-background pl-8 pr-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                  aria-label="Filter by agent"
+                  aria-label={t.pages.workflows.cronStatus.filterAria}
                 >
                   {agentOptions.map(opt => (
                     <option key={opt} value={opt}>
-                      {opt === 'all' ? 'All agents' : opt}
+                      {opt === 'all' ? t.pages.workflows.filters.allAgents : opt}
                     </option>
                   ))}
                 </select>
@@ -597,27 +597,27 @@ export default function WorkflowsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left">
-                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide">Agent</th>
-                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide">Cron</th>
-                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden sm:table-cell">Schedule</th>
-                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden md:table-cell">Next Fire</th>
-                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden md:table-cell">Last Fire</th>
-                  <th className="pb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">Status</th>
+                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide">{t.pages.workflows.cronStatus.col.agent}</th>
+                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide">{t.pages.workflows.cronStatus.col.cron}</th>
+                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden sm:table-cell">{t.pages.workflows.cronStatus.col.schedule}</th>
+                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden md:table-cell">{t.pages.workflows.cronStatus.col.nextFire}</th>
+                  <th className="pb-2 pr-4 font-medium text-muted-foreground text-xs uppercase tracking-wide hidden md:table-cell">{t.pages.workflows.cronStatus.col.lastFire}</th>
+                  <th className="pb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">{t.pages.workflows.cronStatus.col.status}</th>
                 </tr>
               </thead>
               <tbody>
                 {statusLoading && filteredRows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                      Loading...
+                      {t.pages.workflows.cronStatus.loading}
                     </td>
                   </tr>
                 ) : filteredRows.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-muted-foreground">
                       {searchQuery || agentFilter !== 'all'
-                        ? 'No crons match the current filters'
-                        : 'No crons found'}
+                        ? t.pages.workflows.listEmptyFiltered
+                        : t.pages.workflows.listEmpty}
                     </td>
                   </tr>
                 ) : (
@@ -648,7 +648,7 @@ export default function WorkflowsPage() {
                               <span>{row.cron.name}</span>
                               <button
                                 className="opacity-0 group-hover:opacity-100 transition-opacity ml-0.5 text-muted-foreground hover:text-foreground"
-                                title="Open detail page"
+                                title={t.pages.workflows.actions.openDetail}
                                 onClick={e => {
                                   e.stopPropagation();
                                   router.push(`/workflows/${encodeURIComponent(row.agent)}/${encodeURIComponent(row.cron.name)}`);
@@ -913,7 +913,7 @@ export default function WorkflowsPage() {
                           <div className="flex items-center gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
                             <button
                               className="p-1.5 rounded hover:bg-muted"
-                              title="Open detail / edit page"
+                              title={t.pages.workflows.actions.openDetail}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 router.push(`/workflows/${encodeURIComponent(agent.name)}/${encodeURIComponent(cron.name)}`);
@@ -923,7 +923,7 @@ export default function WorkflowsPage() {
                             </button>
                             <button
                               className="p-1.5 rounded hover:bg-muted"
-                              title="Edit (inline)"
+                              title={t.pages.workflows.actions.editInline}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setEditCron({ ...cron });
@@ -934,7 +934,7 @@ export default function WorkflowsPage() {
                             </button>
                             <button
                               className="p-1.5 rounded hover:bg-destructive/15 text-destructive"
-                              title="Delete"
+                              title={t.pages.workflows.actions.delete}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 deleteCron(agent.name, idx);

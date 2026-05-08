@@ -127,7 +127,7 @@ export default function ApprovalsPage() {
         <TabsList>
           <TabsTrigger value="human">
             <IconUser size={14} className="mr-1" />
-            Your Tasks
+            {t.pages.approvals.tabs.yourTasks}
             {humanTasks.length > 0 && (
               <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
                 {humanTasks.length}
@@ -135,14 +135,14 @@ export default function ApprovalsPage() {
             )}
           </TabsTrigger>
           <TabsTrigger value="pending">
-            Approvals
+            {t.pages.approvals.tabs.pending}
             {pending.length > 0 && (
               <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
                 {pending.length}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="history">{t.pages.approvals.tabs.history}</TabsTrigger>
         </TabsList>
 
         {/* Human Tasks tab */}
@@ -150,8 +150,8 @@ export default function ApprovalsPage() {
           {humanTasks.length === 0 ? (
             <EmptyState
               kind="silence"
-              title="Inbox clear"
-              description="No tasks assigned to you right now. Your agents will route here when they need a decision."
+              title={t.pages.approvals.empty.humanTitle}
+              description={t.pages.approvals.empty.humanDescription}
             />
           ) : (
             <div className="grid gap-2 max-w-2xl">
@@ -165,7 +165,7 @@ export default function ApprovalsPage() {
                       )}
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <PriorityBadge priority={task.priority} />
-                        <span>from {task.assignee ?? 'unknown'}</span>
+                        <span>{t.pages.approvals.from} {task.assignee ?? '—'}</span>
                         <IconClock size={12} />
                         <TimeAgo date={task.created_at} />
                       </div>
@@ -184,7 +184,7 @@ export default function ApprovalsPage() {
                       }}
                     >
                       <IconCheck size={14} className="mr-1" />
-                      Done
+                      {t.pages.approvals.done}
                     </Button>
                   </CardContent>
                 </Card>
@@ -197,7 +197,7 @@ export default function ApprovalsPage() {
         <TabsContent value="pending">
           {pending.length === 0 ? (
             <p className="py-12 text-center text-sm text-muted-foreground">
-              No pending approvals - you are all caught up.
+              {t.pages.approvals.empty.pending}
             </p>
           ) : (
             <div className="grid gap-2 max-w-2xl">

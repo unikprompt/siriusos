@@ -54,7 +54,7 @@ export default function StrategyPage() {
       <div className="space-y-6">
         <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">{t.nav.items.strategy}</h1>
         <p className="text-muted-foreground">
-          No organizations found. Create an org to get started.
+          {t.pages.strategy.noOrgs}
         </p>
       </div>
     );
@@ -81,7 +81,7 @@ export default function StrategyPage() {
         <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">Today&apos;s Focus</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-1">{t.pages.strategy.todaysFocus}</p>
               <p className="text-base font-medium">{dailyFocus}</p>
             </div>
             {dailyFocusSetAt && (

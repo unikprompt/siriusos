@@ -195,11 +195,87 @@ export interface DashboardStrings {
       subtitle: string;
       filters: string;
     };
-    workflows: { subtitle: string };
-    comms: { subtitle: string };
-    approvals: { subtitle: string };
+    workflows: {
+      subtitle: string;
+      newCron: string;
+      fleetHealth: string;
+      viewAll: string;
+      health: {
+        total: string;
+        healthy: string;
+        warning: string;
+        failed: string;
+        new: string;
+        unavailable: string;
+      };
+      summary: {
+        totalCrons: string;
+        activeNow: string;
+        failing: string;
+        agents: string;
+        mostActive: string;
+      };
+      cronStatus: {
+        title: string;
+        searchPlaceholder: string;
+        searchAria: string;
+        filterAria: string;
+        loading: string;
+        col: {
+          agent: string;
+          cron: string;
+          schedule: string;
+          nextFire: string;
+          lastFire: string;
+          status: string;
+        };
+      };
+      listEmpty: string;
+      listEmptyFiltered: string;
+      filters: {
+        allAgents: string;
+      };
+      actions: {
+        openDetail: string;
+        editInline: string;
+        delete: string;
+      };
+      loadFailed: string;
+    };
+    comms: {
+      subtitle: string;
+      tabs: {
+        meetingRoom: string;
+        activeChannels: string;
+      };
+      searchPlaceholder: string;
+      searchClear: string;
+      searchSubmit: string;
+      showArchived: string;
+      messagesCount: string;
+      resultsCount: string;
+    };
+    approvals: {
+      subtitle: string;
+      tabs: {
+        yourTasks: string;
+        pending: string;
+        history: string;
+      };
+      empty: {
+        humanTitle: string;
+        humanDescription: string;
+        pending: string;
+      };
+      from: string;
+      done: string;
+    };
     analytics: { subtitle: string };
-    strategy: { subtitle: string };
+    strategy: {
+      subtitle: string;
+      noOrgs: string;
+      todaysFocus: string;
+    };
     skills: { subtitle: string };
     experiments: { subtitle: string };
     knowledgeBase: { subtitle: string };
@@ -424,11 +500,87 @@ const en: DashboardStrings = {
       subtitle: 'Real-time event stream from across the fleet.',
       filters: 'Filters',
     },
-    workflows: { subtitle: 'Scheduled crons across all agents.' },
-    comms: { subtitle: 'Inter-agent messages and channels — every conversation in the fleet, in real time.' },
-    approvals: { subtitle: 'Items waiting for human review.' },
+    workflows: {
+      subtitle: 'Scheduled crons across all agents.',
+      newCron: 'New Cron',
+      fleetHealth: 'Fleet Health',
+      viewAll: 'View all',
+      health: {
+        total: 'total',
+        healthy: 'healthy',
+        warning: 'warning',
+        failed: 'failed',
+        new: 'new',
+        unavailable: 'Health data unavailable',
+      },
+      summary: {
+        totalCrons: 'Total Crons',
+        activeNow: 'Active Now',
+        failing: 'Failing',
+        agents: 'Agents',
+        mostActive: 'Most Active',
+      },
+      cronStatus: {
+        title: 'Cron Status',
+        searchPlaceholder: 'Search crons…',
+        searchAria: 'Search crons',
+        filterAria: 'Filter by agent',
+        loading: 'Loading…',
+        col: {
+          agent: 'Agent',
+          cron: 'Cron',
+          schedule: 'Schedule',
+          nextFire: 'Next Fire',
+          lastFire: 'Last Fire',
+          status: 'Status',
+        },
+      },
+      listEmpty: 'No crons found',
+      listEmptyFiltered: 'No crons match the current filters',
+      filters: {
+        allAgents: 'All agents',
+      },
+      actions: {
+        openDetail: 'Open detail page',
+        editInline: 'Edit (inline)',
+        delete: 'Delete',
+      },
+      loadFailed: 'Failed to load crons',
+    },
+    comms: {
+      subtitle: 'Inter-agent messages and channels — every conversation in the fleet, in real time.',
+      tabs: {
+        meetingRoom: 'Meeting Room',
+        activeChannels: 'Active Channels',
+      },
+      searchPlaceholder: 'Search messages…',
+      searchClear: 'Clear',
+      searchSubmit: 'Search',
+      showArchived: 'Show archived',
+      messagesCount: '{count} messages',
+      resultsCount: '{count} results',
+    },
+    approvals: {
+      subtitle: 'Items waiting for human review.',
+      tabs: {
+        yourTasks: 'Your Tasks',
+        pending: 'Approvals',
+        history: 'History',
+      },
+      empty: {
+        humanTitle: 'Inbox clear',
+        humanDescription: 'No tasks assigned to you right now. Your agents will route here when they need a decision.',
+        pending: 'No pending approvals — you are all caught up.',
+      },
+      from: 'from',
+      done: 'Done',
+    },
     analytics: { subtitle: 'Performance metrics and cost tracking.' },
-    strategy: { subtitle: 'Goals, milestones and bottlenecks.' },
+    strategy: {
+      subtitle: 'Goals, milestones and bottlenecks.',
+      noOrgs: 'No organizations found. Create an org to get started.',
+      todaysFocus: "Today's Focus",
+    },
     skills: { subtitle: 'Browse and install skills from the catalog to your agents.' },
     experiments: { subtitle: 'Track ongoing experiments across agents.' },
     knowledgeBase: { subtitle: "Search, browse and manage your organization's shared knowledge. Powered by multimodal RAG." },
@@ -653,11 +805,87 @@ const es: DashboardStrings = {
       subtitle: 'Stream de eventos en tiempo real de toda la flota.',
       filters: 'Filtros',
     },
-    workflows: { subtitle: 'Crons programados de toda la flota.' },
-    comms: { subtitle: 'Mensajes y canales entre agentes — toda la conversación de la flota, en vivo.' },
-    approvals: { subtitle: 'Items esperando revisión humana.' },
+    workflows: {
+      subtitle: 'Crons programados de toda la flota.',
+      newCron: 'Nuevo cron',
+      fleetHealth: 'Salud de la flota',
+      viewAll: 'Ver todo',
+      health: {
+        total: 'total',
+        healthy: 'sanos',
+        warning: 'aviso',
+        failed: 'fallaron',
+        new: 'nuevos',
+        unavailable: 'Datos de salud no disponibles',
+      },
+      summary: {
+        totalCrons: 'Crons totales',
+        activeNow: 'Activos ahora',
+        failing: 'Fallando',
+        agents: 'Agentes',
+        mostActive: 'Más activo',
+      },
+      cronStatus: {
+        title: 'Estado de los crons',
+        searchPlaceholder: 'Buscar crons…',
+        searchAria: 'Buscar crons',
+        filterAria: 'Filtrar por agente',
+        loading: 'Cargando…',
+        col: {
+          agent: 'Agente',
+          cron: 'Cron',
+          schedule: 'Schedule',
+          nextFire: 'Próxima ejecución',
+          lastFire: 'Última ejecución',
+          status: 'Estado',
+        },
+      },
+      listEmpty: 'No hay crons',
+      listEmptyFiltered: 'Ningún cron coincide con los filtros actuales',
+      filters: {
+        allAgents: 'Todos los agentes',
+      },
+      actions: {
+        openDetail: 'Abrir detalle',
+        editInline: 'Editar (inline)',
+        delete: 'Eliminar',
+      },
+      loadFailed: 'No se pudieron cargar los crons',
+    },
+    comms: {
+      subtitle: 'Mensajes y canales entre agentes — toda la conversación de la flota, en vivo.',
+      tabs: {
+        meetingRoom: 'Sala de reuniones',
+        activeChannels: 'Canales activos',
+      },
+      searchPlaceholder: 'Buscar mensajes…',
+      searchClear: 'Limpiar',
+      searchSubmit: 'Buscar',
+      showArchived: 'Mostrar archivados',
+      messagesCount: '{count} mensajes',
+      resultsCount: '{count} resultados',
+    },
+    approvals: {
+      subtitle: 'Items esperando revisión humana.',
+      tabs: {
+        yourTasks: 'Tus tareas',
+        pending: 'Aprobaciones',
+        history: 'Historial',
+      },
+      empty: {
+        humanTitle: 'Inbox limpio',
+        humanDescription: 'No tenés tareas asignadas ahora mismo. Tus agentes te rutean acá cuando necesitan una decisión.',
+        pending: 'No hay aprobaciones pendientes — estás al día.',
+      },
+      from: 'de',
+      done: 'Listo',
+    },
     analytics: { subtitle: 'Métricas de performance y seguimiento de costos.' },
-    strategy: { subtitle: 'Objetivos, hitos y cuellos de botella.' },
+    strategy: {
+      subtitle: 'Objetivos, hitos y cuellos de botella.',
+      noOrgs: 'No hay organizaciones. Creá una para empezar.',
+      todaysFocus: 'Foco del día',
+    },
     skills: { subtitle: 'Explorá e instalá skills del catálogo en tus agentes.' },
     experiments: { subtitle: 'Seguimiento de experimentos en curso entre agentes.' },
     knowledgeBase: { subtitle: 'Buscá, explorá y gestioná el conocimiento compartido de tu organización. Powered by multimodal RAG.' },
