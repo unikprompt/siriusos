@@ -1,7 +1,7 @@
 ---
 name: html-gen
 description: "Generate rich, self-contained HTML files instead of Markdown for specs, reports, reviews, dashboards, editors, and playgrounds. Based on the HTML effectiveness pattern by Thariq (Anthropic/Claude Code team)."
-triggers: ["html", "generate html", "html report", "html review", "html plan", "html dashboard", "html editor", "html playground", "make html", "create html artifact"]
+triggers: ["generate html", "html report", "html review", "html plan", "html dashboard", "html editor", "html playground", "make html", "create html artifact", "html instead of markdown", "self-contained html"]
 tags: [html, visualization, reports, interactive, output]
 version: 1
 ---
@@ -32,8 +32,33 @@ Keep using Markdown for: short notes, commit messages, chat replies, simple list
 2. **Opens in browser**: must render correctly when double-clicked in Finder/Explorer. No build step.
 3. **Responsive**: use CSS grid/flexbox, work on desktop and mobile.
 4. **Dark-first**: use the Stellar Night palette (see Design System below) as default. Include a light mode toggle if the output will be shared externally.
-5. **Export button**: every interactive HTML must include a "Copy as Markdown" or "Copy as Prompt" button that exports the user's changes in a format pasteable into Claude Code.
+5. **Export button (editors and playgrounds only)**: any HTML that lets the user *change* values — types Editor (#5) and Playground (#6) — must include a "Copy as Markdown", "Copy as JSON", or "Copy as Prompt" button that exports the current state in a format pasteable into Claude Code. Static outputs (Report, Review, Plan, Dashboard) do not require an export button.
 6. **Print-friendly**: add `@media print` styles that remove navigation chrome and dark backgrounds.
+
+---
+
+## Required Boilerplate
+
+Every generated file starts with this skeleton. Without `meta charset` the file may render mojibake on emoji-heavy captions. Without `meta viewport` mobile renders zoomed out. Without `meta name="color-scheme"` the browser draws white scrollbars on dark backgrounds.
+
+```html
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>{type} — {topic} · {YYYY-MM-DD}</title>
+  <style>/* design system + page styles */</style>
+</head>
+<body>
+  <!-- content -->
+  <script>/* optional: theme toggle, copy button, interactivity */</script>
+</body>
+</html>
+```
+
+The `data-theme="dark"` attribute on `<html>` lets the light-mode override (`[data-theme="light"]`) flip cleanly via a single attribute change. Keep `lang` accurate — screen readers and translation engines depend on it.
 
 ---
 
@@ -174,7 +199,9 @@ All HTML outputs use this palette for visual consistency with SiriusOS.
   --radius-lg: 12px;
 }
 
-/* Light mode */
+/* Light mode — redefine ALL semantic colors. The dark-mode success/warning/
+   destructive are too bright for light backgrounds and lose contrast against
+   white surfaces. Spacing, radius, and font tokens inherit from :root. */
 [data-theme="light"] {
   --bg: #F8FAFF;
   --surface: #FFFFFF;
@@ -182,6 +209,9 @@ All HTML outputs use this palette for visual consistency with SiriusOS.
   --border: #D8DCE8;
   --primary: #3D6FE5;
   --accent: #C9982A;
+  --success: #0E9F8C;
+  --warning: #C97A0E;
+  --destructive: #D63848;
   --fg: #0E1428;
   --muted: #6B7494;
 }
@@ -222,16 +252,24 @@ Since files must be self-contained, use system font fallbacks. Only load Google 
 ```
 
 **Copy Button (required for editors/playgrounds):**
+
+Pass `event` explicitly — relying on the global `event` is non-standard and breaks under strict mode. Capture and restore the button's original text so the same handler works for "Copy as Markdown", "Copy as JSON", "Copy as Prompt", etc.
+
 ```html
-<button onclick="copyExport()" style="background:var(--primary);color:var(--bg);border:none;padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-weight:600">
+<button type="button" onclick="copyExport(event)" style="background:var(--primary);color:var(--bg);border:none;padding:8px 16px;border-radius:var(--radius);cursor:pointer;font-weight:600">
   Copy as Prompt
 </button>
 <script>
-function copyExport() {
+function copyExport(e) {
+  const btn = e.currentTarget;
+  const original = btn.textContent;
   const data = gatherState(); // implement per use case
   navigator.clipboard.writeText(data).then(() => {
-    event.target.textContent = 'Copied!';
-    setTimeout(() => event.target.textContent = 'Copy as Prompt', 1500);
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  }).catch(() => {
+    btn.textContent = 'Copy failed';
+    setTimeout(() => { btn.textContent = original; }, 1500);
   });
 }
 </script>
@@ -274,17 +312,56 @@ open /path/to/file.html
 
 ---
 
+## Accessibility
+
+HTML outputs are sometimes shared externally and read by people on assistive tech, on small screens, or in bright sunlight. The cost of getting this right is low — bake it in by default rather than retrofit.
+
+**Semantic structure**
+- One `<h1>` per page, then `<h2>` / `<h3>` in order. Don't skip levels.
+- Use `<main>`, `<header>`, `<section>`, `<nav>`, `<footer>` instead of generic `<div>`.
+- Use `<button type="button">` for actions. Don't make `<div>`s clickable.
+- Tables that aren't pure layout: include `<caption>` and `<th scope="col">` / `<th scope="row">`.
+- Form controls: every `<input>` / `<select>` / `<textarea>` paired with a `<label for="…">`.
+
+**ARIA — only when semantics aren't enough**
+- `aria-label="…"` on icon-only buttons or toggles where the visible text is missing or ambiguous.
+- `aria-describedby="…"` to link a control to an inline help/warning element.
+- `role="region"` on highlighted summary boxes (TL;DR, callout cards) with an `aria-label`.
+- Decorative SVG: `aria-hidden="true"`. Informative SVG: include a `<title>` element inside.
+
+**Visual**
+- Color contrast: target WCAG AA (4.5:1 for body text, 3:1 for large/UI text). The Stellar Night `--fg` on `--bg` clears AA in both themes; verify any new color pair before shipping.
+- Focus rings: never remove them. Use `:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }` so keyboard users can navigate.
+- Don't encode meaning in color alone — pair color with an icon, label, or text indicator (e.g. status dot + word "OK"/"BLOCKED").
+
+**Motion**
+```css
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+```
+
+**Language**
+- Set `<html lang="…">` to the actual content language. Mixed-language pages: wrap subsections in `<div lang="…">` so screen readers switch voices.
+
+---
+
 ## Quality Checklist
 
 Before delivering any HTML file, verify:
-- [ ] Opens in browser without errors (no console errors)
+- [ ] Opens in browser without errors (no console errors, no page errors)
+- [ ] Required boilerplate present: doctype, charset, viewport, color-scheme, title, lang
 - [ ] All content visible without scrolling past the fold for TL;DR/summary
 - [ ] Dark mode renders correctly (no white backgrounds bleeding through)
+- [ ] Light mode override defines all semantic colors (success/warning/destructive too, not just bg/fg)
 - [ ] Interactive elements respond to clicks/input
-- [ ] Export button works and copies valid content
+- [ ] Export button works and copies valid content (editors/playgrounds only)
 - [ ] No external resource dependencies (everything inline)
 - [ ] File size under 500KB (SVGs should be optimized)
 - [ ] Mobile responsive (test with browser dev tools narrow viewport)
+- [ ] Accessibility: one `<h1>`, semantic landmarks, focus rings preserved, color not the sole signal
+- [ ] `prefers-reduced-motion` respected
+- [ ] `@media print` styles strip dark backgrounds and chrome
 
 ---
 
