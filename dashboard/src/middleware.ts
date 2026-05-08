@@ -132,7 +132,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const response = NextResponse.next();
+  // Pass the request pathname downstream so server components (layouts,
+  // pages) can branch on the current route — Next.js does not expose it
+  // through headers() by default.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-pathname', pathname);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set('Access-Control-Allow-Origin', corsOrigin);
   response.headers.set('Vary', 'Origin');
   // Standard security headers
