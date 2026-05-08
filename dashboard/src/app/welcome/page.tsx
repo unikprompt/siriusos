@@ -328,7 +328,13 @@ function WaitlistForm({
 }
 
 type InstallOS = 'mac' | 'linux' | 'windows';
-const INSTALL_COMMAND = 'curl -sSL https://siriusos.unikprompt.com/install.sh | bash';
+
+const INSTALL_COMMAND_NIX = 'curl -fsSL https://siriusos.unikprompt.com/install.mjs | node';
+const INSTALL_COMMAND_WIN = 'node -e "$(irm https://siriusos.unikprompt.com/install.mjs)"';
+
+function commandFor(os: InstallOS): string {
+  return os === 'windows' ? INSTALL_COMMAND_WIN : INSTALL_COMMAND_NIX;
+}
 
 function InstallSection({ strings }: { strings: WelcomeStrings['install'] }) {
   const [os, setOs] = useState<InstallOS>('mac');
@@ -343,7 +349,7 @@ function InstallSection({ strings }: { strings: WelcomeStrings['install'] }) {
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(INSTALL_COMMAND);
+      await navigator.clipboard.writeText(commandFor(os));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -357,7 +363,7 @@ function InstallSection({ strings }: { strings: WelcomeStrings['install'] }) {
     { id: 'windows', label: strings.osWindowsLabel },
   ];
 
-  const showCommand = os !== 'windows';
+  const isWindows = os === 'windows';
 
   return (
     <section id="install" className="relative z-10 mx-auto max-w-3xl scroll-mt-12 px-6 py-16">
@@ -377,7 +383,7 @@ function InstallSection({ strings }: { strings: WelcomeStrings['install'] }) {
             <button
               key={tab.id}
               type="button"
-              onClick={() => setOs(tab.id)}
+              onClick={() => { setOs(tab.id); setCopied(false); }}
               aria-pressed={os === tab.id}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 os === tab.id
@@ -390,29 +396,31 @@ function InstallSection({ strings }: { strings: WelcomeStrings['install'] }) {
           ))}
         </div>
 
-        <div className="mt-3">
-          {showCommand ? (
-            <div className="flex items-stretch gap-2">
-              <pre className="flex-1 overflow-x-auto rounded-lg bg-surface-2 px-4 py-3 font-mono text-[12.5px] leading-relaxed text-foreground/90">
-                <code>{INSTALL_COMMAND}</code>
-              </pre>
-              <button
-                type="button"
-                onClick={copy}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
-              >
-                {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
-                {copied ? strings.copied : strings.copy}
-              </button>
+        <div className="mt-3 space-y-3">
+          {isWindows && (
+            <div className="rounded-lg border border-warning/30 bg-warning/8 px-4 py-3">
+              <p className="text-xs font-medium text-warning">{strings.windowsRequiresWsl}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{strings.windowsRequiresWslDetail}</p>
             </div>
-          ) : (
-            <p className="rounded-lg bg-warning/10 px-4 py-3 text-xs text-warning">
-              {strings.osWindowsHint}
-            </p>
           )}
-          {showCommand && (
-            <p className="mt-3 text-[11px] text-muted-foreground/80">{strings.afterCommandHint}</p>
-          )}
+
+          <div className="flex items-stretch gap-2">
+            <pre className="flex-1 overflow-x-auto rounded-lg bg-surface-2 px-4 py-3 font-mono text-[12.5px] leading-relaxed text-foreground/90">
+              <code>{commandFor(os)}</code>
+            </pre>
+            <button
+              type="button"
+              onClick={copy}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+              {copied ? strings.copied : strings.copy}
+            </button>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground/80">
+            {isWindows ? strings.afterCommandHintWindows : strings.afterCommandHint}
+          </p>
         </div>
       </div>
     </section>

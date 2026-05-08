@@ -33,10 +33,12 @@ export interface WelcomeStrings {
     osMacLabel: string;
     osLinuxLabel: string;
     osWindowsLabel: string;
-    osWindowsHint: string;
+    windowsRequiresWsl: string;
+    windowsRequiresWslDetail: string;
     copy: string;
     copied: string;
     afterCommandHint: string;
+    afterCommandHintWindows: string;
   };
   builtOn: {
     title: string;
@@ -123,14 +125,16 @@ const en: WelcomeStrings = {
   install: {
     eyebrow: 'Install',
     title: 'One command. Then never the terminal again.',
-    sub: 'The script installs PM2, the SiriusOS CLI and starts the dashboard. From there a visual wizard takes over — language, organization, Telegram bot, all in your browser.',
+    sub: 'The Node-based installer clones the repo, verifies prerequisites, and gets you to the visual wizard. From there language, organization and Telegram setup happen in your browser.',
     osMacLabel: 'macOS',
     osLinuxLabel: 'Linux',
     osWindowsLabel: 'Windows',
-    osWindowsHint: 'Use WSL2 with Ubuntu — native Windows is not supported yet.',
+    windowsRequiresWsl: 'Windows requires WSL2 (Ubuntu).',
+    windowsRequiresWslDetail: 'Agents run shell scripts under bash. The installer detects WSL automatically and tells you how to install it (`wsl --install` in an Administrator PowerShell, then reboot).',
     copy: 'Copy',
     copied: 'Copied',
-    afterCommandHint: 'After it finishes, your browser opens at http://localhost:3013 and the wizard guides the rest.',
+    afterCommandHint: 'After it finishes, open http://localhost:3013 in your browser and the wizard guides the rest.',
+    afterCommandHintWindows: 'After WSL is ready and the install completes, open http://localhost:3013 in your browser. The visual wizard handles the rest.',
   },
   builtOn: {
     title: 'Built on Claude. Runs on your machine.',
@@ -217,14 +221,16 @@ const es: WelcomeStrings = {
   install: {
     eyebrow: 'Instalación',
     title: 'Un comando. Después nunca más la terminal.',
-    sub: 'El script instala PM2, el CLI de SiriusOS y arranca el dashboard. Desde ahí toma el control un wizard visual: idioma, organización, bot de Telegram, todo en el navegador.',
+    sub: 'El instalador (en Node) clona el repo, verifica prerrequisitos y te lleva al wizard visual. Desde ahí idioma, organización y Telegram se configuran en el navegador.',
     osMacLabel: 'macOS',
     osLinuxLabel: 'Linux',
     osWindowsLabel: 'Windows',
-    osWindowsHint: 'Usá WSL2 con Ubuntu — Windows nativo todavía no está soportado.',
+    windowsRequiresWsl: 'Windows necesita WSL2 (Ubuntu).',
+    windowsRequiresWslDetail: 'Los agentes corren scripts bash. El instalador detecta WSL automáticamente y te dice cómo instalarlo (`wsl --install` en una PowerShell de administrador, después reinicio).',
     copy: 'Copiar',
     copied: 'Copiado',
-    afterCommandHint: 'Cuando termina, tu navegador abre en http://localhost:3013 y el wizard se encarga del resto.',
+    afterCommandHint: 'Cuando termina, abrí http://localhost:3013 en el navegador y el wizard se encarga del resto.',
+    afterCommandHintWindows: 'Cuando WSL esté listo y el install termine, abrí http://localhost:3013 en el navegador. El wizard visual hace el resto.',
   },
   builtOn: {
     title: 'Sobre Claude. Corriendo en tu máquina.',

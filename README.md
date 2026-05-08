@@ -59,13 +59,19 @@ flowchart TD
 
 ### Option A — One-line installer (recommended)
 
+**macOS / Linux:**
 ```bash
-curl -sSL https://siriusos.unikprompt.com/install.sh | bash
+curl -fsSL https://siriusos.unikprompt.com/install.mjs | node
 ```
 
-Verifies Node 20+, installs PM2 and the SiriusOS CLI, builds and starts the dashboard, then opens `http://localhost:3013`. From there a visual wizard handles language, organization, orchestrator and Telegram setup. No more terminal.
+**Windows (PowerShell, requires WSL2):**
+```powershell
+node -e "$(irm https://siriusos.unikprompt.com/install.mjs)"
+```
 
-Flags: `--lang en|es`, `--port 3013`, `--instance default`, `--version <npm-tag>`.
+The Node-based installer clones the repo into `~/cortextos`, verifies prerequisites (Node 20+, jq, claude CLI, build tools), and on Windows checks for WSL2 — agents run shell scripts under bash, so WSL is required (the installer points you to `wsl --install` if missing).
+
+Override the install location with `SIRIUSOS_DIR=/custom/path` or pin a branch with `SIRIUSOS_BRANCH=feature/foo`.
 
 ### Option B — Visual wizard from the dashboard
 
