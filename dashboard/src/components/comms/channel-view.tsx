@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { IconSend, IconPhoto, IconX, IconMicrophone } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 
 // Polling cadence for the visible-tab live feed. Paused when the tab is
 // backgrounded so inactive dashboards do not accumulate network traffic.
@@ -88,6 +89,7 @@ function MessageContent({ text }: { text: string }) {
 }
 
 export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelViewProps) {
+  const t = useT();
   const [messages, setMessages] = useState<BusMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState('');
@@ -289,7 +291,7 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
         const uploadRes = await fetch('/api/comms/upload', { method: 'POST', body: formData });
         if (!uploadRes.ok) {
           const data = await uploadRes.json().catch(() => ({}));
-          setSendError(data.error || 'Upload failed');
+          setSendError(data.error || t.pages.comms.uploadFailed);
           return;
         }
         const { url } = await uploadRes.json();
@@ -310,10 +312,10 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
         setTimeout(fetchMessages, 300);
       } else {
         const data = await res.json().catch(() => ({}));
-        setSendError(data.error || 'Failed to send');
+        setSendError(data.error || t.pages.comms.sendFailed);
       }
     } catch {
-      setSendError('Network error');
+      setSendError(t.pages.comms.networkError);
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -325,7 +327,7 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
   const sortedMessages = sortOrder === 'desc' ? [...messages].reverse() : messages;
 
   if (loading) {
-    return <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>;
+    return <div className="py-8 text-center text-sm text-muted-foreground">{t.pages.comms.loading}</div>;
   }
 
   return (
@@ -336,7 +338,7 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
       {/* Messages area */}
       <div ref={scrollRef} className="flex-1 min-h-0 space-y-3 overflow-y-auto px-3 py-3">
         {sortedMessages.length === 0 ? (
-          <div className="py-8 text-center text-sm text-muted-foreground">No messages in this channel.</div>
+          <div className="py-8 text-center text-sm text-muted-foreground">{t.pages.comms.noMessagesInChannel}</div>
         ) : (
           sortedMessages.map((msg) => {
             const isFirst = msg.from === agents[0];
@@ -356,7 +358,7 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
                   <div className="mb-0.5 flex items-center gap-1.5">
                     <span className="text-xs font-medium text-foreground">{msg.from}</span>
                     {isVoice && (
-                      <IconMicrophone size={11} className="text-muted-foreground" aria-label="voice message" />
+                      <IconMicrophone size={11} className="text-muted-foreground" aria-label={t.pages.comms.voiceMessage} />
                     )}
                     {msg.priority === 'urgent' && (
                       <Badge variant="destructive" className="h-3 px-1 text-[8px]">!</Badge>
@@ -388,7 +390,7 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
               <button
                 onClick={clearAttachment}
                 className="absolute -right-1.5 -top-1.5 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow-sm hover:bg-destructive/90"
-                aria-label="Remove attachment"
+                aria-label={t.pages.comms.removeAttachment}
               >
                 <IconX size={12} />
               </button>
@@ -407,8 +409,8 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
               size="sm"
               className="shrink-0 self-end"
               onClick={() => fileInputRef.current?.click()}
-              title="Attach image"
-              aria-label="Attach image"
+              title={t.pages.comms.attachImage}
+              aria-label={t.pages.comms.attachImage}
             >
               <IconPhoto size={16} />
             </Button>
@@ -422,7 +424,7 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
                 }
               }}
               onPaste={handlePaste}
-              placeholder={`Message ${targetAgent}...`}
+              placeholder={t.pages.comms.messageInputPlaceholder.replace('{agent}', targetAgent)}
               rows={1}
               className="min-h-[36px] max-h-[120px] flex-1 resize-none rounded-md border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring/30"
               onInput={(e) => {
@@ -437,7 +439,7 @@ export function ChannelView({ pair, knownAgents, sortOrder = 'asc' }: ChannelVie
               onClick={handleSend}
               disabled={(!draft.trim() && !attachment) || sending}
               className="shrink-0 self-end"
-              aria-label="Send message"
+              aria-label={t.pages.comms.sendMessage}
             >
               <IconSend size={14} className={sending ? 'animate-pulse' : ''} />
             </Button>

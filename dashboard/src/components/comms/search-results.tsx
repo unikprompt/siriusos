@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { TimeAgo } from '@/components/shared';
 import { IconArrowRight } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 
 interface BusMessage {
   id: string;
@@ -66,11 +67,12 @@ function relevanceScore(text: string, query: string): number {
 }
 
 export function SearchResults({ messages, query, onResultClick }: SearchResultsProps) {
+  const t = useT();
   if (messages.length === 0) {
     return (
       <div className="py-12 text-center">
         <p className="text-sm text-muted-foreground">
-          No messages matching &quot;{query}&quot;
+          {t.pages.comms.noMessagesMatching.replace('{query}', query)}
         </p>
       </div>
     );
@@ -88,7 +90,7 @@ export function SearchResults({ messages, query, onResultClick }: SearchResultsP
   return (
     <div className="space-y-1.5">
       <p className="text-xs text-muted-foreground px-1">
-        {sorted.length} result{sorted.length !== 1 ? 's' : ''}
+        {t.pages.comms.resultsCount.replace('{count}', String(sorted.length))}
       </p>
       {sorted.map((msg) => {
         const pair = [msg.from.toLowerCase(), msg.to.toLowerCase()].sort().join('--');

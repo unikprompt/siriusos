@@ -1,6 +1,10 @@
-import { format } from 'date-fns';
+'use client';
+
+import { format as fmtDate } from 'date-fns';
+import { es as dfnsEs, enUS as dfnsEn } from 'date-fns/locale';
 import { IconChecks, IconFlag } from '@tabler/icons-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useT, useLocale } from '@/lib/i18n';
 import type { Task, Event } from '@/lib/types';
 
 interface TodaysProgressProps {
@@ -9,14 +13,17 @@ interface TodaysProgressProps {
 }
 
 export function TodaysProgress({ completedTasks, milestones }: TodaysProgressProps) {
-  const todayStr = format(new Date(), 'MMM d, yyyy');
+  const t = useT();
+  const { locale } = useLocale();
+  const dfnsLocale = locale === 'es' ? dfnsEs : dfnsEn;
+  const todayStr = fmtDate(new Date(), 'PP', { locale: dfnsLocale });
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
           <span className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-            Today&apos;s Progress
+            {t.pages.overview.todaysProgress}
           </span>
           <span className="text-xs text-muted-foreground font-normal">{todayStr}</span>
         </CardTitle>
@@ -30,7 +37,7 @@ export function TodaysProgress({ completedTasks, milestones }: TodaysProgressPro
           <div>
             <p className="text-2xl font-bold tabular-nums">{completedTasks.length}</p>
             <p className="text-xs text-muted-foreground">
-              task{completedTasks.length !== 1 ? 's' : ''} completed
+              {completedTasks.length === 1 ? t.pages.overview.tasksCompletedOne : t.pages.overview.tasksCompletedMany}
             </p>
           </div>
         </div>
@@ -45,13 +52,13 @@ export function TodaysProgress({ completedTasks, milestones }: TodaysProgressPro
               >
                 <span className="truncate mr-2">{task.title}</span>
                 <span className="text-xs text-muted-foreground shrink-0">
-                  {task.assignee ?? 'unassigned'}
+                  {task.assignee ?? t.pages.overview.unassigned}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No tasks completed yet today. Try messaging your Orchestrator on Telegram to get started.</p>
+          <p className="text-sm text-muted-foreground">{t.pages.overview.noTasksCompleted}</p>
         )}
 
         {/* Milestones */}
@@ -59,7 +66,7 @@ export function TodaysProgress({ completedTasks, milestones }: TodaysProgressPro
           <div className="border-t pt-3 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <IconFlag size={14} />
-              Milestones
+              {t.pages.overview.milestones}
             </div>
             {milestones.slice(0, 5).map((event) => (
               <div key={event.id} className="text-sm px-2 py-1">

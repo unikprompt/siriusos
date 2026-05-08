@@ -3,6 +3,7 @@
 import { useState, useRef, useTransition } from 'react';
 import { IconPencil, IconCheck, IconLoader2 } from '@tabler/icons-react';
 import { updateBottleneck } from '@/lib/actions/goals';
+import { useT } from '@/lib/i18n';
 
 interface BottleneckEditorProps {
   org: string;
@@ -10,6 +11,7 @@ interface BottleneckEditorProps {
 }
 
 export function BottleneckEditor({ org, initialValue }: BottleneckEditorProps) {
+  const t = useT();
   const [value, setValue] = useState(initialValue);
   const [isEditing, setIsEditing] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -53,7 +55,7 @@ export function BottleneckEditor({ org, initialValue }: BottleneckEditorProps) {
     <div className="group relative">
       <div className="flex items-center gap-2 mb-1">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Current Bottleneck
+          {t.pages.overview.currentBottleneckLabel}
         </span>
         {isPending && (
           <IconLoader2 size={14} className="animate-spin text-muted-foreground" />
@@ -72,7 +74,7 @@ export function BottleneckEditor({ org, initialValue }: BottleneckEditorProps) {
           className="w-full resize-none rounded-md border border-primary/30 bg-background px-3 py-2 text-lg font-medium focus:outline-none focus:ring-2 focus:ring-primary/50"
           rows={2}
           maxLength={500}
-          placeholder="Click to set the current bottleneck..."
+          placeholder={t.pages.overview.bottleneckPlaceholder}
         />
       ) : (
         <button
@@ -87,7 +89,7 @@ export function BottleneckEditor({ org, initialValue }: BottleneckEditorProps) {
                 : 'text-lg font-medium'
             }
           >
-            {isEmpty ? 'Click to set the current bottleneck...' : value}
+            {isEmpty ? t.pages.overview.bottleneckPlaceholder : value}
           </span>
           <IconPencil
             size={16}

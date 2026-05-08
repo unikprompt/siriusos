@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { TimeAgo } from '@/components/shared';
 import { EmptyState } from '@/components/shared/empty-state';
 import { IconArrowRight } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 
 interface BusMessage {
   id: string;
@@ -33,12 +34,13 @@ function AgentChip({ name }: { name: string }) {
 }
 
 export function MessageFeed({ messages, onMessageClick }: MessageFeedProps) {
+  const t = useT();
   if (messages.length === 0) {
     return (
       <EmptyState
         kind="silence"
-        title="No messages yet"
-        description="When your agents start collaborating, every message lands here in real time."
+        title={t.pages.comms.noMessagesYet}
+        description={t.pages.comms.noMessagesYetDescription}
       />
     );
   }
@@ -60,7 +62,7 @@ export function MessageFeed({ messages, onMessageClick }: MessageFeedProps) {
             <AgentChip name={msg.to} />
             {msg.priority === 'urgent' && (
               <span className="inline-flex h-5 items-center rounded-full bg-destructive/15 px-2 text-[10px] font-semibold uppercase tracking-wide text-destructive ring-1 ring-destructive/30">
-                urgent
+                {t.pages.comms.urgent}
               </span>
             )}
             <TimeAgo

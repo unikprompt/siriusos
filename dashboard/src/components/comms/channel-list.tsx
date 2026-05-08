@@ -2,6 +2,7 @@
 
 import { TimeAgo } from '@/components/shared';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
 
 interface Channel {
   pair: string;
@@ -32,9 +33,10 @@ function PairAvatar({ a, b }: { a: string; b: string }) {
 }
 
 export function ChannelList({ channels, selectedPair, onChannelClick }: ChannelListProps) {
+  const t = useT();
   if (channels.length === 0) {
     return (
-      <p className="py-8 text-center text-xs text-muted-foreground">No channels yet</p>
+      <p className="py-8 text-center text-xs text-muted-foreground">{t.pages.comms.noChannels}</p>
     );
   }
 
@@ -75,7 +77,7 @@ export function ChannelList({ channels, selectedPair, onChannelClick }: ChannelL
                   <TimeAgo date={ch.last_activity} className="font-mono text-[10px] text-muted-foreground/70" />
                   {ch.archived && (
                     <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-muted-foreground">
-                      archived
+                      {t.pages.comms.archived}
                     </span>
                   )}
                 </div>

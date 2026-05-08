@@ -12,8 +12,10 @@ import {
   IconPlayerPlay,
 } from '@tabler/icons-react';
 import { formatDistanceToNow } from 'date-fns';
+import { es as dfnsEs, enUS as dfnsEn } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useSSE } from '@/hooks/use-sse';
+import { useT, useLocale } from '@/lib/i18n';
 import type { Event, SSEEvent } from '@/lib/types';
 
 interface LiveActivityProps {
@@ -28,11 +30,11 @@ const eventTypeIcons: Record<string, React.ReactNode> = {
   milestone: <IconFlag size={14} className="text-accent" />,
 };
 
-function formatEventTime(timestamp: string): string {
+function formatEventTime(timestamp: string, dfnsLocale: typeof dfnsEs | typeof dfnsEn): string {
   try {
-    return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
+    return formatDistanceToNow(new Date(timestamp), { addSuffix: true, locale: dfnsLocale });
   } catch {
-    return 'unknown';
+    return '—';
   }
 }
 
@@ -65,6 +67,9 @@ function eventToDisplayEvent(event: Event): DisplayEvent {
 }
 
 export function LiveActivity({ initialEvents }: LiveActivityProps) {
+  const t = useT();
+  const { locale } = useLocale();
+  const dfnsLocale = locale === 'es' ? dfnsEs : dfnsEn;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(false);
   const [liveEvents, setLiveEvents] = useState<DisplayEvent[]>([]);
@@ -111,7 +116,7 @@ export function LiveActivity({ initialEvents }: LiveActivityProps) {
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Live Activity
+              {t.pages.overview.liveActivity}
             </span>
             <span
               className={`inline-block h-1.5 w-1.5 rounded-full ring-2 ${
@@ -119,14 +124,14 @@ export function LiveActivity({ initialEvents }: LiveActivityProps) {
                   ? 'bg-success ring-success/30 animate-pulse shadow-[0_0_6px_var(--success)]'
                   : 'bg-warning ring-warning/30'
               }`}
-              title={isConnected ? 'Connected' : 'Reconnecting...'}
+              title={isConnected ? t.pages.overview.connected : t.pages.overview.reconnecting}
             />
           </div>
           <button
             type="button"
             onClick={() => setPaused(!paused)}
             className="rounded-md p-1 hover:bg-surface-2 transition-colors"
-            title={paused ? 'Resume auto-scroll' : 'Pause auto-scroll'}
+            title={paused ? t.pages.overview.resumeAutoscroll : t.pages.overview.pauseAutoscroll}
           >
             {paused ? (
               <IconPlayerPlay size={16} className="text-muted-foreground" />
@@ -143,7 +148,7 @@ export function LiveActivity({ initialEvents }: LiveActivityProps) {
         >
           {displayEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 text-center">
-              Your agents are starting up. Activity will appear here as they begin working.
+              {t.pages.overview.activityStarting}
             </p>
           ) : (
             displayEvents.map((event) => (
@@ -163,7 +168,7 @@ export function LiveActivity({ initialEvents }: LiveActivityProps) {
                 )}
                 <span className="truncate flex-1 text-foreground/90">{event.message}</span>
                 <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground/80 tabular-nums" suppressHydrationWarning>
-                  {formatEventTime(event.timestamp)}
+                  {formatEventTime(event.timestamp, dfnsLocale)}
                 </span>
               </div>
             ))

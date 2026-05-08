@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HealthDot } from '@/components/shared/health-dot';
 import { IconRobot, IconChevronRight } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 import type { AgentSummary, Heartbeat } from '@/lib/types';
 
 interface AgentStatusGridProps {
@@ -12,12 +13,13 @@ interface AgentStatusGridProps {
 }
 
 export function AgentStatusGrid({ agents, heartbeats }: AgentStatusGridProps) {
+  const t = useT();
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-sm font-medium">
           <IconRobot size={16} className="text-muted-foreground" />
-          Agent Fleet
+          {t.pages.overview.agentFleet}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-0.5 pt-0" data-stagger>
@@ -35,7 +37,7 @@ export function AgentStatusGrid({ agents, heartbeats }: AgentStatusGridProps) {
                 fill="currentColor"
               />
             </svg>
-            <p className="text-xs text-muted-foreground">No agents discovered yet</p>
+            <p className="text-xs text-muted-foreground">{t.pages.overview.noAgentsDiscovered}</p>
           </div>
         ) : (
           agents.map((agent) => {

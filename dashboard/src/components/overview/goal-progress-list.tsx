@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { IconExternalLink } from '@tabler/icons-react';
 import { ProgressBar } from '@/components/charts/progress-bar';
+import { useT } from '@/lib/i18n';
 import type { Goal } from '@/lib/types';
 
 interface GoalProgressListProps {
@@ -10,12 +11,13 @@ interface GoalProgressListProps {
 }
 
 export function GoalProgressList({ goals }: GoalProgressListProps) {
+  const t = useT();
   if (goals.length === 0) {
     return (
       <div className="py-4 text-center text-sm text-muted-foreground">
-        No goals set.{' '}
+        {t.pages.overview.noGoals}{' '}
         <Link href="/strategy" className="text-primary hover:underline">
-          Visit Strategy to add goals.
+          {t.pages.overview.visitStrategy}
         </Link>
       </div>
     );
@@ -29,13 +31,13 @@ export function GoalProgressList({ goals }: GoalProgressListProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Top Goals
+          {t.pages.overview.topGoals}
         </span>
         <Link
           href="/strategy"
           className="flex items-center gap-1 text-xs text-primary hover:underline"
         >
-          Edit
+          {t.pages.overview.goalsEdit}
           <IconExternalLink size={12} />
         </Link>
       </div>

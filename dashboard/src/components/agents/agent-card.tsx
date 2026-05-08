@@ -8,6 +8,7 @@ import { OrgBadge } from '@/components/shared/org-badge';
 import { AgentAvatar } from '@/components/shared/agent-avatar';
 import { AgentActions } from './agent-actions';
 import { IconChecklist } from '@tabler/icons-react';
+import { useT, format } from '@/lib/i18n';
 import type { HealthStatus } from '@/lib/types';
 
 export interface AgentCardData {
@@ -27,11 +28,12 @@ interface AgentCardProps {
 }
 
 export function AgentCard({ agent }: AgentCardProps) {
+  const t = useT();
   const router = useRouter();
 
   const healthLabel =
-    agent.health === 'healthy' ? 'Online' :
-    agent.health === 'stale' ? 'Stale' : 'Offline';
+    agent.health === 'healthy' ? t.pages.agents.health.online :
+    agent.health === 'stale' ? t.badges.status.unknown : t.pages.agents.health.offline;
 
   return (
     <Link href={`/agents/${encodeURIComponent(agent.systemName)}`}>
@@ -72,7 +74,7 @@ export function AgentCard({ agent }: AgentCardProps) {
           {/* Current task */}
           {agent.currentTask ? (
             <div className="rounded-md bg-muted/40 px-2.5 py-2">
-              <p className="text-[11px] text-muted-foreground mb-0.5">Working on</p>
+              <p className="text-[11px] text-muted-foreground mb-0.5">{t.pages.agents.card.workingOn}</p>
               <p className="text-xs leading-snug line-clamp-2">
                 {agent.currentTask.replace(/^WORKING ON:\s*/i, '')}
               </p>
@@ -80,7 +82,7 @@ export function AgentCard({ agent }: AgentCardProps) {
           ) : (
             <div className="rounded-md bg-muted/20 px-2.5 py-2">
               <p className="text-[11px] text-muted-foreground">
-                {agent.health === 'healthy' ? 'Idle' : healthLabel}
+                {agent.health === 'healthy' ? t.pages.agents.card.idle : healthLabel}
               </p>
             </div>
           )}
@@ -89,7 +91,7 @@ export function AgentCard({ agent }: AgentCardProps) {
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <IconChecklist size={13} />
             <span>
-              {agent.tasksToday} task{agent.tasksToday !== 1 ? 's' : ''} today
+              {format(agent.tasksToday === 1 ? t.pages.agents.card.tasksTodayOne : t.pages.agents.card.tasksTodayMany, { count: agent.tasksToday })}
             </span>
           </div>
         </CardContent>

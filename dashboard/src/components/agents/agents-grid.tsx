@@ -8,6 +8,7 @@ import { CreateAgentDialog } from './create-agent-dialog';
 import { HealthDot } from '@/components/shared/health-dot';
 import { EmptyState } from '@/components/shared/empty-state';
 import { useSSE } from '@/hooks/use-sse';
+import { useT } from '@/lib/i18n';
 import type { HealthStatus, SSEEvent } from '@/lib/types';
 
 interface AgentsGridProps {
@@ -15,6 +16,7 @@ interface AgentsGridProps {
 }
 
 export function AgentsGrid({ initialAgents }: AgentsGridProps) {
+  const t = useT();
   const router = useRouter();
   const [agents, setAgents] = useState<AgentCardData[]>(initialAgents);
   const [createOpen, setCreateOpen] = useState(false);
@@ -47,15 +49,15 @@ export function AgentsGrid({ initialAgents }: AgentsGridProps) {
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <HealthDot status="healthy" />
-          {agents.filter((a) => a.health === 'healthy').length} healthy
+          {agents.filter((a) => a.health === 'healthy').length} {t.pages.agents.health.healthy}
         </span>
         <span className="flex items-center gap-1.5">
           <HealthDot status="stale" />
-          {agents.filter((a) => a.health === 'stale').length} stale
+          {agents.filter((a) => a.health === 'stale').length} {t.pages.agents.health.stale}
         </span>
         <span className="flex items-center gap-1.5">
           <HealthDot status="down" />
-          {agents.filter((a) => a.health === 'down').length} down
+          {agents.filter((a) => a.health === 'down').length} {t.pages.agents.health.down}
         </span>
       </div>
 
@@ -63,15 +65,15 @@ export function AgentsGrid({ initialAgents }: AgentsGridProps) {
       {agents.length === 0 ? (
         <EmptyState
           kind="constellation"
-          title="No agents in your fleet yet"
-          description="Spin up your first agent and Sirius starts orchestrating. Each agent runs persistently in its own session."
+          title={t.pages.agents.empty.title}
+          description={t.pages.agents.empty.description}
           action={
             <button
               type="button"
               onClick={() => setCreateOpen(true)}
               className="inline-flex h-9 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-all hover:opacity-90"
             >
-              + Add your first agent
+              {t.pages.agents.empty.cta}
             </button>
           }
         />

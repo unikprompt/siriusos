@@ -87,6 +87,57 @@ export interface DashboardStrings {
       orgLabel: string;
       actionsNeededOne: string; // "{count} action needed"
       actionsNeededMany: string; // "{count} actions needed"
+      actionRequired: string;
+      allClear: string;
+      actionItems: {
+        humanTaskOne: string;
+        humanTaskMany: string;
+        approvalOne: string;
+        approvalMany: string;
+        blockedOne: string;
+        blockedMany: string;
+        staleOne: string;
+        staleMany: string;
+      };
+      metrics: {
+        agentsOnline: string;
+        allSystemsGo: string;
+        offline: string;
+        tasksToday: string;
+        activeQueued: string;
+        approvals: string;
+        queueClear: string;
+        awaitingReview: string;
+        blocked: string;
+        noBlockers: string;
+        needsAttention: string;
+      };
+      systemHealth: string;
+      noAgentsDetected: string;
+      allHealthy: string; // '{total}/{total} agents healthy'
+      agentsDownOne: string;
+      agentsDownMany: string;
+      todaysProgress: string;
+      tasksCompletedOne: string;
+      tasksCompletedMany: string;
+      noTasksCompleted: string;
+      milestones: string;
+      agentFleet: string;
+      noAgentsDiscovered: string;
+      currentFocus: string;
+      currentBottleneckLabel: string;
+      bottleneckPlaceholder: string;
+      topGoals: string;
+      goalsEdit: string;
+      noGoals: string;
+      visitStrategy: string;
+      liveActivity: string;
+      connected: string;
+      reconnecting: string;
+      pauseAutoscroll: string;
+      resumeAutoscroll: string;
+      activityStarting: string;
+      unassigned: string;
     };
     tasks: {
       title: string;
@@ -189,6 +240,25 @@ export interface DashboardStrings {
       orgLabel: string;
       countOne: string; // "{count} agent"
       countMany: string; // "{count} agents"
+      health: {
+        healthy: string;
+        stale: string;
+        down: string;
+        online: string;
+        offline: string;
+      };
+      card: {
+        workingOn: string;
+        idle: string;
+        tasksTodayOne: string; // "{count} task today"
+        tasksTodayMany: string; // "{count} tasks today"
+      };
+      addAgent: string;
+      empty: {
+        title: string;
+        description: string;
+        cta: string;
+      };
     };
     activity: {
       title: string;
@@ -278,6 +348,22 @@ export interface DashboardStrings {
       showArchived: string;
       messagesCount: string;
       resultsCount: string;
+      noChannels: string;
+      archived: string;
+      noMessagesYet: string;
+      noMessagesYetDescription: string;
+      noMessagesInChannel: string;
+      loading: string;
+      noMessagesMatching: string; // 'No messages matching "{query}"'
+      messageInputPlaceholder: string; // 'Message {agent}…'
+      attachImage: string;
+      removeAttachment: string;
+      sendMessage: string;
+      voiceMessage: string;
+      uploadFailed: string;
+      sendFailed: string;
+      networkError: string;
+      urgent: string;
     };
     approvals: {
       subtitle: string;
@@ -356,7 +442,27 @@ export interface DashboardStrings {
         cancel: string;
       };
     };
-    skills: { subtitle: string };
+    skills: {
+      subtitle: string;
+      empty: string;
+      emptyHint: string;
+      tabs: {
+        all: string;
+        installed: string;
+        available: string;
+      };
+      noInstalled: string;
+      allInstalled: string;
+      installedBadge: string;
+      availableBadge: string;
+      selectAgent: string;
+      install: string;
+      installFailed: string;
+      uninstallFailed: string;
+      selectAgentFirst: string;
+      installedSuffix: string; // " (installed)"
+      uninstallFromAria: string; // "Uninstall from {target}"
+    };
     experiments: { subtitle: string };
     knowledgeBase: { subtitle: string };
     settings: {
@@ -472,6 +578,57 @@ const en: DashboardStrings = {
       orgLabel: 'Organization',
       actionsNeededOne: '{count} action needed',
       actionsNeededMany: '{count} actions needed',
+      actionRequired: 'Action Required',
+      allClear: 'All clear — nothing needs your attention',
+      actionItems: {
+        humanTaskOne: '{count} task assigned to you',
+        humanTaskMany: '{count} tasks assigned to you',
+        approvalOne: '{count} pending approval',
+        approvalMany: '{count} pending approvals',
+        blockedOne: '{count} blocked task',
+        blockedMany: '{count} blocked tasks',
+        staleOne: '{count} stale agent',
+        staleMany: '{count} stale agents',
+      },
+      metrics: {
+        agentsOnline: 'Agents Online',
+        allSystemsGo: 'All systems go',
+        offline: '{count} offline',
+        tasksToday: 'Tasks Today',
+        activeQueued: '{active} active, {queued} queued',
+        approvals: 'Approvals',
+        queueClear: 'Queue clear',
+        awaitingReview: 'Awaiting review',
+        blocked: 'Blocked',
+        noBlockers: 'No blockers',
+        needsAttention: 'Needs attention',
+      },
+      systemHealth: 'System Health',
+      noAgentsDetected: 'No agents detected',
+      allHealthy: '{total}/{total} agents healthy',
+      agentsDownOne: '{count} agent down',
+      agentsDownMany: '{count} agents down',
+      todaysProgress: "Today's Progress",
+      tasksCompletedOne: 'task completed',
+      tasksCompletedMany: 'tasks completed',
+      noTasksCompleted: 'No tasks completed yet today. Try messaging your Orchestrator on Telegram to get started.',
+      milestones: 'Milestones',
+      agentFleet: 'Agent Fleet',
+      noAgentsDiscovered: 'No agents discovered yet',
+      currentFocus: 'Current Focus',
+      currentBottleneckLabel: 'Current Bottleneck',
+      bottleneckPlaceholder: 'Click to set the current bottleneck…',
+      topGoals: 'Top Goals',
+      goalsEdit: 'Edit',
+      noGoals: 'No goals set.',
+      visitStrategy: 'Visit Strategy to add goals.',
+      liveActivity: 'Live Activity',
+      connected: 'Connected',
+      reconnecting: 'Reconnecting…',
+      pauseAutoscroll: 'Pause auto-scroll',
+      resumeAutoscroll: 'Resume auto-scroll',
+      activityStarting: 'Your agents are starting up. Activity will appear here as they begin working.',
+      unassigned: 'unassigned',
     },
     tasks: {
       title: 'Tasks',
@@ -574,6 +731,25 @@ const en: DashboardStrings = {
       orgLabel: 'Org',
       countOne: '{count} agent',
       countMany: '{count} agents',
+      health: {
+        healthy: 'healthy',
+        stale: 'stale',
+        down: 'down',
+        online: 'Online',
+        offline: 'Offline',
+      },
+      card: {
+        workingOn: 'Working on',
+        idle: 'Idle',
+        tasksTodayOne: '{count} task today',
+        tasksTodayMany: '{count} tasks today',
+      },
+      addAgent: 'Add Agent',
+      empty: {
+        title: 'No agents in your fleet yet',
+        description: 'Spin up your first agent and Sirius starts orchestrating. Each agent runs persistently in its own session.',
+        cta: '+ Add your first agent',
+      },
     },
     activity: {
       title: 'Activity',
@@ -663,6 +839,22 @@ const en: DashboardStrings = {
       showArchived: 'Show archived',
       messagesCount: '{count} messages',
       resultsCount: '{count} results',
+      noChannels: 'No channels yet',
+      archived: 'archived',
+      noMessagesYet: 'No messages yet',
+      noMessagesYetDescription: 'When your agents start collaborating, every message lands here in real time.',
+      noMessagesInChannel: 'No messages in this channel.',
+      loading: 'Loading…',
+      noMessagesMatching: 'No messages matching "{query}"',
+      messageInputPlaceholder: 'Message {agent}…',
+      attachImage: 'Attach image',
+      removeAttachment: 'Remove attachment',
+      sendMessage: 'Send message',
+      voiceMessage: 'voice message',
+      uploadFailed: 'Upload failed',
+      sendFailed: 'Failed to send',
+      networkError: 'Network error',
+      urgent: 'urgent',
     },
     approvals: {
       subtitle: 'Items waiting for human review.',
@@ -741,7 +933,27 @@ const en: DashboardStrings = {
         cancel: 'Cancel',
       },
     },
-    skills: { subtitle: 'Browse and install skills from the catalog to your agents.' },
+    skills: {
+      subtitle: 'Browse and install skills from the catalog to your agents.',
+      empty: 'No skills found in the catalog.',
+      emptyHint: 'Skills are read from $CTX_FRAMEWORK_ROOT/skills/',
+      tabs: {
+        all: 'All',
+        installed: 'Installed',
+        available: 'Available',
+      },
+      noInstalled: 'No skills installed yet.',
+      allInstalled: 'All skills are installed.',
+      installedBadge: 'Installed',
+      availableBadge: 'Available',
+      selectAgent: 'Select agent…',
+      install: 'Install',
+      installFailed: 'Install failed',
+      uninstallFailed: 'Uninstall failed',
+      selectAgentFirst: 'Select an agent first',
+      installedSuffix: ' (installed)',
+      uninstallFromAria: 'Uninstall from {target}',
+    },
     experiments: { subtitle: 'Track ongoing experiments across agents.' },
     knowledgeBase: { subtitle: "Search, browse and manage your organization's shared knowledge. Powered by multimodal RAG." },
     settings: {
@@ -857,6 +1069,57 @@ const es: DashboardStrings = {
       orgLabel: 'Organización',
       actionsNeededOne: '{count} acción requerida',
       actionsNeededMany: '{count} acciones requeridas',
+      actionRequired: 'Acciones requeridas',
+      allClear: 'Todo en orden — no hay nada esperando tu atención',
+      actionItems: {
+        humanTaskOne: '{count} tarea asignada a vos',
+        humanTaskMany: '{count} tareas asignadas a vos',
+        approvalOne: '{count} aprobación pendiente',
+        approvalMany: '{count} aprobaciones pendientes',
+        blockedOne: '{count} tarea bloqueada',
+        blockedMany: '{count} tareas bloqueadas',
+        staleOne: '{count} agente sin actividad',
+        staleMany: '{count} agentes sin actividad',
+      },
+      metrics: {
+        agentsOnline: 'Agentes en línea',
+        allSystemsGo: 'Todo OK',
+        offline: '{count} offline',
+        tasksToday: 'Tareas de hoy',
+        activeQueued: '{active} activas, {queued} en cola',
+        approvals: 'Aprobaciones',
+        queueClear: 'Cola limpia',
+        awaitingReview: 'Esperando revisión',
+        blocked: 'Bloqueadas',
+        noBlockers: 'Sin blockers',
+        needsAttention: 'Necesita atención',
+      },
+      systemHealth: 'Salud del sistema',
+      noAgentsDetected: 'No se detectaron agentes',
+      allHealthy: '{total}/{total} agentes sanos',
+      agentsDownOne: '{count} agente caído',
+      agentsDownMany: '{count} agentes caídos',
+      todaysProgress: 'Progreso de hoy',
+      tasksCompletedOne: 'tarea completada',
+      tasksCompletedMany: 'tareas completadas',
+      noTasksCompleted: 'Aún no completaste ninguna tarea hoy. Probá hablarle al orquestador por Telegram para arrancar.',
+      milestones: 'Hitos',
+      agentFleet: 'Flota de agentes',
+      noAgentsDiscovered: 'Aún no se descubrieron agentes',
+      currentFocus: 'Foco actual',
+      currentBottleneckLabel: 'Cuello de botella actual',
+      bottleneckPlaceholder: 'Hacé clic para definir el cuello de botella actual…',
+      topGoals: 'Objetivos principales',
+      goalsEdit: 'Editar',
+      noGoals: 'No hay objetivos cargados.',
+      visitStrategy: 'Andá a Estrategia para agregar objetivos.',
+      liveActivity: 'Actividad en vivo',
+      connected: 'Conectado',
+      reconnecting: 'Reconectando…',
+      pauseAutoscroll: 'Pausar auto-scroll',
+      resumeAutoscroll: 'Reanudar auto-scroll',
+      activityStarting: 'Tus agentes están arrancando. La actividad aparece acá cuando empiecen a trabajar.',
+      unassigned: 'sin asignar',
     },
     tasks: {
       title: 'Tareas',
@@ -959,6 +1222,25 @@ const es: DashboardStrings = {
       orgLabel: 'Org',
       countOne: '{count} agente',
       countMany: '{count} agentes',
+      health: {
+        healthy: 'sanos',
+        stale: 'sin actividad',
+        down: 'caídos',
+        online: 'En línea',
+        offline: 'Desconectado',
+      },
+      card: {
+        workingOn: 'Trabajando en',
+        idle: 'En espera',
+        tasksTodayOne: '{count} tarea hoy',
+        tasksTodayMany: '{count} tareas hoy',
+      },
+      addAgent: 'Agregar agente',
+      empty: {
+        title: 'Aún no hay agentes en tu flota',
+        description: 'Levantá tu primer agente y Sirius arranca la orquestación. Cada agente corre persistentemente en su propia sesión.',
+        cta: '+ Agregá tu primer agente',
+      },
     },
     activity: {
       title: 'Actividad',
@@ -1048,6 +1330,22 @@ const es: DashboardStrings = {
       showArchived: 'Mostrar archivados',
       messagesCount: '{count} mensajes',
       resultsCount: '{count} resultados',
+      noChannels: 'Aún no hay canales',
+      archived: 'archivado',
+      noMessagesYet: 'Aún no hay mensajes',
+      noMessagesYetDescription: 'Cuando tus agentes empiecen a colaborar, cada mensaje aparece acá en tiempo real.',
+      noMessagesInChannel: 'No hay mensajes en este canal.',
+      loading: 'Cargando…',
+      noMessagesMatching: 'Sin mensajes que coincidan con "{query}"',
+      messageInputPlaceholder: 'Mensaje a {agent}…',
+      attachImage: 'Adjuntar imagen',
+      removeAttachment: 'Quitar adjunto',
+      sendMessage: 'Enviar mensaje',
+      voiceMessage: 'mensaje de voz',
+      uploadFailed: 'Falló la subida',
+      sendFailed: 'No se pudo enviar',
+      networkError: 'Error de red',
+      urgent: 'urgente',
     },
     approvals: {
       subtitle: 'Items esperando revisión humana.',
@@ -1126,7 +1424,27 @@ const es: DashboardStrings = {
         cancel: 'Cancelar',
       },
     },
-    skills: { subtitle: 'Explorá e instalá skills del catálogo en tus agentes.' },
+    skills: {
+      subtitle: 'Explorá e instalá skills del catálogo en tus agentes.',
+      empty: 'No hay skills en el catálogo.',
+      emptyHint: 'Los skills se leen de $CTX_FRAMEWORK_ROOT/skills/',
+      tabs: {
+        all: 'Todos',
+        installed: 'Instalados',
+        available: 'Disponibles',
+      },
+      noInstalled: 'Todavía no hay skills instalados.',
+      allInstalled: 'Todos los skills están instalados.',
+      installedBadge: 'Instalado',
+      availableBadge: 'Disponible',
+      selectAgent: 'Elegí un agente…',
+      install: 'Instalar',
+      installFailed: 'Falló la instalación',
+      uninstallFailed: 'Falló la desinstalación',
+      selectAgentFirst: 'Elegí un agente primero',
+      installedSuffix: ' (instalado)',
+      uninstallFromAria: 'Desinstalar de {target}',
+    },
     experiments: { subtitle: 'Seguimiento de experimentos en curso entre agentes.' },
     knowledgeBase: { subtitle: 'Buscá, explorá y gestioná el conocimiento compartido de tu organización. Powered by multimodal RAG.' },
     settings: {

@@ -8,6 +8,7 @@ import {
   IconAlertTriangle,
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
+import { useT, format } from '@/lib/i18n';
 
 interface MetricCardProps {
   label: string;
@@ -70,33 +71,38 @@ export function MetricCards({
   pendingApprovals,
   blockedTasks,
 }: MetricCardsProps) {
+  const t = useT();
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-stagger>
       <MetricCard
-        label="Agents Online"
+        label={t.pages.overview.metrics.agentsOnline}
         value={`${agentsOnline}/${agentsTotal}`}
-        sublabel={agentsOnline === agentsTotal ? 'All systems go' : `${agentsTotal - agentsOnline} offline`}
+        sublabel={
+          agentsOnline === agentsTotal
+            ? t.pages.overview.metrics.allSystemsGo
+            : format(t.pages.overview.metrics.offline, { count: agentsTotal - agentsOnline })
+        }
         icon={<IconRobot size={18} className="text-primary" />}
         href="/agents"
       />
       <MetricCard
-        label="Tasks Today"
+        label={t.pages.overview.metrics.tasksToday}
         value={tasksCompleted}
-        sublabel={`${tasksInProgress} active, ${tasksPending} queued`}
+        sublabel={format(t.pages.overview.metrics.activeQueued, { active: tasksInProgress, queued: tasksPending })}
         icon={<IconChecklist size={18} className="text-primary" />}
         href="/tasks"
       />
       <MetricCard
-        label="Approvals"
+        label={t.pages.overview.metrics.approvals}
         value={pendingApprovals}
-        sublabel={pendingApprovals === 0 ? 'Queue clear' : 'Awaiting review'}
+        sublabel={pendingApprovals === 0 ? t.pages.overview.metrics.queueClear : t.pages.overview.metrics.awaitingReview}
         icon={<IconShieldCheck size={18} className="text-primary" />}
         href="/approvals"
       />
       <MetricCard
-        label="Blocked"
+        label={t.pages.overview.metrics.blocked}
         value={blockedTasks}
-        sublabel={blockedTasks === 0 ? 'No blockers' : 'Needs attention'}
+        sublabel={blockedTasks === 0 ? t.pages.overview.metrics.noBlockers : t.pages.overview.metrics.needsAttention}
         icon={<IconAlertTriangle size={18} className="text-primary" />}
         href="/tasks?status=blocked"
       />

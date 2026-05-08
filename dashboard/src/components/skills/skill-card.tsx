@@ -5,6 +5,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { useT, format } from '@/lib/i18n';
+
 interface SkillInfo {
   slug: string;
   name: string;
@@ -20,13 +22,14 @@ interface SkillCardProps {
 }
 
 export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
+  const t = useT();
   const [loading, setLoading] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string>('');
   const [error, setError] = useState('');
 
   async function handleInstall() {
     if (!selectedAgent) {
-      setError('Select an agent first');
+      setError(t.pages.skills.selectAgentFirst);
       return;
     }
     const [org, agent] = selectedAgent.split('/');
@@ -39,7 +42,7 @@ export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? 'Install failed');
+      setError(data.error ?? t.pages.skills.installFailed);
     }
     setLoading(false);
     onRefresh();
@@ -56,7 +59,7 @@ export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? 'Uninstall failed');
+      setError(data.error ?? t.pages.skills.uninstallFailed);
     }
     setLoading(false);
     onRefresh();
@@ -68,9 +71,9 @@ export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
         <div className="flex items-start justify-between gap-2">
           <CardTitle>{skill.name}</CardTitle>
           {skill.installed ? (
-            <Badge variant="secondary">Installed</Badge>
+            <Badge variant="secondary">{t.pages.skills.installedBadge}</Badge>
           ) : (
-            <Badge variant="outline">Available</Badge>
+            <Badge variant="outline">{t.pages.skills.availableBadge}</Badge>
           )}
         </div>
         <CardDescription>{skill.description}</CardDescription>
@@ -90,7 +93,7 @@ export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
                   onClick={() => handleUninstall(orgAgent)}
                   disabled={loading}
                   className="ml-0.5 text-muted-foreground hover:text-destructive"
-                  aria-label={`Uninstall from ${orgAgent}`}
+                  aria-label={format(t.pages.skills.uninstallFromAria, { target: orgAgent })}
                 >
                   x
                 </button>
@@ -105,7 +108,7 @@ export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
           <div className="flex items-center gap-2">
             <Select value={selectedAgent} onValueChange={(v) => setSelectedAgent(v ?? '')}>
               <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Select agent..." />
+                <SelectValue placeholder={t.pages.skills.selectAgent} />
               </SelectTrigger>
               <SelectContent>
                 {agents.map((a) => {
@@ -113,7 +116,7 @@ export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
                   const alreadyInstalled = skill.installedFor.includes(key);
                   return (
                     <SelectItem key={key} value={key} disabled={alreadyInstalled}>
-                      {key}{alreadyInstalled ? ' (installed)' : ''}
+                      {key}{alreadyInstalled ? t.pages.skills.installedSuffix : ''}
                     </SelectItem>
                   );
                 })}
@@ -124,7 +127,7 @@ export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
               onClick={handleInstall}
               disabled={loading || !selectedAgent}
             >
-              Install
+              {t.pages.skills.install}
             </Button>
           </div>
           {error && <p className="text-xs text-destructive">{error}</p>}

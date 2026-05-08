@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { HealthDot } from '@/components/shared/health-dot';
 import { TimeAgo } from '@/components/shared/time-ago';
+import { useT, format } from '@/lib/i18n';
 import type { HealthSummary as HealthSummaryType } from '@/lib/types';
 
 interface SystemHealthProps {
@@ -17,6 +18,7 @@ interface SystemHealthProps {
 }
 
 export function SystemHealth({ summary }: SystemHealthProps) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
 
   const total = summary.healthy + summary.stale + summary.down;
@@ -26,12 +28,12 @@ export function SystemHealth({ summary }: SystemHealthProps) {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-          System Health
+          {t.pages.overview.systemHealth}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         {total === 0 ? (
-          <p className="text-sm text-muted-foreground">No agents detected</p>
+          <p className="text-sm text-muted-foreground">{t.pages.overview.noAgentsDetected}</p>
         ) : (
           <>
             <button
@@ -44,11 +46,11 @@ export function SystemHealth({ summary }: SystemHealthProps) {
                 <span className="text-sm font-medium">
                   {unhealthy === 0 ? (
                     <span className="text-success">
-                      {total}/{total} agents healthy
+                      {format(t.pages.overview.allHealthy, { total })}
                     </span>
                   ) : (
                     <span className="text-destructive">
-                      {unhealthy} agent{unhealthy !== 1 ? 's' : ''} down
+                      {format(unhealthy === 1 ? t.pages.overview.agentsDownOne : t.pages.overview.agentsDownMany, { count: unhealthy })}
                     </span>
                   )}
                 </span>
