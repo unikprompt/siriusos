@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Acme Instagram — Integrity Action Diagnosis · 2026-01-15</title>
+<style>
+:root {
+  --bg: #050510;
+  --surface: #0E1428;
+  --surface-2: #161E3D;
+  --border: #1F2A4D;
+  --primary: #A5C9FF;
+  --accent: #FFD27A;
+  --success: #5EEAD4;
+  --warning: #FFB84D;
+  --destructive: #FF6B7A;
+  --fg: #E6ECFF;
+  --muted: #7A89B8;
+  --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-body: 'Sora', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+[data-theme="light"] {
+  --bg: #F8FAFF;
+  --surface: #FFFFFF;
+  --surface-2: #F0F2F8;
+  --border: #D8DCE8;
+  --primary: #3D6FE5;
+  --accent: #C9982A;
+  --success: #0E9F8C;
+  --warning: #C97A0E;
+  --destructive: #D63848;
+  --fg: #0E1428;
+  --muted: #6B7494;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Star backdrop (CSS only, no images) ── */
+.starfield {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 13% 22%, rgba(230,236,255,.7), transparent 60%),
+    radial-gradient(1px 1px at 47% 78%, rgba(230,236,255,.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 71% 11%, rgba(165,201,255,.7), transparent 60%),
+    radial-gradient(1px 1px at 88% 64%, rgba(230,236,255,.45), transparent 60%),
+    radial-gradient(1px 1px at 23% 88%, rgba(165,201,255,.5), transparent 60%);
+  opacity: .9;
+}
+[data-theme="light"] .starfield { display: none; }
+
+main { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: var(--space-2xl) var(--space-lg); }
+
+/* ── Header ── */
+header.report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-lg); margin-bottom: var(--space-xl); flex-wrap: wrap; }
+header.report-header .titles { flex: 1 1 360px; min-width: 0; }
+header.report-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3.5vw, 34px);
+  font-weight: 700;
+  margin: 0 0 var(--space-xs) 0;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+header.report-header .meta { color: var(--muted); font-size: 13px; font-family: var(--font-mono); }
+header.report-header .meta strong { color: var(--primary); font-weight: 500; }
+
+.theme-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.theme-toggle:hover { background: var(--surface-2); border-color: var(--primary); }
+
+/* ── TL;DR ── */
+.tldr {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg) var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
+.tldr h2 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 var(--space-sm) 0;
+}
+.tldr ul { margin: 0; padding-left: 18px; }
+.tldr li { margin-bottom: var(--space-xs); }
+.tldr li::marker { color: var(--accent); }
+
+/* ── Metric grid ── */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+.metric-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.metric-value {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--fg);
+  margin: var(--space-xs) 0;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.metric-trend { font-size: 13px; }
+.metric-trend.ok { color: var(--success); }
+.metric-trend.warn { color: var(--warning); }
+.metric-trend.bad { color: var(--destructive); }
+
+/* ── Section ── */
+section { margin-bottom: var(--space-2xl); }
+section h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0 0 var(--space-md) 0;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+section h3 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  margin: var(--space-lg) 0 var(--space-sm) 0;
+  font-weight: 600;
+  color: var(--primary);
+}
+p { margin: 0 0 var(--space-md) 0; }
+
+/* ── Status dot ── */
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: middle; }
+.status-dot.ok { background: var(--success); box-shadow: 0 0 8px var(--success); }
+.status-dot.warn { background: var(--warning); box-shadow: 0 0 8px var(--warning); }
+.status-dot.bad { background: var(--destructive); box-shadow: 0 0 8px var(--destructive); }
+
+/* ── Findings table ── */
+table.findings { width: 100%; border-collapse: collapse; font-size: 14px; }
+table.findings th, table.findings td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.findings th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 500;
+}
+table.findings tbody tr:hover { background: var(--surface-2); }
+table.findings code { font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+
+/* ── Severity pill ── */
+.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; }
+.pill.ok { color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.pill.warn { color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.pill.bad { color: var(--destructive); border: 1px solid color-mix(in srgb, var(--destructive) 40%, transparent); background: color-mix(in srgb, var(--destructive) 10%, transparent); }
+
+/* ── Code block ── */
+pre.code {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-md);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--fg);
+  margin: var(--space-md) 0;
+}
+pre.code .k { color: var(--primary); }
+pre.code .s { color: var(--success); }
+pre.code .n { color: var(--accent); }
+pre.code .c { color: var(--muted); font-style: italic; }
+
+/* ── Collapsible ── */
+details {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+details[open] { background: var(--surface-2); }
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform 0.18s ease;
+  color: var(--muted);
+  font-size: 11px;
+}
+details[open] > summary::before { transform: rotate(90deg); }
+
+/* ── Timeline ── */
+.timeline { position: relative; margin: var(--space-md) 0; padding-left: 28px; }
+.timeline::before { content: ''; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 2px; background: var(--border); }
+.timeline .event { position: relative; padding-bottom: var(--space-md); }
+.timeline .event::before {
+  content: '';
+  position: absolute;
+  left: -28px; top: 6px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+}
+.timeline .event.bad::before { border-color: var(--destructive); }
+.timeline .event.ok::before { border-color: var(--success); }
+.timeline .event time {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.timeline .event .title { font-weight: 600; color: var(--fg); }
+.timeline .event .body { font-size: 14px; color: var(--fg); margin-top: 4px; }
+
+/* ── Footer ── */
+footer.report-footer {
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md);
+}
+
+/* ── Print ── */
+@media print {
+  .starfield, .theme-toggle { display: none !important; }
+  body { background: white !important; color: black !important; font-size: 11pt; }
+  main { max-width: none; padding: 0; }
+  .metric-card, .tldr, details, table.findings { background: white !important; border-color: #ccc !important; color: black !important; }
+  pre.code { background: #f5f5f5 !important; color: black !important; border-color: #ccc !important; }
+  details[open] { background: #fafafa !important; }
+  a { color: black !important; text-decoration: underline; }
+  section { page-break-inside: avoid; }
+}
+
+/* Accessibility: respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* Focus rings */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="starfield" aria-hidden="true"></div>
+
+<main>
+  <header class="report-header">
+    <div class="titles">
+      <h1>Acme Instagram — Integrity Action Diagnosis</h1>
+      <div class="meta">
+        Author: <strong>analyst@example</strong> · Generated <strong>2026-01-15 17:30 UTC</strong> · Subject: <strong>@acmeco (IG 17000000000000000)</strong>
+      </div>
+    </div>
+    <button class="theme-toggle" type="button" aria-label="Toggle theme" onclick="toggleTheme()">Toggle theme</button>
+  </header>
+
+  <div class="tldr" role="region" aria-label="TL;DR">
+    <h2>TL;DR</h2>
+    <ul>
+      <li>The Instagram failure is <strong>not a rate limit and not a token issue</strong>. It is a Meta integrity action targeted at <code>POST /media_publish</code>.</li>
+      <li>Read endpoints, container creation (<code>POST /media</code>), and <code>debug_token</code> all succeed. Only the final publish call returns code 4 + subcode <code>2207051</code> with <code>is_transient: false</code>.</li>
+      <li>Likely trigger: posts:followers ratio <strong>31:1</strong> on a 4-day-old token, captions with heavy hashtags + emojis + outbound link in every post.</li>
+      <li>Action: appeal via the Instagram app (Account → Restricted), stop retries, throttle aggressively when restored.</li>
+      <li>Container <code>18000000000000000</code> stayed in <em>FINISHED</em> state and is publishable for ~24h if the block clears.</li>
+    </ul>
+  </div>
+
+  <div class="metric-grid">
+    <div class="metric-card">
+      <div class="metric-label">Read API</div>
+      <div class="metric-value"><span class="status-dot ok"></span>OK</div>
+      <div class="metric-trend ok">GET /17000000000000000 returns 200</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Container create</div>
+      <div class="metric-value"><span class="status-dot ok"></span>OK</div>
+      <div class="metric-trend ok">POST /media → id 18000000000000000</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Token state</div>
+      <div class="metric-value"><span class="status-dot ok"></span>VALID</div>
+      <div class="metric-trend ok">debug_token: 9 scopes, 0 flags, never expires</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Publish call</div>
+      <div class="metric-value"><span class="status-dot bad"></span>BLOCKED</div>
+      <div class="metric-trend bad">POST /media_publish → code 4 / subcode 2207051</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Posts</div>
+      <div class="metric-value">31</div>
+      <div class="metric-trend warn">High vs follower count</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Followers</div>
+      <div class="metric-value">1</div>
+      <div class="metric-trend bad">Spam-classifier red flag</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">BUC limit</div>
+      <div class="metric-value">0%</div>
+      <div class="metric-trend ok">estimated_time_to_regain_access = 0</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Token age</div>
+      <div class="metric-value">4d</div>
+      <div class="metric-trend warn">Trust-period restrictions still apply</div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Diagnostic checks</h2>
+    <table class="findings" aria-describedby="findings-cap">
+      <caption id="findings-cap" style="text-align:left;color:var(--muted);font-size:12px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.1em;padding-bottom:8px">Three Meta Graph API calls executed via direct curl (bypassing the publish proxy proxy)</caption>
+      <thead>
+        <tr>
+          <th>Check</th>
+          <th>Endpoint</th>
+          <th>Result</th>
+          <th>Signal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1. Read account</td>
+          <td><code>GET /17000000000000000</code></td>
+          <td><span class="pill ok">200 OK</span></td>
+          <td>Account healthy at read level</td>
+        </tr>
+        <tr>
+          <td>2. Create container</td>
+          <td><code>POST /17000000000000000/media</code></td>
+          <td><span class="pill ok">200 OK</span></td>
+          <td>Block is not on creation</td>
+        </tr>
+        <tr>
+          <td>3. Debug token</td>
+          <td><code>GET /debug_token</code></td>
+          <td><span class="pill ok">is_valid: true</span></td>
+          <td>0 scope removals, 0 flags</td>
+        </tr>
+        <tr>
+          <td>4. Publish</td>
+          <td><code>POST /17000000000000000/media_publish</code></td>
+          <td><span class="pill bad">code 4 · subcode 2207051</span></td>
+          <td>Targeted integrity action</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Root cause</h2>
+    <p>Meta's error wording (<em>"Application request limit reached"</em>) is shared between the rate-limit subcode (<code>1349174</code>, <code>is_transient: true</code>) and the integrity-action subcode (<code>2207051</code>, <code>is_transient: false</code>). The proxy in the publish proxy collapses the response to the message string only, hiding the subcode that distinguishes them. That collapse caused four identical 25-minute retries before direct API calls revealed the real classification.</p>
+
+    <pre class="code"><span class="c">// Direct response from POST /17000000000000000/media_publish</span>
+{
+  <span class="k">"error"</span>: {
+    <span class="k">"message"</span>: <span class="s">"Application request limit reached"</span>,
+    <span class="k">"type"</span>: <span class="s">"OAuthException"</span>,
+    <span class="k">"is_transient"</span>: <span class="n">false</span>,
+    <span class="k">"code"</span>: <span class="n">4</span>,
+    <span class="k">"error_subcode"</span>: <span class="n">2207051</span>,
+    <span class="k">"error_user_title"</span>: <span class="s">"action is blocked"</span>,
+    <span class="k">"error_user_msg"</span>: <span class="s">"We restrict certain activity to protect our community."</span>,
+    <span class="k">"fbtrace_id"</span>: <span class="s">"REDACTED-EXAMPLE-TRACE"</span>
+  }
+}</pre>
+
+    <h3>Probable triggers</h3>
+    <ul>
+      <li><strong>Posts:followers asymmetry.</strong> 31 published posts on an account with 1 follower is a textbook bot signal in Meta's spam classifier.</li>
+      <li><strong>Caption pattern.</strong> Heavy emoji + 7+ hashtags + outbound link (<code>acme.co</code>) in every post matches automated-marketing fingerprint.</li>
+      <li><strong>Token trust period.</strong> Page token issued 2026-05-04 (4 days). Meta applies tighter restrictions to publishing actions during the first 7–14 days of a new token's life.</li>
+      <li><strong>Burst cadence.</strong> Four rapid retries within 25 minutes after the first failure can deepen the block.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Timeline</h2>
+    <div class="timeline">
+      <div class="event ok">
+        <time>2026-05-08 16:51:05 UTC</time>
+        <div class="title">FB feed publishes successfully</div>
+        <div class="body">Post id <code>122000000000000000</code>. FB and IG quotas are isolated.</div>
+      </div>
+      <div class="event bad">
+        <time>2026-05-08 16:51:17 UTC</time>
+        <div class="title">IG attempt #1 fails</div>
+        <div class="body">12 seconds after FB success. Error message via the publish proxy proxy: "Application request limit reached".</div>
+      </div>
+      <div class="event bad">
+        <time>2026-05-08 17:00:24 UTC</time>
+        <div class="title">IG attempt #2 fails</div>
+        <div class="body">Manual retry. Same error, same wording.</div>
+      </div>
+      <div class="event bad">
+        <time>2026-05-08 17:05:29 UTC</time>
+        <div class="title">IG attempt #3 fails</div>
+      </div>
+      <div class="event bad">
+        <time>2026-05-08 17:16:25 UTC</time>
+        <div class="title">IG attempt #4 fails</div>
+        <div class="body">Fourth retry from the publish proxy. No new information surfaced.</div>
+      </div>
+      <div class="event">
+        <time>2026-05-08 17:24:33 UTC</time>
+        <div class="title">Direct Meta call exposes real error</div>
+        <div class="body"><code>publish-direct.js</code> bypass returns full payload including <code>error_subcode: 2207051</code> and <code>is_transient: false</code> — diagnosis flips from rate limit to integrity action.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recommendations</h2>
+    <details open>
+      <summary>1. Appeal the action</summary>
+      <p>Open Instagram on the operator's phone, log in as <code>@acmeco</code>. Tap the in-app notification "Action blocked" or navigate Settings → Account → Restricted. Use "Tell us we made a mistake" and submit a short context: business account for a SaaS product, posts are first-party content, no automation pattern intended.</p>
+      <p>Alternative path: <a href="https://business.facebook.com" target="_blank" rel="noopener">business.facebook.com</a> → Account Quality, locate the IG account and submit there. Reference fbtrace_id <code>REDACTED-EXAMPLE-TRACE</code> if Meta requests one.</p>
+    </details>
+    <details>
+      <summary>2. Halt all retries until appeal resolves</summary>
+      <p>Each blocked attempt counts against the integrity flag and can extend the restriction window. Pause all automated IG publish jobs for Acme. The 14-day default appeal review window applies; checking status more often is fine, retrying writes is not.</p>
+    </details>
+    <details>
+      <summary>3. Throttle and re-shape Acme publishing when restored</summary>
+      <ul>
+        <li>Cap at 3–5 posts per day for the first two weeks back online.</li>
+        <li>Vary captions: avoid template structures (same opener, same closing line, same CTA every post).</li>
+        <li>Reduce hashtag count to 3–5 per post; rotate them rather than repeating the same set.</li>
+        <li>Move the outbound link to bio. Reference it as "link in bio" in the caption rather than printing the URL.</li>
+        <li>Build follower base before resuming heavy cadence — even 50–100 followers materially raises trust score.</li>
+      </ul>
+    </details>
+    <details>
+      <summary>4. Patch the publish proxy to surface error_subcode</summary>
+      <p>Single-source fix in the publish endpoint: log <code>response.error.error_subcode</code> and pass it through to the API response. Without it, every IG failure reads as a rate limit and consumers will retry blindly, deepening any integrity action.</p>
+    </details>
+    <details>
+      <summary>5. Use container 18000000000000000 if the block clears within 24h</summary>
+      <p>Container is in <em>FINISHED</em> state and is publishable until ~2026-05-09 17:24 UTC. Reusing it skips the create step and reduces API surface during the post-restoration window.</p>
+    </details>
+  </section>
+
+  <footer class="report-footer">
+    <span>Generated by <strong style="color:var(--primary)">analyst</strong> via siriusos bus · skill: html-gen v1</span>
+    <span>fbtrace_id: REDACTED-EXAMPLE-TRACE</span>
+  </footer>
+</main>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  html.dataset.theme = next;
+  try { localStorage.setItem('html-gen-theme', next); } catch (_) {}
+}
+// Restore theme preference on load
+try {
+  const saved = localStorage.getItem('html-gen-theme');
+  if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+} catch (_) {}
+</script>
+</body>
+</html>
