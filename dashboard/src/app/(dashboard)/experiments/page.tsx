@@ -18,6 +18,7 @@ import {
   IconChevronDown,
   IconChevronUp,
 } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -156,6 +157,7 @@ function metricDelta(exp: Experiment) {
 // ---------------------------------------------------------------------------
 
 export default function ExperimentsPage() {
+  const t = useT();
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
@@ -191,9 +193,9 @@ export default function ExperimentsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Experiments</h1>
+          <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">{t.nav.items.experiments}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Autoresearch cycles across your agent fleet
+            {t.pages.experiments.subtitle}
           </p>
         </div>
         <button

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EventFeed, type EventFeedFilters } from '@/components/activity/event-feed';
 import { ActivityFilters } from '@/components/activity/activity-filters';
 import type { Event } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 interface ActivityPageClientProps {
   initialEvents: Event[];
@@ -17,6 +18,7 @@ export function ActivityPageClient({
   agents,
   orgs,
 }: ActivityPageClientProps) {
+  const t = useT();
   const [filters, setFilters] = useState<EventFeedFilters>({
     types: [],
     agent: '',
@@ -27,17 +29,17 @@ export function ActivityPageClient({
     <div className="space-y-6">
       <div>
         <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
-          Activity
+          {t.pages.activity.title}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Real-time event stream from across the fleet.
+          {t.pages.activity.subtitle}
         </p>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
-            Filters
+            {t.pages.activity.filters}
           </CardTitle>
         </CardHeader>
         <CardContent>

@@ -1,5 +1,6 @@
 import { discoverAgents } from '@/lib/data/agents';
 import { AgentsGrid } from '@/components/agents/agents-grid';
+import { AgentsHeader } from '@/components/agents/agents-header';
 import type { AgentCardData } from '@/components/agents/agent-card';
 
 export const dynamic = 'force-dynamic';
@@ -27,14 +28,7 @@ export default async function AgentsPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Agents</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {orgFilter ? `Org: ${orgFilter}` : 'All organizations'} - {agents.length} agent
-          {agents.length !== 1 ? 's' : ''}
-        </p>
-      </div>
-
+      <AgentsHeader org={orgFilter} count={agents.length} />
       <AgentsGrid initialAgents={agents} />
     </div>
   );

@@ -1,5 +1,6 @@
 import { getOrgs, getFrameworkRoot } from '@/lib/config';
 import { KnowledgeBaseClient } from '@/components/knowledge-base/kb-client';
+import { KnowledgeBaseHeader } from '@/components/knowledge-base/kb-header';
 import fs from 'fs';
 import path from 'path';
 
@@ -28,13 +29,7 @@ export default function KnowledgeBasePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Knowledge Base</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Search, browse, and manage your organization's shared knowledge. Powered by multimodal RAG.
-        </p>
-      </div>
-
+      <KnowledgeBaseHeader />
       <KnowledgeBaseClient
         org={org}
         markdownContent={content}

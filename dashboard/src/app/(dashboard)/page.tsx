@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { getOrgs } from '@/lib/config';
 import { getPendingCount } from '@/lib/data/approvals';
 import { getTasks, getTasksCompletedToday } from '@/lib/data/tasks';
@@ -14,6 +13,7 @@ import { LiveActivity } from '@/components/overview/live-activity';
 import { SystemHealth } from '@/components/overview/system-health';
 import { MetricCards } from '@/components/overview/metric-cards';
 import { AgentStatusGrid } from '@/components/overview/agent-status-grid';
+import { OverviewHeader } from '@/components/overview/overview-header';
 import { AutoRefresh } from '@/components/shared/auto-refresh';
 import { WelcomeCard } from '@/components/onboarding/welcome-card';
 
@@ -71,24 +71,7 @@ export default async function OverviewPage({
     <div className="space-y-6">
       <AutoRefresh intervalMs={30000} />
       <WelcomeCard />
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Overview</h1>
-          <p className="text-sm text-muted-foreground">
-            {org ? `Organization: ${org}` : 'All organizations'}
-          </p>
-        </div>
-        {totalActions > 0 && (
-          <Link
-            href="/approvals"
-            className="flex items-center gap-2 rounded-full bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive hover:bg-destructive/20 transition-colors cursor-pointer"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-destructive animate-pulse" />
-            {totalActions} action{totalActions !== 1 ? 's' : ''} needed
-          </Link>
-        )}
-      </div>
+      <OverviewHeader org={org} totalActions={totalActions} />
 
       {/* Metric Cards */}
       <MetricCards

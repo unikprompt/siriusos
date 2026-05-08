@@ -7,9 +7,11 @@ import { BottleneckSection } from '@/components/strategy/bottleneck-section';
 import { GoalsList } from '@/components/strategy/goals-list';
 import { GoalHistory } from '@/components/strategy/goal-history';
 import type { Goal } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 export default function StrategyPage() {
   const { currentOrg, orgs } = useOrg();
+  const t = useT();
   const [bottleneck, setBottleneck] = useState('');
   const [goals, setGoals] = useState<Goal[]>([]);
   const [history, setHistory] = useState<Array<{ timestamp: string; change: string }>>([]);
@@ -50,7 +52,7 @@ export default function StrategyPage() {
   if (!effectiveOrg) {
     return (
       <div className="space-y-6">
-        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Strategy</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">{t.nav.items.strategy}</h1>
         <p className="text-muted-foreground">
           No organizations found. Create an org to get started.
         </p>
@@ -61,7 +63,7 @@ export default function StrategyPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Strategy</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">{t.nav.items.strategy}</h1>
         <div className="space-y-4">
           <div className="h-40 rounded-xl shimmer" />
           <div className="h-24 rounded-lg shimmer" />
@@ -73,7 +75,7 @@ export default function StrategyPage() {
 
   return (
     <div className="space-y-8 max-w-3xl">
-      <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Strategy</h1>
+      <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">{t.nav.items.strategy}</h1>
 
       {dailyFocus && (
         <div className="rounded-xl border border-primary/30 bg-primary/5 px-5 py-4">

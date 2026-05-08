@@ -7,27 +7,29 @@ import { UsersTab } from '@/components/settings/users-tab';
 import { AllowedRootsTab } from '@/components/settings/allowed-roots-tab';
 import { AppearanceTab } from '@/components/settings/appearance-tab';
 import { OrganizationTab } from '@/components/settings/organization-tab';
+import { useT } from '@/lib/i18n';
 
 export default function SettingsPage() {
+  const t = useT();
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
-          Settings
+          {t.pages.settings.title}
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage integrations, system configuration, users, and appearance.
+          {t.pages.settings.subtitle}
         </p>
       </div>
 
       <Tabs defaultValue="organization">
         <TabsList>
-          <TabsTrigger value="organization">Organization</TabsTrigger>
-          <TabsTrigger value="telegram">Telegram</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="allowed-roots">Allowed Roots</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
+          <TabsTrigger value="organization">{t.pages.settings.tabs.organization}</TabsTrigger>
+          <TabsTrigger value="telegram">{t.pages.settings.tabs.telegram}</TabsTrigger>
+          <TabsTrigger value="system">{t.pages.settings.tabs.system}</TabsTrigger>
+          <TabsTrigger value="users">{t.pages.settings.tabs.users}</TabsTrigger>
+          <TabsTrigger value="allowed-roots">{t.pages.settings.tabs.allowedRoots}</TabsTrigger>
+          <TabsTrigger value="appearance">{t.pages.settings.tabs.appearance}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="organization">

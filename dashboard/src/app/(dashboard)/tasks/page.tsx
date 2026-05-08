@@ -11,6 +11,7 @@ import { CreateTaskDialog } from '@/components/tasks/create-task-dialog';
 import { TaskFilters } from '@/components/tasks/task-filters';
 import { EmptyState } from '@/components/shared/empty-state';
 import type { Task, TaskStatus } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 type ViewMode = 'kanban' | 'list';
 
@@ -24,6 +25,7 @@ const DEFAULT_FILTERS = {
 
 export default function TasksPage() {
   const { currentOrg } = useOrg();
+  const t = useT();
 
   const [view, setView] = useState<ViewMode>('kanban');
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -138,7 +140,7 @@ export default function TasksPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Tasks</h1>
+        <h1 className="text-2xl font-semibold">{t.pages.tasks.title}</h1>
         <div className="space-y-4">
           <div className="h-10 w-full rounded-lg shimmer" />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -155,7 +157,7 @@ export default function TasksPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-semibold">Tasks</h1>
+        <h1 className="text-2xl font-semibold">{t.pages.tasks.title}</h1>
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
             <Button
@@ -164,7 +166,7 @@ export default function TasksPage() {
               onClick={() => setView('kanban')}
             >
               <IconLayoutKanban className="size-3.5" />
-              Board
+              {t.pages.tasks.viewBoard}
             </Button>
             <Button
               variant={view === 'list' ? 'secondary' : 'ghost'}
@@ -172,7 +174,7 @@ export default function TasksPage() {
               onClick={() => setView('list')}
             >
               <IconList className="size-3.5" />
-              List
+              {t.pages.tasks.viewList}
             </Button>
           </div>
           <CreateTaskDialog
@@ -197,8 +199,8 @@ export default function TasksPage() {
       {tasks.length === 0 ? (
         <EmptyState
           kind="constellation"
-          title="No tasks yet"
-          description="Create your first task to start tracking work across your agents."
+          title={t.pages.tasks.emptyTitle}
+          description={t.pages.tasks.emptyDescription}
           action={
             <CreateTaskDialog
               agents={agents}

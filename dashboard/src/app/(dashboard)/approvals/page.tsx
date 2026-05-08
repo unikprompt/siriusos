@@ -12,9 +12,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { PriorityBadge, TimeAgo } from '@/components/shared';
 import { EmptyState } from '@/components/shared/empty-state';
 import type { Approval, Task } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 export default function ApprovalsPage() {
   const { currentOrg } = useOrg();
+  const t = useT();
 
   const [pending, setPending] = useState<Approval[]>([]);
   const [resolved, setResolved] = useState<Approval[]>([]);
@@ -104,7 +106,7 @@ export default function ApprovalsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Approvals</h1>
+        <h1 className="text-2xl font-semibold">{t.nav.items.approvals}</h1>
         <div className="space-y-4">
           <div className="h-10 w-48 rounded-lg shimmer" />
           <div className="space-y-2">
@@ -119,7 +121,7 @@ export default function ApprovalsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Approvals</h1>
+      <h1 className="text-2xl font-semibold">{t.nav.items.approvals}</h1>
 
       <Tabs defaultValue={humanTasks.length > 0 ? 'human' : 'pending'}>
         <TabsList>

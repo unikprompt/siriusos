@@ -21,3 +21,11 @@ export function useT(): DashboardStrings {
   const { locale } = useLocale();
   return DASHBOARD_STRINGS[locale];
 }
+
+/** Replace `{name}` placeholders with values. Numbers are coerced to string. */
+export function format(template: string, vars: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, k) => {
+    const v = vars[k];
+    return v === undefined ? `{${k}}` : String(v);
+  });
+}

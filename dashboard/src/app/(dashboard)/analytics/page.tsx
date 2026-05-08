@@ -14,6 +14,7 @@ import { CostTracking } from '@/components/analytics/cost-tracking';
 import { GoalProgress } from '@/components/analytics/goal-progress';
 import { FleetHealth } from '@/components/analytics/fleet-health';
 import { getFleetHealth, getLatestSnapshot, getPlanUsage, getUsageHistory } from '@/lib/data/reports';
+import { AnalyticsHeader } from '@/components/analytics/analytics-header';
 
 export default async function AnalyticsPage({
   searchParams,
@@ -51,12 +52,7 @@ export default async function AnalyticsPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">Analytics</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {org ? `Org: ${org}` : 'All organizations'} - Performance metrics and cost tracking.
-        </p>
-      </div>
+      <AnalyticsHeader org={org || undefined} />
 
       {/* Fleet Health */}
       <FleetHealth data={fleetHealth} />

@@ -6,11 +6,14 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { useT, useLocale, type Locale } from '@/lib/i18n';
 
 type Density = 'comfortable' | 'compact';
 
 export function AppearanceTab() {
   const { theme, setTheme } = useTheme();
+  const t = useT();
+  const { locale, setLocale } = useLocale();
   const [mounted, setMounted] = useState(false);
   const [density, setDensity] = useState<Density>('comfortable');
 
@@ -39,14 +42,32 @@ export function AppearanceTab() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Appearance</CardTitle>
+        <CardTitle>{t.pages.settings.appearance.title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label>Dark Mode</Label>
+            <Label>{t.pages.settings.appearance.languageLabel}</Label>
             <p className="text-xs text-muted-foreground">
-              Toggle between light and dark themes.
+              {t.pages.settings.appearance.languageDescription}
+            </p>
+          </div>
+          <Select value={locale} onValueChange={(v) => setLocale(v as Locale)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="en">English</SelectItem>
+              <SelectItem value="es">Español</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <Label>{t.pages.settings.appearance.darkModeLabel}</Label>
+            <p className="text-xs text-muted-foreground">
+              {t.pages.settings.appearance.darkModeDescription}
             </p>
           </div>
           <Switch
@@ -57,9 +78,9 @@ export function AppearanceTab() {
 
         <div className="flex items-center justify-between">
           <div className="space-y-0.5">
-            <Label>Density</Label>
+            <Label>{t.pages.settings.appearance.densityLabel}</Label>
             <p className="text-xs text-muted-foreground">
-              Adjust spacing and font size across the dashboard.
+              {t.pages.settings.appearance.densityDescription}
             </p>
           </div>
           <Select value={density} onValueChange={(v) => setDensity(v as Density)}>
@@ -67,8 +88,8 @@ export function AppearanceTab() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="comfortable">Comfortable</SelectItem>
-              <SelectItem value="compact">Compact</SelectItem>
+              <SelectItem value="comfortable">{t.pages.settings.appearance.densityComfortable}</SelectItem>
+              <SelectItem value="compact">{t.pages.settings.appearance.densityCompact}</SelectItem>
             </SelectContent>
           </Select>
         </div>

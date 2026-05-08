@@ -30,6 +30,7 @@ import {
   IconArrowRight,
 } from '@tabler/icons-react';
 import { formatRelative, formatSchedule } from '@/lib/cron-utils';
+import { useT } from '@/lib/i18n';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -140,6 +141,7 @@ function statusLabel(status: 'fired' | 'retried' | 'failed' | null): string {
 export default function WorkflowsPage() {
   const router = useRouter();
   const { currentOrg } = useOrg();
+  const t = useT();
 
   // ── Fleet health summary (from /api/workflows/health) ─────────────────────
   const [fleetHealth, setFleetHealth] = useState<FleetHealthSummary | null>(null);
@@ -408,9 +410,9 @@ export default function WorkflowsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Workflows</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{t.nav.items.workflows}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Scheduled crons across all agents
+            {t.pages.workflows.subtitle}
           </p>
         </div>
         <div className="flex items-center gap-2">

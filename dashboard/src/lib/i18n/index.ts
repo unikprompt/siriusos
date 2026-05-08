@@ -21,5 +21,5 @@ export function detectInitialLocale(): Locale {
   return 'en';
 }
 
-export { useLocale, useT } from './use-t';
+export { useLocale, useT, format } from './use-t';
 export type { DashboardStrings } from './dashboard';

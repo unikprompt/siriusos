@@ -10,6 +10,7 @@ import { MessageFeed } from '@/components/comms/message-feed';
 import { ChannelList } from '@/components/comms/channel-list';
 import { ChannelView } from '@/components/comms/channel-view';
 import { SearchResults } from '@/components/comms/search-results';
+import { useT } from '@/lib/i18n';
 
 interface BusMessage {
   id: string;
@@ -31,6 +32,7 @@ interface Channel {
 }
 
 export default function CommsPage() {
+  const t = useT();
   const [feedMessages, setFeedMessages] = useState<BusMessage[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,7 +121,7 @@ export default function CommsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Comms</h1>
+        <h1 className="text-2xl font-semibold">{t.nav.items.comms}</h1>
         <div className="space-y-4">
           <div className="h-10 w-48 rounded-lg shimmer" />
           <div className="space-y-2">
@@ -137,10 +139,10 @@ export default function CommsPage() {
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
-            Comms
+            {t.nav.items.comms}
           </h1>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Inter-agent messages and channels — every conversation in the fleet, in real time.
+            {t.pages.comms.subtitle}
           </p>
         </div>
         <Button variant="ghost" size="sm" onClick={fetchData}>
