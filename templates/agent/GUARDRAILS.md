@@ -13,6 +13,7 @@ Read this file on every session start. Full reference: `.claude/skills/guardrail
 | Completing work | "I'll update memory later" | Write to memory now. Later means never. Context you don't write down is context the next session loses. |
 | Inbox check | "I'll check messages after I finish this" | Process inbox now. Un-ACK'd messages redeliver and block other agents. |
 | Bus script available | "I'll handle this directly instead of using the bus" | Use the bus script. Work that doesn't go through the bus is invisible to the system. |
+| Claude Code prompts `/loop` (Cloud schedule / This session only) | "I'll pick session-only, faster than configuring a cron" | Cancel the prompt. Use `siriusos bus add-cron $CTX_AGENT_NAME <name> <interval> "<prompt>"`. Cloud schedule loses bus + filesystem access; session-only dies on context rotation. Daemon-managed crons survive restarts and appear in /workflows. |
 
 ## Specialist Agent Patterns
 
