@@ -8,7 +8,8 @@ vi.mock('child_process', () => ({
   execFile: (...args: unknown[]) => execFileMock(...args),
 }));
 
-import { readMaxCrashesPerDay, notifyAgents } from '../../../src/hooks/hook-crash-alert';
+import { mkdirSync } from 'fs';
+import { readMaxCrashesPerDay, notifyAgents, resolveRecipientAlias } from '../../../src/hooks/hook-crash-alert';
 
 describe('readMaxCrashesPerDay', () => {
   let tmp: string;
@@ -68,7 +69,7 @@ describe('notifyAgents', () => {
     expect(execFileMock).toHaveBeenCalledTimes(2);
   });
 
-  it('uses cortextos bus send-message with priority high', () => {
+  it('uses siriusos bus send-message with priority high', () => {
     notifyAgents({
       agentName: 'dev',
       endType: 'crash',
@@ -79,7 +80,7 @@ describe('notifyAgents', () => {
       recipients: ['chief'],
     });
     const [cmd, args] = execFileMock.mock.calls[0];
-    expect(cmd).toBe('cortextos');
+    expect(cmd).toBe('siriusos');
     expect(args.slice(0, 4)).toEqual(['bus', 'send-message', 'chief', 'high']);
   });
 
@@ -128,6 +129,44 @@ describe('notifyAgents', () => {
     const body: string = execFileMock.mock.calls[0][1][4];
     expect(body).toContain('reason: none');
     expect(body).toContain('last status: unknown');
+  });
+
+  it('resolves chief/analyst aliases via context.json when agentDir given', () => {
+    const orgRoot = mkdtempSync(join(tmpdir(), 'crashalert-org-'));
+    const agentDir = join(orgRoot, 'agents', 'dev');
+    mkdirSync(agentDir, { recursive: true });
+    writeFileSync(
+      join(orgRoot, 'context.json'),
+      JSON.stringify({ orchestrator: 'orquestador', analyst: 'sentinel' }),
+      'utf-8',
+    );
+    notifyAgents({
+      agentName: 'dev',
+      endType: 'crash',
+      reason: '',
+      lastTask: '',
+      crashCount: 1,
+      restartAttempted: true,
+      recipients: ['chief', 'analyst'],
+      agentDir,
+    });
+    expect(execFileMock.mock.calls[0][1][2]).toBe('orquestador');
+    expect(execFileMock.mock.calls[1][1][2]).toBe('sentinel');
+    rmSync(orgRoot, { recursive: true, force: true });
+  });
+
+  it('falls back to literal alias when context.json is missing', () => {
+    notifyAgents({
+      agentName: 'dev',
+      endType: 'crash',
+      reason: '',
+      lastTask: '',
+      crashCount: 1,
+      restartAttempted: true,
+      recipients: ['chief'],
+      agentDir: '/nonexistent/path/agents/dev',
+    });
+    expect(execFileMock.mock.calls[0][1][2]).toBe('chief');
   });
 
   it('does not throw when execFile throws synchronously', () => {

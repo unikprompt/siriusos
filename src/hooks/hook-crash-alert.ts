@@ -94,7 +94,29 @@ export function readMaxCrashesPerDay(agentDir: string | undefined): number | nul
 }
 
 /**
- * Send a crash notification via `cortextos bus send-message` to the listed
+ * Resolve recipient aliases ("chief" → orchestrator, "analyst" → analyst)
+ * via the org's context.json. Falls back to the literal alias if context
+ * cannot be read or the field is unset, so a misconfigured org never silently
+ * drops the alert — the bus warning surfaces instead.
+ */
+export function resolveRecipientAlias(alias: string, agentDir: string | undefined): string {
+  if (alias !== 'chief' && alias !== 'analyst') return alias;
+  if (!agentDir) return alias;
+  try {
+    const ctxFile = join(agentDir, '..', '..', 'context.json');
+    const ctx = JSON.parse(readFileSync(ctxFile, 'utf-8')) as Record<string, unknown>;
+    if (alias === 'chief' && typeof ctx.orchestrator === 'string' && ctx.orchestrator) {
+      return ctx.orchestrator;
+    }
+    if (alias === 'analyst' && typeof ctx.analyst === 'string' && ctx.analyst) {
+      return ctx.analyst;
+    }
+  } catch { /* unreadable or missing — fall back to literal */ }
+  return alias;
+}
+
+/**
+ * Send a crash notification via `siriusos bus send-message` to the listed
  * recipient agents. Best-effort: failures are swallowed so an alert miss never
  * cascades into a hook crash.
  */
@@ -106,6 +128,7 @@ export function notifyAgents(opts: {
   crashCount: number;
   restartAttempted: boolean;
   recipients: string[];
+  agentDir?: string;
 }): void {
   const body = [
     `agent=${opts.agentName} crashed (type=${opts.endType})`,
@@ -114,10 +137,11 @@ export function notifyAgents(opts: {
     `crashes today: ${opts.crashCount}`,
     `restart attempted: ${opts.restartAttempted ? 'yes' : 'no (max_crashes_per_day reached)'}`,
   ].join('\n');
-  for (const target of opts.recipients) {
+  for (const aliasOrName of opts.recipients) {
+    const target = resolveRecipientAlias(aliasOrName, opts.agentDir);
     try {
       execFile(
-        'cortextos',
+        'siriusos',
         ['bus', 'send-message', target, 'high', body],
         { timeout: 10_000 },
         () => { /* fire-and-forget */ },
@@ -327,6 +351,7 @@ async function main(): Promise<void> {
       crashCount,
       restartAttempted,
       recipients: ['chief', 'analyst'],
+      agentDir,
     });
   }
 }
