@@ -448,20 +448,19 @@ export interface DashboardStrings {
       emptyHint: string;
       tabs: {
         all: string;
-        installed: string;
-        available: string;
+        community: string;
+        inUse: string;
       };
-      noInstalled: string;
-      allInstalled: string;
-      installedBadge: string;
-      availableBadge: string;
-      selectAgent: string;
-      install: string;
-      installFailed: string;
-      uninstallFailed: string;
-      selectAgentFirst: string;
-      installedSuffix: string; // " (installed)"
-      uninstallFromAria: string; // "Uninstall from {target}"
+      usedByOne: string; // "{count} agent uses this"
+      usedByMany: string; // "{count} agents use this"
+      usedByAgentsLabel: string; // tooltip header
+      agentSelector: string;
+      noAgentsYet: string;
+      pickAgent: string;
+      inUseEmpty: string; // "<agent> doesn't see any skill yet"
+      sourceCommunity: string;
+      sourceAgent: string;
+      sourceTemplate: string;
     };
     experiments: { subtitle: string };
     knowledgeBase: { subtitle: string };
@@ -934,25 +933,24 @@ const en: DashboardStrings = {
       },
     },
     skills: {
-      subtitle: 'Browse and install skills from the catalog to your agents.',
-      empty: 'No skills found in the catalog.',
-      emptyHint: 'Skills are read from $CTX_FRAMEWORK_ROOT/skills/',
+      subtitle: 'Catalog of community skills available to every agent in the fleet, plus what each agent currently sees.',
+      empty: 'No skills in the catalog.',
+      emptyHint: 'Skills live under community/skills/ in the SiriusOS repo.',
       tabs: {
         all: 'All',
-        installed: 'Installed',
-        available: 'Available',
+        community: 'Community',
+        inUse: 'In use',
       },
-      noInstalled: 'No skills installed yet.',
-      allInstalled: 'All skills are installed.',
-      installedBadge: 'Installed',
-      availableBadge: 'Available',
-      selectAgent: 'Select agent…',
-      install: 'Install',
-      installFailed: 'Install failed',
-      uninstallFailed: 'Uninstall failed',
-      selectAgentFirst: 'Select an agent first',
-      installedSuffix: ' (installed)',
-      uninstallFromAria: 'Uninstall from {target}',
+      usedByOne: '{count} agent uses this',
+      usedByMany: '{count} agents use this',
+      usedByAgentsLabel: 'Used by:',
+      agentSelector: 'Agent',
+      noAgentsYet: 'No agents in this org yet.',
+      pickAgent: 'Pick an agent to see what skills it currently has access to.',
+      inUseEmpty: "{agent} doesn't see any skill yet — check that the agent is enabled and its template is in place.",
+      sourceCommunity: 'community',
+      sourceAgent: 'agent',
+      sourceTemplate: 'template',
     },
     experiments: { subtitle: 'Track ongoing experiments across agents.' },
     knowledgeBase: { subtitle: "Search, browse and manage your organization's shared knowledge. Powered by multimodal RAG." },
@@ -1425,25 +1423,24 @@ const es: DashboardStrings = {
       },
     },
     skills: {
-      subtitle: 'Explorá e instalá skills del catálogo en tus agentes.',
+      subtitle: 'Catálogo de skills comunitarios disponibles para todos los agentes de la flota, más lo que cada agente ve actualmente.',
       empty: 'No hay skills en el catálogo.',
-      emptyHint: 'Los skills se leen de $CTX_FRAMEWORK_ROOT/skills/',
+      emptyHint: 'Los skills viven en community/skills/ del repo SiriusOS.',
       tabs: {
         all: 'Todos',
-        installed: 'Instalados',
-        available: 'Disponibles',
+        community: 'Comunitarios',
+        inUse: 'En uso',
       },
-      noInstalled: 'Todavía no hay skills instalados.',
-      allInstalled: 'Todos los skills están instalados.',
-      installedBadge: 'Instalado',
-      availableBadge: 'Disponible',
-      selectAgent: 'Elegí un agente…',
-      install: 'Instalar',
-      installFailed: 'Falló la instalación',
-      uninstallFailed: 'Falló la desinstalación',
-      selectAgentFirst: 'Elegí un agente primero',
-      installedSuffix: ' (instalado)',
-      uninstallFromAria: 'Desinstalar de {target}',
+      usedByOne: '{count} agente la usa',
+      usedByMany: '{count} agentes la usan',
+      usedByAgentsLabel: 'Usada por:',
+      agentSelector: 'Agente',
+      noAgentsYet: 'Todavía no hay agentes en esta org.',
+      pickAgent: 'Elegí un agente para ver qué skills tiene visibles ahora mismo.',
+      inUseEmpty: '{agent} no ve ninguna skill todavía — revisá que el agente esté habilitado y que el template esté en su lugar.',
+      sourceCommunity: 'community',
+      sourceAgent: 'agent',
+      sourceTemplate: 'template',
     },
     experiments: { subtitle: 'Seguimiento de experimentos en curso entre agentes.' },
     knowledgeBase: { subtitle: 'Buscá, explorá y gestioná el conocimiento compartido de tu organización. Powered by multimodal RAG.' },

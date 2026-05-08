@@ -78,6 +78,11 @@ PUBLIC_PATHS=(
 # Paths that are NEVER scanned (binary, dependencies, generated)
 EXCLUDE_REGEX='\.(png|jpg|jpeg|gif|webp|svg|ico|woff2?|ttf|otf|mp3|mp4|wav|zip|tar|gz|tsbuildinfo|lock)$|node_modules/|\.next/|dist/|out/|^landing/public/install\.mjs$|^dashboard/public/install\.mjs$'
 
+# Paths that are scanned only for OPS-ID patterns (real API IDs and tokens),
+# NOT for brand names. These docs *exist* to teach agents about brand names
+# they should not leak — naming them in the rules is correct, not a leak.
+PII_ALLOWLIST_REGEX='^templates/[^/]+/GUARDRAILS\.md$|^community/skills/community-publish/SKILL\.md$|^scripts/hooks/pre-commit$'
+
 # ── Collect staged files ─────────────────────────────────────────────────────
 # macOS ships bash 3.2 which lacks mapfile; use a portable while-read loop.
 STAGED=()
@@ -114,6 +119,13 @@ scan_pattern_set() {
   local label="$1"; shift
   local -a patterns=("$@")
   for f in "${candidates[@]}"; do
+    # Skip PII brand-name scan for docs whose job is to enumerate the bad
+    # brand names (the GUARDRAILS rule + community-publish + this hook).
+    # OPS-ID still scans them — there's no reason for a real API ID to land
+    # in those files.
+    if [[ "$label" == "[PII]" ]] && [[ "$f" =~ $PII_ALLOWLIST_REGEX ]]; then
+      continue
+    fi
     [[ -f "$f" ]] || continue
     for p in "${patterns[@]}"; do
       # -I skip binary, -n line numbers, -i case insensitive, -E extended regex.

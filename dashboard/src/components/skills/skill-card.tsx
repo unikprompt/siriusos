@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useT, format } from '@/lib/i18n';
 
 interface SkillInfo {
@@ -12,135 +10,52 @@ interface SkillInfo {
   name: string;
   description: string;
   source?: 'core' | 'community';
-  installed: boolean;
+  /** Agents that currently see this skill via `bus list-skills`. */
   installedFor: string[];
 }
 
 interface SkillCardProps {
   skill: SkillInfo;
-  agents: Array<{ name: string; org: string }>;
-  onRefresh: () => void;
 }
 
-export function SkillCard({ skill, agents, onRefresh }: SkillCardProps) {
+export function SkillCard({ skill }: SkillCardProps) {
   const t = useT();
-  const [loading, setLoading] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState<string>('');
-  const [error, setError] = useState('');
-
-  async function handleInstall() {
-    if (!selectedAgent) {
-      setError(t.pages.skills.selectAgentFirst);
-      return;
-    }
-    const [org, agent] = selectedAgent.split('/');
-    setLoading(true);
-    setError('');
-    const res = await fetch('/api/skills', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: skill.slug, org, agent }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? t.pages.skills.installFailed);
-    }
-    setLoading(false);
-    onRefresh();
-  }
-
-  async function handleUninstall(orgAgent: string) {
-    const [org, agent] = orgAgent.split('/');
-    setLoading(true);
-    setError('');
-    const res = await fetch('/api/skills', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: skill.slug, org, agent }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setError(data.error ?? t.pages.skills.uninstallFailed);
-    }
-    setLoading(false);
-    onRefresh();
-  }
+  const useCount = skill.installedFor.length;
+  const usedByLabel = useCount === 1
+    ? format(t.pages.skills.usedByOne, { count: useCount })
+    : format(t.pages.skills.usedByMany, { count: useCount });
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-2">
           <CardTitle>{skill.name}</CardTitle>
-          <div className="flex shrink-0 items-center gap-1.5">
-            {skill.source === 'community' && (
-              <Badge variant="outline" className="border-accent/40 text-accent">
-                community
-              </Badge>
-            )}
-            {skill.installed ? (
-              <Badge variant="secondary">{t.pages.skills.installedBadge}</Badge>
-            ) : (
-              <Badge variant="outline">{t.pages.skills.availableBadge}</Badge>
-            )}
-          </div>
+          {skill.source === 'community' && (
+            <Badge variant="outline" className="border-accent/40 text-accent shrink-0">
+              {t.pages.skills.sourceCommunity}
+            </Badge>
+          )}
         </div>
         <CardDescription>{skill.description}</CardDescription>
       </CardHeader>
 
-      {skill.installedFor.length > 0 && (
+      {useCount > 0 && (
         <CardContent>
-          <div className="flex flex-wrap gap-1.5">
-            {skill.installedFor.map((orgAgent) => (
-              <span
-                key={orgAgent}
-                className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs"
-              >
-                {orgAgent}
-                <button
-                  type="button"
-                  onClick={() => handleUninstall(orgAgent)}
-                  disabled={loading}
-                  className="ml-0.5 text-muted-foreground hover:text-destructive"
-                  aria-label={format(t.pages.skills.uninstallFromAria, { target: orgAgent })}
-                >
-                  x
-                </button>
-              </span>
-            ))}
-          </div>
+          <Tooltip>
+            <TooltipTrigger className="cursor-help text-xs text-muted-foreground">
+              {usedByLabel}
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="font-medium mb-1">{t.pages.skills.usedByAgentsLabel}</p>
+              <ul className="space-y-0.5 font-mono text-[11px]">
+                {skill.installedFor.map((agent) => (
+                  <li key={agent}>{agent}</li>
+                ))}
+              </ul>
+            </TooltipContent>
+          </Tooltip>
         </CardContent>
       )}
-
-      <CardFooter>
-        <div className="flex w-full flex-col gap-2">
-          <div className="flex items-center gap-2">
-            <Select value={selectedAgent} onValueChange={(v) => setSelectedAgent(v ?? '')}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder={t.pages.skills.selectAgent} />
-              </SelectTrigger>
-              <SelectContent>
-                {agents.map((a) => {
-                  const key = `${a.org}/${a.name}`;
-                  const alreadyInstalled = skill.installedFor.includes(key);
-                  return (
-                    <SelectItem key={key} value={key} disabled={alreadyInstalled}>
-                      {key}{alreadyInstalled ? t.pages.skills.installedSuffix : ''}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              onClick={handleInstall}
-              disabled={loading || !selectedAgent}
-            >
-              {t.pages.skills.install}
-            </Button>
-          </div>
-          {error && <p className="text-xs text-destructive">{error}</p>}
-        </div>
-      </CardFooter>
     </Card>
   );
 }

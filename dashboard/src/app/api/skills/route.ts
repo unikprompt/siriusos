@@ -1,15 +1,28 @@
 import fs from 'fs';
 import path from 'path';
-import { getFrameworkRoot } from '@/lib/config';
+import { spawnSync } from 'node:child_process';
+import { getFrameworkRoot, getAllAgents } from '@/lib/config';
 
 export const dynamic = 'force-dynamic';
 
-type SkillSource = 'core' | 'community';
+/**
+ * Skills catalog read-only endpoint.
+ *
+ * Source of truth: `<frameworkRoot>/community/skills/<slug>/SKILL.md`. We
+ * scan that directory, parse the YAML frontmatter, and report `installedFor`
+ * by asking the SiriusOS CLI which agents actually see the skill via
+ * `siriusos bus list-skills` — the same path agents use at runtime, so the
+ * answer reflects reality (community + template-embedded + agent-local
+ * overrides) instead of stale dashboard symlinks.
+ *
+ * The previous POST/DELETE handlers wrote symlinks into
+ * `agents/<agent>/skills/<slug>` which `bus list-skills` never read (it
+ * scans `.claude/skills/`). They've been removed; the dashboard is now a
+ * read-only viewer. Customising a skill for one agent is a CLI/filesystem
+ * task, kept out of the UI.
+ */
 
-const CATALOG_DIRS: Array<{ relPath: string; source: SkillSource }> = [
-  { relPath: 'skills', source: 'core' },
-  { relPath: path.join('community', 'skills'), source: 'community' },
-];
+interface CliSkill { name: string; description: string; path: string; source: string }
 
 function parseSkillMd(content: string): { name: string; description: string } {
   const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
@@ -29,148 +42,98 @@ function parseSkillMd(content: string): { name: string; description: string } {
   return { name: name || 'Unnamed Skill', description: description || '' };
 }
 
-function getInstalledAgents(frameworkRoot: string, slug: string): string[] {
-  const installed: string[] = [];
-  const orgsDir = path.join(frameworkRoot, 'orgs');
-  if (!fs.existsSync(orgsDir)) return installed;
-
-  for (const orgEntry of fs.readdirSync(orgsDir, { withFileTypes: true })) {
-    if (!orgEntry.isDirectory()) continue;
-    const agentsDir = path.join(orgsDir, orgEntry.name, 'agents');
-    if (!fs.existsSync(agentsDir)) continue;
-    for (const agentEntry of fs.readdirSync(agentsDir, { withFileTypes: true })) {
-      if (!agentEntry.isDirectory()) continue;
-      const skillPath = path.join(agentsDir, agentEntry.name, 'skills', slug);
-      if (fs.existsSync(skillPath)) {
-        installed.push(`${orgEntry.name}/${agentEntry.name}`);
-      }
-    }
-  }
-  return installed;
-}
-
 /**
- * Resolve which catalog (and absolute path) holds a given skill slug.
- * `skills/` (core) takes precedence when a slug exists in both — symlinking
- * the same name to two different sources would be ambiguous, and core is the
- * canonical pool.
+ * Spawn `siriusos bus list-skills --format json` for one agent and return
+ * the slugs (skill names) it currently sees. Equivalent to what the agent
+ * itself would see when it asks `bus list-skills` at session start.
  */
-function resolveSkillCatalog(
-  frameworkRoot: string,
-  slug: string,
-): { absPath: string; source: SkillSource } | null {
-  for (const { relPath, source } of CATALOG_DIRS) {
-    const candidate = path.join(frameworkRoot, relPath, slug);
-    if (fs.existsSync(candidate)) return { absPath: candidate, source };
+function listSkillsForAgent(frameworkRoot: string, org: string, agent: string): string[] {
+  const cliPath = path.join(frameworkRoot, 'dist', 'cli.js');
+  if (!fs.existsSync(cliPath)) return [];
+  const agentDir = path.join(frameworkRoot, 'orgs', org, 'agents', agent);
+  if (!fs.existsSync(agentDir)) return [];
+
+  const result = spawnSync(process.execPath, [cliPath, 'bus', 'list-skills', '--format', 'json'], {
+    cwd: frameworkRoot,
+    encoding: 'utf-8',
+    timeout: 5000,
+    env: {
+      ...process.env,
+      CTX_FRAMEWORK_ROOT: frameworkRoot,
+      CTX_AGENT_NAME: agent,
+      CTX_AGENT_DIR: agentDir,
+      CTX_ORG: org,
+    },
+  });
+
+  if (result.status !== 0 || !result.stdout) return [];
+  try {
+    const parsed = JSON.parse(result.stdout) as CliSkill[];
+    return parsed.map((s) => s.name);
+  } catch {
+    return [];
   }
-  return null;
 }
 
 export async function GET() {
   try {
     const frameworkRoot = getFrameworkRoot();
-    const skillsBySlug = new Map<string, {
+    const catalogDir = path.join(frameworkRoot, 'community', 'skills');
+
+    if (!fs.existsSync(catalogDir)) {
+      return Response.json([]);
+    }
+
+    // Step 1: build the catalog by scanning community/skills/.
+    type Skill = {
       slug: string;
       name: string;
       description: string;
-      source: SkillSource;
-      installed: boolean;
+      source: 'community';
       installedFor: string[];
-    }>();
+    };
+    const skills: Skill[] = [];
 
-    for (const { relPath, source } of CATALOG_DIRS) {
-      const catalogDir = path.join(frameworkRoot, relPath);
-      if (!fs.existsSync(catalogDir)) continue;
+    for (const entry of fs.readdirSync(catalogDir, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+      const slug = entry.name;
+      // drafts/ and archive/ are agent-local conventions; skip if they ever
+      // appear at the catalog root.
+      if (slug === 'drafts' || slug === 'archive') continue;
 
-      for (const entry of fs.readdirSync(catalogDir, { withFileTypes: true })) {
-        if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
-        const slug = entry.name;
+      const skillMd = path.join(catalogDir, slug, 'SKILL.md');
+      const readme = path.join(catalogDir, slug, 'README.md');
+      let content = '';
+      if (fs.existsSync(skillMd)) content = fs.readFileSync(skillMd, 'utf-8');
+      else if (fs.existsSync(readme)) content = fs.readFileSync(readme, 'utf-8');
 
-        // Reserved names that aren't real skills:
-        // - drafts/ holds in-progress agent-generated drafts (per agent), but
-        //   if it ever ends up at the catalog root we skip it.
-        // - archive/ same reasoning.
-        if (slug === 'drafts' || slug === 'archive') continue;
+      const { name, description } = parseSkillMd(content);
+      skills.push({ slug, name: name || slug, description, source: 'community', installedFor: [] });
+    }
 
-        // Core wins when a slug is duplicated across catalogs.
-        if (skillsBySlug.has(slug)) continue;
+    // Step 2: ask each agent which skills it actually sees, fill installedFor.
+    // One spawn per agent is acceptable for fleets in the dozens. If this
+    // ever scales past ~20 agents the spawn cost dominates and we'd cache
+    // per-agent results, but at current size the latency is negligible.
+    const skillByName = new Map<string, Skill>();
+    for (const s of skills) skillByName.set(s.name, s);
+    // Slugs and names usually match but the parsed YAML name wins; keep both
+    // indexes so we don't miss a match.
+    const skillBySlug = new Map<string, Skill>();
+    for (const s of skills) skillBySlug.set(s.slug, s);
 
-        const skillMd = path.join(catalogDir, slug, 'SKILL.md');
-        const readme = path.join(catalogDir, slug, 'README.md');
-        let content = '';
-        if (fs.existsSync(skillMd)) content = fs.readFileSync(skillMd, 'utf-8');
-        else if (fs.existsSync(readme)) content = fs.readFileSync(readme, 'utf-8');
-
-        const { name, description } = parseSkillMd(content);
-        const installedFor = getInstalledAgents(frameworkRoot, slug);
-
-        skillsBySlug.set(slug, {
-          slug,
-          name: name || slug,
-          description,
-          source,
-          installed: installedFor.length > 0,
-          installedFor,
-        });
+    const agents = getAllAgents();
+    for (const { name: agent, org } of agents) {
+      const seen = listSkillsForAgent(frameworkRoot, org, agent);
+      for (const seenName of seen) {
+        const target = skillByName.get(seenName) ?? skillBySlug.get(seenName);
+        if (target) target.installedFor.push(`${org}/${agent}`);
       }
     }
 
-    const skills = Array.from(skillsBySlug.values()).sort((a, b) => a.name.localeCompare(b.name));
-    return Response.json(skills);
+    return Response.json(skills.sort((a, b) => a.name.localeCompare(b.name)));
   } catch (err) {
     console.error('[api/skills] error:', err);
     return Response.json([]);
-  }
-}
-
-// POST /api/skills - Install a skill to an agent
-export async function POST(request: Request) {
-  try {
-    const { slug, org, agent } = await request.json();
-    if (!slug || !org || !agent) {
-      return Response.json({ error: 'slug, org, and agent required' }, { status: 400 });
-    }
-
-    const frameworkRoot = getFrameworkRoot();
-    const resolved = resolveSkillCatalog(frameworkRoot, slug);
-    if (!resolved) {
-      return Response.json({ error: `Skill not found: ${slug}` }, { status: 404 });
-    }
-
-    const skillsDir = path.join(frameworkRoot, 'orgs', org, 'agents', agent, 'skills');
-    fs.mkdirSync(skillsDir, { recursive: true });
-    const linkPath = path.join(skillsDir, slug);
-
-    try { if (fs.lstatSync(linkPath).isSymbolicLink()) fs.unlinkSync(linkPath); } catch { /* doesn't exist */ }
-    fs.symlinkSync(resolved.absPath, linkPath, 'dir');
-
-    return Response.json({ success: true, source: resolved.source });
-  } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
-  }
-}
-
-// DELETE /api/skills - Uninstall a skill from an agent
-export async function DELETE(request: Request) {
-  try {
-    const { slug, org, agent } = await request.json();
-    if (!slug || !org || !agent) {
-      return Response.json({ error: 'slug, org, and agent required' }, { status: 400 });
-    }
-
-    const frameworkRoot = getFrameworkRoot();
-    const linkPath = path.join(frameworkRoot, 'orgs', org, 'agents', agent, 'skills', slug);
-
-    try {
-      const stat = fs.lstatSync(linkPath);
-      if (stat.isSymbolicLink()) fs.unlinkSync(linkPath);
-      else if (stat.isDirectory()) fs.rmSync(linkPath, { recursive: true });
-    } catch {
-      return Response.json({ error: `Skill not installed: ${slug}` }, { status: 404 });
-    }
-
-    return Response.json({ success: true });
-  } catch (err) {
-    return Response.json({ error: String(err) }, { status: 500 });
   }
 }
