@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import {
   IconClock24,
@@ -10,7 +10,7 @@ import {
   IconArrowRight,
   IconBrandGithub,
 } from '@tabler/icons-react';
-import { type Locale, LOCALE_STORAGE_KEY, detectInitialLocale } from '@/lib/i18n';
+import { type Locale, useLocale } from '@/lib/i18n';
 import { type WelcomeStrings, STRINGS } from '@/lib/i18n/welcome';
 import { LocaleToggle } from '@/components/locale-toggle';
 
@@ -22,22 +22,7 @@ const PILLAR_ICONS = [
 ];
 
 export default function WelcomePage() {
-  // Server-render with `en` to avoid hydration mismatch; swap on mount.
-  const [locale, setLocale] = useState<Locale>('en');
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setLocale(detectInitialLocale());
-    setHydrated(true);
-  }, []);
-
-  function changeLocale(next: Locale) {
-    setLocale(next);
-    try {
-      localStorage.setItem(LOCALE_STORAGE_KEY, next);
-    } catch { /* ignore */ }
-  }
-
+  const { locale, setLocale, hydrated } = useLocale();
   const t = STRINGS[locale];
 
   return (
@@ -68,7 +53,7 @@ export default function WelcomePage() {
         </Link>
 
         <div className="flex items-center gap-2">
-          <LocaleToggle locale={locale} onChange={changeLocale} hydrated={hydrated} />
+          <LocaleToggle locale={locale} onChange={setLocale} hydrated={hydrated} />
           <Link
             href="/login"
             className="rounded-md px-3 py-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"

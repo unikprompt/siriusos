@@ -13,9 +13,13 @@ import {
   CardDescription,
 } from '@/components/ui/card';
 import { SplashScreen } from '@/components/layout/splash-screen';
+import { LocaleToggle } from '@/components/locale-toggle';
+import { useT, useLocale } from '@/lib/i18n';
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useT();
+  const { locale, setLocale, hydrated } = useLocale();
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
@@ -100,8 +104,8 @@ export default function LoginPage() {
           // CallbackRouteError usually means the rate limiter blocked the request.
           // Show a human-readable message instead of the raw error code.
           const msg = code === 'CallbackRouteError'
-            ? 'Too many attempts. Please wait a few minutes and try again.'
-            : `Sign-in failed: ${code}`;
+            ? t.login.tooManyAttempts
+            : `${t.login.signInFailed}: ${code}`;
           setError(msg);
           setLoading(false);
           return;
@@ -121,11 +125,11 @@ export default function LoginPage() {
         window.location.href = '/';
         return;
       }
-      setError(`Sign-in failed with status ${res.status}`);
+      setError(`${t.login.signInFailed} (${res.status})`);
       setLoading(false);
     } catch (err) {
       console.error('[login] submit error:', err);
-      setError('Network error. Please try again.');
+      setError(t.login.networkError);
       setLoading(false);
     }
   }
@@ -166,41 +170,44 @@ export default function LoginPage() {
             </h1>
           </div>
           <p className="text-xs text-muted-foreground tracking-wide">
-            Persistent AI agents · always on
+            {t.login.tagline}
           </p>
         </div>
 
         {/* Login Card */}
         <Card className="border-border bg-surface/80 backdrop-blur-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-base">Sign in</CardTitle>
-            <CardDescription className="text-xs">
-              Enter your credentials to access the dashboard
-            </CardDescription>
+          <CardHeader className="pb-4 flex flex-row items-start justify-between gap-2">
+            <div className="flex-1">
+              <CardTitle className="text-base">{t.login.cardTitle}</CardTitle>
+              <CardDescription className="text-xs">
+                {t.login.cardDescription}
+              </CardDescription>
+            </div>
+            <LocaleToggle locale={locale} onChange={setLocale} hydrated={hydrated} />
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} method="POST" action="/api/auth/callback/credentials" className="space-y-4" suppressHydrationWarning>
               <input type="hidden" name="csrfToken" defaultValue="" suppressHydrationWarning />
               <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-xs">Username</Label>
+                <Label htmlFor="username" className="text-xs">{t.login.usernameLabel}</Label>
                 <Input
                   id="username"
                   name="username"
                   type="text"
                   required
                   autoFocus
-                  placeholder="admin"
+                  placeholder={t.login.usernamePlaceholder}
                   suppressHydrationWarning
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-xs">Password</Label>
+                <Label htmlFor="password" className="text-xs">{t.login.passwordLabel}</Label>
                 <Input
                   id="password"
                   name="password"
                   type="password"
                   required
-                  placeholder="Enter password"
+                  placeholder={t.login.passwordPlaceholder}
                   suppressHydrationWarning
                 />
               </div>
@@ -208,7 +215,7 @@ export default function LoginPage() {
                 <p className="text-xs text-destructive">{error}</p>
               )}
               <Button type="submit" className="w-full" disabled={loading || !csrfReady}>
-                {loading ? 'Signing in...' : csrfReady ? 'Sign In' : 'Loading…'}
+                {loading ? t.login.submitting : csrfReady ? t.login.submit : t.login.loadingCsrf}
               </Button>
             </form>
           </CardContent>

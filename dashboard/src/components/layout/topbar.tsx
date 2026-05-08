@@ -13,6 +13,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { OrgSelector } from './org-selector';
+import { LocaleToggle } from '@/components/locale-toggle';
+import { useT, useLocale } from '@/lib/i18n';
 
 interface TopbarProps {
   orgs: string[];
@@ -24,8 +26,10 @@ interface TopbarProps {
 export function Topbar({ orgs, currentOrg, onOrgChange, onMenuClick }: TopbarProps) {
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
+  const t = useT();
+  const { locale, setLocale, hydrated } = useLocale();
 
-  const username = session?.user?.name ?? 'User';
+  const username = session?.user?.name ?? t.common.user;
   const initials = username
     .split(' ')
     .map((n) => n[0])
@@ -43,7 +47,7 @@ export function Topbar({ orgs, currentOrg, onOrgChange, onMenuClick }: TopbarPro
             size="icon"
             onClick={onMenuClick}
             className="md:hidden h-9 w-9"
-            aria-label="Open menu"
+            aria-label={t.nav.openMenu}
           >
             <IconMenu2 size={18} />
           </Button>
@@ -60,14 +64,15 @@ export function Topbar({ orgs, currentOrg, onOrgChange, onMenuClick }: TopbarPro
         <OrgSelector orgs={orgs} currentOrg={currentOrg} onOrgChange={onOrgChange} />
       </div>
 
-      {/* Right: theme toggle + user menu */}
-      <div className="flex items-center gap-1">
+      {/* Right: locale toggle + theme toggle + user menu */}
+      <div className="flex items-center gap-1.5">
+        <LocaleToggle locale={locale} onChange={setLocale} hydrated={hydrated} />
         <Button
           variant="ghost"
           size="icon"
           className="h-9 w-9 rounded-full transition-colors hover:bg-surface-2 hover:text-primary"
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          aria-label="Toggle theme"
+          aria-label={t.nav.toggleTheme}
         >
           <IconSun
             size={16}
@@ -94,7 +99,7 @@ export function Topbar({ orgs, currentOrg, onOrgChange, onMenuClick }: TopbarPro
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut({ redirectTo: '/login' })}>
               <IconLogout size={14} />
-              <span>Logout</span>
+              <span>{t.nav.logout}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

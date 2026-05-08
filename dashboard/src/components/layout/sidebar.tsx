@@ -22,40 +22,38 @@ import {
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useT } from '@/lib/i18n';
+import type { DashboardStrings } from '@/lib/i18n';
+
+type NavItemKey = keyof DashboardStrings['nav']['items'];
 
 interface NavItem {
-  label: string;
+  key: NavItemKey;
   href: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   badge?: number;
-  section?: string;
+  section: 'core' | 'ops' | 'intel';
 }
 
 const navItems: NavItem[] = [
   // Core
-  { label: 'Overview', href: '/', icon: IconLayoutDashboard, section: 'core' },
-  { label: 'Agents', href: '/agents', icon: IconRobot, section: 'core' },
-  { label: 'Tasks', href: '/tasks', icon: IconListCheck, section: 'core' },
-  { label: 'Activity', href: '/activity', icon: IconActivity, section: 'core' },
+  { key: 'overview', href: '/', icon: IconLayoutDashboard, section: 'core' },
+  { key: 'agents', href: '/agents', icon: IconRobot, section: 'core' },
+  { key: 'tasks', href: '/tasks', icon: IconListCheck, section: 'core' },
+  { key: 'activity', href: '/activity', icon: IconActivity, section: 'core' },
 
   // Operations
-  { label: 'Comms', href: '/comms', icon: IconMessages, section: 'ops' },
-  { label: 'Approvals', href: '/approvals', icon: IconShieldCheck, section: 'ops' },
-  { label: 'Workflows', href: '/workflows', icon: IconClock, section: 'ops' },
-  { label: 'Strategy', href: '/strategy', icon: IconTarget, section: 'ops' },
-  { label: 'Analytics', href: '/analytics', icon: IconChartDots3, section: 'ops' },
+  { key: 'comms', href: '/comms', icon: IconMessages, section: 'ops' },
+  { key: 'approvals', href: '/approvals', icon: IconShieldCheck, section: 'ops' },
+  { key: 'workflows', href: '/workflows', icon: IconClock, section: 'ops' },
+  { key: 'strategy', href: '/strategy', icon: IconTarget, section: 'ops' },
+  { key: 'analytics', href: '/analytics', icon: IconChartDots3, section: 'ops' },
 
   // Intelligence
-  { label: 'Knowledge Base', href: '/knowledge-base', icon: IconBook2, section: 'intel' },
-  { label: 'Experiments', href: '/experiments', icon: IconFlask, section: 'intel' },
-  { label: 'Skills', href: '/skills', icon: IconPuzzle, section: 'intel' },
+  { key: 'knowledgeBase', href: '/knowledge-base', icon: IconBook2, section: 'intel' },
+  { key: 'experiments', href: '/experiments', icon: IconFlask, section: 'intel' },
+  { key: 'skills', href: '/skills', icon: IconPuzzle, section: 'intel' },
 ];
-
-const sectionLabels: Record<string, string> = {
-  core: '',
-  ops: 'Operations',
-  intel: 'Intelligence',
-};
 
 interface SidebarProps {
   pendingApprovals?: number;
@@ -72,6 +70,13 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { currentOrg } = useOrg();
+  const t = useT();
+
+  const sectionLabels: Record<NavItem['section'], string> = {
+    core: '',
+    ops: t.nav.sections.operations,
+    intel: t.nav.sections.intelligence,
+  };
 
   function orgHref(href: string) {
     if (currentOrg && currentOrg !== 'all') {
@@ -92,7 +97,7 @@ export function Sidebar({
   }
 
   // Group items by section
-  const sections = ['core', 'ops', 'intel'];
+  const sections: NavItem['section'][] = ['core', 'ops', 'intel'];
 
   return (
     <aside className="flex h-screen w-56 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
@@ -127,7 +132,7 @@ export function Sidebar({
           className="flex w-full items-center gap-2 rounded-md border bg-background/50 px-3 py-1.5 text-xs text-muted-foreground hover:bg-background hover:text-foreground transition-colors"
         >
           <IconSearch size={14} />
-          <span>Search...</span>
+          <span>{t.common.search}…</span>
           <kbd className="ml-auto rounded border bg-muted px-1 py-0.5 text-[10px] font-mono">
             /
           </kbd>
@@ -173,7 +178,7 @@ export function Sidebar({
                         active ? 'text-primary' : 'text-muted-foreground/70 group-hover:text-foreground'
                       )}
                     />
-                    <span className="truncate">{item.label}</span>
+                    <span className="truncate">{t.nav.items[item.key]}</span>
                     {badge > 0 && (
                       <Badge
                         variant={active ? 'default' : 'secondary'}
@@ -205,7 +210,7 @@ export function Sidebar({
           )}
         >
           <IconSettings size={16} className="shrink-0" />
-          <span>Settings</span>
+          <span>{t.nav.items.settings}</span>
         </Link>
       </div>
     </aside>

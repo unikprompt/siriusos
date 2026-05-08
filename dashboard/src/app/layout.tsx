@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Sora, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SessionProvider } from "@/components/session-provider";
+import { LocaleProvider } from "@/components/locale-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
@@ -49,9 +50,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-            <TooltipProvider>
-              {children}
-            </TooltipProvider>
+            <LocaleProvider>
+              <TooltipProvider>
+                {children}
+              </TooltipProvider>
+            </LocaleProvider>
           </ThemeProvider>
         </SessionProvider>
       </body>

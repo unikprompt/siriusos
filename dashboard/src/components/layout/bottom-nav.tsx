@@ -22,30 +22,35 @@ import {
   IconX,
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
+import { useT } from '@/lib/i18n';
+import type { DashboardStrings } from '@/lib/i18n';
 
-const mainTabs = [
-  { label: 'Overview', href: '/', icon: IconLayoutDashboard },
-  { label: 'Tasks', href: '/tasks', icon: IconListCheck },
-  { label: 'Approvals', href: '/approvals', icon: IconShieldCheck },
-  { label: 'Analytics', href: '/analytics', icon: IconChartDots3 },
+type NavItemKey = keyof DashboardStrings['nav']['items'];
+
+const mainTabs: Array<{ key: NavItemKey; href: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = [
+  { key: 'overview', href: '/', icon: IconLayoutDashboard },
+  { key: 'tasks', href: '/tasks', icon: IconListCheck },
+  { key: 'approvals', href: '/approvals', icon: IconShieldCheck },
+  { key: 'analytics', href: '/analytics', icon: IconChartDots3 },
 ];
 
-const morePages = [
-  { label: 'Agents', href: '/agents', icon: IconRobot },
-  { label: 'Comms', href: '/comms', icon: IconMessages },
-  { label: 'Activity', href: '/activity', icon: IconActivity },
-  { label: 'Knowledge Base', href: '/knowledge-base', icon: IconBook2 },
-  { label: 'Workflows', href: '/workflows', icon: IconClock },
-  { label: 'Strategy', href: '/strategy', icon: IconTarget },
-  { label: 'Experiments', href: '/experiments', icon: IconFlask },
-  { label: 'Skills', href: '/skills', icon: IconPuzzle },
-  { label: 'Settings', href: '/settings', icon: IconSettings },
+const morePages: Array<{ key: NavItemKey; href: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }> = [
+  { key: 'agents', href: '/agents', icon: IconRobot },
+  { key: 'comms', href: '/comms', icon: IconMessages },
+  { key: 'activity', href: '/activity', icon: IconActivity },
+  { key: 'knowledgeBase', href: '/knowledge-base', icon: IconBook2 },
+  { key: 'workflows', href: '/workflows', icon: IconClock },
+  { key: 'strategy', href: '/strategy', icon: IconTarget },
+  { key: 'experiments', href: '/experiments', icon: IconFlask },
+  { key: 'skills', href: '/skills', icon: IconPuzzle },
+  { key: 'settings', href: '/settings', icon: IconSettings },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
   const { currentOrg } = useOrg();
+  const t = useT();
 
   function orgHref(href: string) {
     if (currentOrg && currentOrg !== 'all') {
@@ -72,8 +77,8 @@ export function BottomNav() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <span className="text-sm font-medium">More</span>
-              <button onClick={() => setMoreOpen(false)} className="p-1 text-muted-foreground">
+              <span className="text-sm font-medium">{t.nav.more}</span>
+              <button onClick={() => setMoreOpen(false)} className="p-1 text-muted-foreground" aria-label={t.common.close}>
                 <IconX size={18} />
               </button>
             </div>
@@ -92,7 +97,7 @@ export function BottomNav() {
                     )}
                   >
                     <Icon size={22} strokeWidth={1.5} />
-                    <span className="text-[10px] font-medium">{page.label}</span>
+                    <span className="text-[10px] font-medium">{t.nav.items[page.key]}</span>
                   </Link>
                 );
               })}
@@ -117,7 +122,7 @@ export function BottomNav() {
                 )}
               >
                 <Icon size={20} strokeWidth={active ? 2.5 : 1.5} />
-                <span className="text-[10px] font-medium">{tab.label}</span>
+                <span className="text-[10px] font-medium">{t.nav.items[tab.key]}</span>
               </Link>
             );
           })}
@@ -130,7 +135,7 @@ export function BottomNav() {
             )}
           >
             <IconDotsVertical size={20} strokeWidth={isMoreActive || moreOpen ? 2.5 : 1.5} />
-            <span className="text-[10px] font-medium">More</span>
+            <span className="text-[10px] font-medium">{t.nav.more}</span>
           </button>
         </div>
       </nav>
