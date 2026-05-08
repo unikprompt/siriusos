@@ -1,0 +1,151 @@
+name: Upstream Monitor
+
+# Runs every Monday at 14:00 UTC (~10am ET / 9am ET in EDT depending on DST).
+# Compares main against grandamenium/cortextos, detects commits NOT yet
+# applied here (using --cherry-pick so already-cherry-picked commits don't
+# show up as "missing"), and posts a digest to:
+#   - A pinned GitHub Issue (always)
+#   - Telegram (if TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID are set as secrets)
+
+on:
+  schedule:
+    - cron: '0 14 * * 1'  # Mondays 14:00 UTC
+  workflow_dispatch:       # also runnable manually from Actions tab
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  monitor:
+    name: Check upstream cortextos for new commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history needed for cherry-pick detection)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Add upstream remote and fetch
+        run: |
+          git remote add upstream https://github.com/grandamenium/cortextos.git
+          git fetch upstream main --depth=500
+
+      - name: Compute truly-missing commits
+        id: diff
+        run: |
+          # --cherry-pick filters out commits already applied with a different SHA.
+          # --right-only restricts to upstream side. Numbers explicit cap to keep
+          # the digest readable when behind by hundreds.
+          MISSING=$(git log --cherry-pick --right-only --no-merges \
+            --pretty="%h|%ai|%an|%s" main...upstream/main | head -50)
+          COUNT=$(echo "$MISSING" | grep -c "|" || true)
+
+          # Save to file (multi-line outputs need EOF heredoc syntax)
+          {
+            echo "count=$COUNT"
+            echo "missing<<EOF"
+            echo "$MISSING"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Found $COUNT truly-missing upstream commits."
+
+      - name: Render digest body
+        id: render
+        if: steps.diff.outputs.count != '0'
+        run: |
+          {
+            echo "body<<EOF"
+            echo "## ${{ steps.diff.outputs.count }} new upstream commits to consider"
+            echo ""
+            echo "Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) by upstream-monitor workflow."
+            echo "Already-cherry-picked commits are excluded automatically."
+            echo ""
+            echo "| SHA | Date | Author | Subject |"
+            echo "|---|---|---|---|"
+            while IFS='|' read -r sha date author subject; do
+              [ -z "$sha" ] && continue
+              # Escape pipes in subject so they don't break table cells
+              subject="${subject//|/\\|}"
+              echo "| \`$sha\` | $date | $author | $subject |"
+            done <<< "${{ steps.diff.outputs.missing }}"
+            echo ""
+            echo "### How to apply"
+            echo ""
+            echo '```bash'
+            echo "cd ~/cortextos"
+            echo "git fetch upstream"
+            echo "git cherry-pick <SHA>      # one at a time, resolve conflicts"
+            echo "npm run build && npm test  # verify"
+            echo "git push origin main"
+            echo '```'
+            echo ""
+            echo "Conflicts are likely on rebrand-touched files (cortextos→siriusos)."
+            echo "Resolve in favour of the SiriusOS naming and keep the upstream logic."
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open or update GitHub Issue
+        if: steps.diff.outputs.count != '0'
+        uses: actions/github-script@v8
+        env:
+          BODY: ${{ steps.render.outputs.body }}
+        with:
+          script: |
+            const body = process.env.BODY;
+            const title = `Upstream digest — ${new Date().toISOString().slice(0, 10)} (${{ steps.diff.outputs.count }} new commits)`;
+
+            // Find an existing open digest issue from this workflow
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'upstream-monitor',
+              per_page: 5,
+            });
+
+            if (existing.data.length > 0) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.data[0].number,
+                title,
+                body,
+              });
+              core.notice(`Updated existing issue #${existing.data[0].number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['upstream-monitor'],
+              });
+              core.notice(`Opened new issue #${created.data.number}`);
+            }
+
+      - name: Notify Telegram (optional)
+        if: steps.diff.outputs.count != '0' && env.TELEGRAM_BOT_TOKEN != '' && env.TELEGRAM_CHAT_ID != ''
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          MESSAGE=$(cat <<EOF
+          🛰️ *Upstream digest — SiriusOS*
+
+          ${{ steps.diff.outputs.count }} new commits in grandamenium/cortextos to consider.
+
+          See the full table on GitHub: https://github.com/${{ github.repository }}/issues?q=is:issue+is:open+label:upstream-monitor
+          EOF
+          )
+
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" \
+            -d "parse_mode=Markdown" \
+            -d "text=${MESSAGE}" \
+            -o /dev/null -w "Telegram HTTP %{http_code}\n"
+
+      - name: All caught up
+        if: steps.diff.outputs.count == '0'
+        run: echo "✅ Nothing new from upstream this week."
