@@ -9,9 +9,12 @@ import {
   IconArrowRight,
   IconBrandGithub,
   IconExternalLink,
+  IconCopy,
+  IconCheck,
 } from '@tabler/icons-react';
 import {
   type Locale,
+  type WelcomeStrings,
   STRINGS,
   detectInitialLocale,
   LOCALE_STORAGE_KEY,
@@ -166,42 +169,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="install" className="relative z-10 mx-auto max-w-5xl scroll-mt-12 px-6 py-16">
-        <div className="mb-10 text-center">
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-primary">
-            {t.how.eyebrow}
-          </p>
-          <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight md:text-3xl">
-            {t.how.title}
-          </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-sm text-muted-foreground">{t.how.sub}</p>
-        </div>
-
-        <div className="space-y-4">
-          {t.how.steps.map((step, i) => (
-            <div
-              key={step.title}
-              className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-card p-5 md:grid-cols-[auto_1fr_auto]"
-            >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 font-mono text-sm font-semibold text-primary ring-1 ring-primary/20">
-                {String(i + 1).padStart(2, '0')}
-              </div>
-              <div>
-                <h3 className="font-[family-name:var(--font-display)] text-base font-semibold tracking-tight">
-                  {step.title}
-                </h3>
-                <p className="mt-1 text-[13px] text-muted-foreground">{step.body}</p>
-              </div>
-              {step.code && (
-                <pre className="overflow-x-auto rounded-lg bg-surface-2 p-3 font-mono text-[11px] leading-relaxed text-foreground/85 md:min-w-[300px]">
-                  <code>{step.code}</code>
-                </pre>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Install */}
+      <InstallSection strings={t.install} />
 
       {/* Built on */}
       <section className="relative z-10 mx-auto max-w-3xl px-6 py-16 text-center">
@@ -288,6 +257,109 @@ export default function LandingPage() {
         </div>
       </footer>
     </div>
+  );
+}
+
+type InstallOS = 'mac' | 'linux' | 'windows';
+
+const INSTALL_COMMAND_NIX = 'curl -fsSL https://siriusos.unikprompt.com/install.mjs | node';
+const INSTALL_COMMAND_WIN = 'node -e "$(irm https://siriusos.unikprompt.com/install.mjs)"';
+
+function commandFor(os: InstallOS): string {
+  return os === 'windows' ? INSTALL_COMMAND_WIN : INSTALL_COMMAND_NIX;
+}
+
+function InstallSection({ strings }: { strings: WelcomeStrings['install'] }) {
+  const [os, setOs] = useState<InstallOS>('mac');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+    if (ua.includes('win')) setOs('windows');
+    else if (ua.includes('linux')) setOs('linux');
+    else setOs('mac');
+  }, []);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(commandFor(os));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard API unavailable — silently ignore */
+    }
+  }
+
+  const tabs: Array<{ id: InstallOS; label: string }> = [
+    { id: 'mac', label: strings.osMacLabel },
+    { id: 'linux', label: strings.osLinuxLabel },
+    { id: 'windows', label: strings.osWindowsLabel },
+  ];
+
+  const isWindows = os === 'windows';
+
+  return (
+    <section id="install" className="relative z-10 mx-auto max-w-3xl scroll-mt-12 px-6 py-16">
+      <div className="text-center">
+        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-primary">
+          {strings.eyebrow}
+        </p>
+        <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight md:text-3xl">
+          {strings.title}
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm text-muted-foreground">{strings.sub}</p>
+      </div>
+
+      <div className="mt-8 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => { setOs(tab.id); setCopied(false); }}
+              aria-pressed={os === tab.id}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                os === tab.id
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3 space-y-3">
+          {isWindows && (
+            <div className="rounded-lg border border-warning/30 bg-warning/8 px-4 py-3">
+              <p className="text-xs font-medium text-warning">{strings.windowsRequiresWsl}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">{strings.windowsRequiresWslDetail}</p>
+            </div>
+          )}
+
+          <div className="flex items-stretch gap-2">
+            <pre className="flex-1 overflow-x-auto rounded-lg bg-surface-2 px-4 py-3 font-mono text-[12.5px] leading-relaxed text-foreground/90">
+              <code>{commandFor(os)}</code>
+            </pre>
+            <button
+              type="button"
+              onClick={copy}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+              {copied ? strings.copied : strings.copy}
+            </button>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground/80">
+            {isWindows ? strings.afterCommandHintWindows : strings.afterCommandHint}
+          </p>
+          <p className="text-[10.5px] text-muted-foreground/60 font-mono">
+            {strings.flagsHint}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

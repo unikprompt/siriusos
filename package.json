@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "test:playwright": "npx playwright test",
-    "sync:installer": "cp install.mjs dashboard/public/install.mjs && echo 'installer copied to dashboard/public/install.mjs'"
+    "sync:installer": "cp install.mjs dashboard/public/install.mjs && cp install.mjs landing/public/install.mjs && echo 'installer copied to dashboard/public + landing/public'"
   },
   "keywords": [
     "claude",

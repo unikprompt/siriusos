@@ -20,11 +20,20 @@ export interface WelcomeStrings {
     sectionTitle: string;
     items: Array<{ title: string; body: string }>;
   };
-  how: {
+  install: {
     eyebrow: string;
     title: string;
     sub: string;
-    steps: Array<{ title: string; body: string; code?: string }>;
+    osMacLabel: string;
+    osLinuxLabel: string;
+    osWindowsLabel: string;
+    windowsRequiresWsl: string;
+    windowsRequiresWslDetail: string;
+    copy: string;
+    copied: string;
+    afterCommandHint: string;
+    afterCommandHintWindows: string;
+    flagsHint: string;
   };
   builtOn: {
     title: string;
@@ -54,7 +63,7 @@ const en: WelcomeStrings = {
     sub: 'SiriusOS keeps your Claude-powered agents running 24/7, talks to them on Telegram, runs scheduled work via crons, and shows you the whole orchestration in one dashboard. Self-hosted on your machine, open source, npm-installable.',
     ctaPrimary: 'Get started',
     ctaSecondary: 'Sign in',
-    statusOnline: 'siriusos · v0.1.4 · MIT',
+    statusOnline: 'siriusos · v0.1.6 · MIT',
   },
   pillars: {
     sectionEyebrow: 'What you get',
@@ -78,27 +87,20 @@ const en: WelcomeStrings = {
       },
     ],
   },
-  how: {
-    eyebrow: 'How it works',
-    title: 'Three commands to a running fleet.',
-    sub: 'Designed to run locally on macOS first. No cloud lock-in, no proprietary runtime — just Claude, your Mac, and persistent processes.',
-    steps: [
-      {
-        title: 'Install',
-        body: 'One command via npm. The CLI lands as siriusos in your PATH.',
-        code: 'npm install -g siriusos',
-      },
-      {
-        title: 'Initialize an agent',
-        body: 'Create one agent with a name and identity. The daemon takes over from there.',
-        code: 'siriusos init my-agent\nsiriusos start my-agent',
-      },
-      {
-        title: 'Open the dashboard',
-        body: 'Watch the fleet, the conversations and the cron schedule live at localhost:3013.',
-        code: 'siriusos dashboard --build',
-      },
-    ],
+  install: {
+    eyebrow: 'Install',
+    title: 'One command. Then never the terminal again.',
+    sub: 'The Node-based installer clones the repo, verifies prerequisites, and gets you to the visual wizard. From there language, organization and Telegram setup happen in your browser.',
+    osMacLabel: 'macOS',
+    osLinuxLabel: 'Linux',
+    osWindowsLabel: 'Windows',
+    windowsRequiresWsl: 'Windows requires WSL2 (Ubuntu).',
+    windowsRequiresWslDetail: 'Agents run shell scripts under bash. The installer detects WSL automatically and tells you how to install it (`wsl --install` in an Administrator PowerShell, then reboot).',
+    copy: 'Copy',
+    copied: 'Copied',
+    afterCommandHint: 'After it finishes, open http://localhost:3013 in your browser and the visual wizard handles language, organization, and Telegram bot.',
+    afterCommandHintWindows: 'After WSL is ready and the install completes, open http://localhost:3013 in your browser. The visual wizard handles the rest.',
+    flagsHint: 'Override defaults with SIRIUSOS_DIR=/path or SIRIUSOS_BRANCH=feature/foo before piping into node.',
   },
   builtOn: {
     title: 'Built on Claude. Runs on your machine.',
@@ -128,7 +130,7 @@ const es: WelcomeStrings = {
     sub: 'SiriusOS mantiene tus agentes con Claude corriendo 24/7, los hablás por Telegram, ejecutan trabajo programado con crons, y vos ves toda la orquestación en un solo dashboard. Self-hosted en tu máquina, código abierto, instalable vía npm.',
     ctaPrimary: 'Empezar',
     ctaSecondary: 'Entrar',
-    statusOnline: 'siriusos · v0.1.4 · MIT',
+    statusOnline: 'siriusos · v0.1.6 · MIT',
   },
   pillars: {
     sectionEyebrow: 'Lo que obtenés',
@@ -152,27 +154,20 @@ const es: WelcomeStrings = {
       },
     ],
   },
-  how: {
-    eyebrow: 'Cómo funciona',
-    title: 'Tres comandos a una flota en vivo.',
-    sub: 'Diseñado para correr local en macOS primero. Sin lock-in en la nube, sin runtime propietario — solo Claude, tu Mac y procesos persistentes.',
-    steps: [
-      {
-        title: 'Instalar',
-        body: 'Un solo comando vía npm. El CLI queda como siriusos en tu PATH.',
-        code: 'npm install -g siriusos',
-      },
-      {
-        title: 'Iniciar un agente',
-        body: 'Creá un agente con nombre e identidad. El daemon se encarga del resto.',
-        code: 'siriusos init mi-agente\nsiriusos start mi-agente',
-      },
-      {
-        title: 'Abrir el dashboard',
-        body: 'Mirá la flota, las conversaciones y los crons en vivo en localhost:3013.',
-        code: 'siriusos dashboard --build',
-      },
-    ],
+  install: {
+    eyebrow: 'Instalación',
+    title: 'Un comando. Después nunca más la terminal.',
+    sub: 'El instalador (en Node) clona el repo, verifica prerrequisitos y te lleva al wizard visual. Desde ahí idioma, organización y Telegram se configuran en el navegador.',
+    osMacLabel: 'macOS',
+    osLinuxLabel: 'Linux',
+    osWindowsLabel: 'Windows',
+    windowsRequiresWsl: 'Windows necesita WSL2 (Ubuntu).',
+    windowsRequiresWslDetail: 'Los agentes corren scripts bash. El instalador detecta WSL automáticamente y te dice cómo instalarlo (`wsl --install` en una PowerShell de administrador, después reinicio).',
+    copy: 'Copiar',
+    copied: 'Copiado',
+    afterCommandHint: 'Cuando termina, abrí http://localhost:3013 en el navegador y el wizard visual se encarga de idioma, organización y bot de Telegram.',
+    afterCommandHintWindows: 'Cuando WSL esté listo y el install termine, abrí http://localhost:3013 en el navegador. El wizard visual hace el resto.',
+    flagsHint: 'Sobrescribí defaults con SIRIUSOS_DIR=/ruta o SIRIUSOS_BRANCH=feature/foo antes de pipear a node.',
   },
   builtOn: {
     title: 'Sobre Claude. Corriendo en tu máquina.',
