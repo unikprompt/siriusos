@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchChatId } from '../../../../../../src/services/onboarding';
+import { fetchChatId } from '@/lib/services/onboarding';
 
 interface FetchBody {
   botToken?: string;

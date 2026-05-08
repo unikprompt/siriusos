@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateTelegramCreds } from '../../../../../../src/services/onboarding';
+import { validateTelegramCreds } from '@/lib/services/onboarding';
 
 interface ValidateBody {
   botToken?: string;

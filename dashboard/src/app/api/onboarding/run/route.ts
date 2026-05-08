@@ -8,7 +8,7 @@ import {
   writeAgentEnv,
   validateTelegramCreds,
   findProjectRoot,
-} from '../../../../../../src/services/onboarding';
+} from '@/lib/services/onboarding';
 
 type Locale = 'en' | 'es';
 
