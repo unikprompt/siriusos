@@ -29,7 +29,10 @@ import {
 } from '@/components/shared';
 import { IconPencil, IconFile, IconPhoto, IconFileText, IconCode } from '@tabler/icons-react';
 import { DeliverablePreview } from '@/components/tasks/deliverable-preview';
+import { useT } from '@/lib/i18n';
 import type { Task, TaskOutput, TaskStatus, TaskPriority } from '@/lib/types';
+
+type ActionKey = 'start' | 'complete' | 'block' | 'backToPending' | 'unblock' | 'reopen';
 
 export interface TaskDetailSheetProps {
   task: Task | null;
@@ -40,22 +43,22 @@ export interface TaskDetailSheetProps {
   onEdit?: (taskId: string) => void;
 }
 
-const STATUS_TRANSITIONS: Record<TaskStatus, { label: string; status: TaskStatus; variant: 'default' | 'outline' | 'destructive' | 'secondary' }[]> = {
+const STATUS_TRANSITIONS: Record<TaskStatus, { actionKey: ActionKey; status: TaskStatus; variant: 'default' | 'outline' | 'destructive' | 'secondary' }[]> = {
   pending: [
-    { label: 'Start', status: 'in_progress', variant: 'default' },
-    { label: 'Block', status: 'blocked', variant: 'destructive' },
+    { actionKey: 'start', status: 'in_progress', variant: 'default' },
+    { actionKey: 'block', status: 'blocked', variant: 'destructive' },
   ],
   in_progress: [
-    { label: 'Complete', status: 'completed', variant: 'default' },
-    { label: 'Block', status: 'blocked', variant: 'destructive' },
-    { label: 'Back to Pending', status: 'pending', variant: 'outline' },
+    { actionKey: 'complete', status: 'completed', variant: 'default' },
+    { actionKey: 'block', status: 'blocked', variant: 'destructive' },
+    { actionKey: 'backToPending', status: 'pending', variant: 'outline' },
   ],
   blocked: [
-    { label: 'Unblock', status: 'in_progress', variant: 'default' },
-    { label: 'Back to Pending', status: 'pending', variant: 'outline' },
+    { actionKey: 'unblock', status: 'in_progress', variant: 'default' },
+    { actionKey: 'backToPending', status: 'pending', variant: 'outline' },
   ],
   completed: [
-    { label: 'Reopen', status: 'pending', variant: 'outline' },
+    { actionKey: 'reopen', status: 'pending', variant: 'outline' },
   ],
 };
 
@@ -75,6 +78,7 @@ export function TaskDetailSheet({
   onDelete,
   onEdit,
 }: TaskDetailSheetProps) {
+  const t = useT();
   const [note, setNote] = useState('');
   const [updating, setUpdating] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -135,7 +139,7 @@ export function TaskDetailSheet({
 
   async function saveEdit() {
     if (!task || !editTitle.trim()) {
-      setError('Title is required');
+      setError(t.pages.tasks.detail.titleRequired);
       return;
     }
     setSaving(true);
@@ -156,10 +160,10 @@ export function TaskDetailSheet({
         onEdit?.(task.id);
       } else {
         const data = await res.json();
-        setError(data.error || 'Failed to save');
+        setError(data.error || t.pages.tasks.detail.saveFailed);
       }
     } catch {
-      setError('Network error');
+      setError(t.pages.tasks.detail.networkError);
     } finally {
       setSaving(false);
     }
@@ -173,7 +177,7 @@ export function TaskDetailSheet({
       await onStatusChange(task.id, newStatus, note.trim() || undefined);
       setNote('');
     } catch {
-      setError('Failed to update status');
+      setError(t.pages.tasks.detail.statusFailed);
     } finally {
       setUpdating(false);
     }
@@ -189,17 +193,17 @@ export function TaskDetailSheet({
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               className="text-lg font-semibold"
-              placeholder="Task title..."
+              placeholder={t.pages.tasks.detail.editTitlePlaceholder}
             />
           ) : (
             <div className="flex items-start gap-2 pr-8">
               <SheetTitle className="flex-1">{task.title}</SheetTitle>
-              <Button variant="ghost" size="icon-sm" onClick={startEditing} title="Edit task" className="shrink-0">
+              <Button variant="ghost" size="icon-sm" onClick={startEditing} title={t.pages.tasks.detail.editTask} className="shrink-0">
                 <IconPencil size={14} />
               </Button>
             </div>
           )}
-          <SheetDescription>Task ID: {task.id}</SheetDescription>
+          <SheetDescription>{t.pages.tasks.detail.taskIdLabel}: {task.id}</SheetDescription>
         </SheetHeader>
 
         {/* Error banner */}
@@ -219,10 +223,10 @@ export function TaskDetailSheet({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="urgent">{t.badges.priority.urgent}</SelectItem>
+                  <SelectItem value="high">{t.badges.priority.high}</SelectItem>
+                  <SelectItem value="normal">{t.badges.priority.normal}</SelectItem>
+                  <SelectItem value="low">{t.badges.priority.low}</SelectItem>
                 </SelectContent>
               </Select>
             ) : (
@@ -231,7 +235,7 @@ export function TaskDetailSheet({
             <OrgBadge org={task.org} />
             {task.needs_approval && (
               <span className="rounded-md bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
-                Needs Approval
+                {t.pages.tasks.detail.needsApproval}
               </span>
             )}
           </div>
@@ -241,35 +245,35 @@ export function TaskDetailSheet({
           {/* Details grid */}
           <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
             <div>
-              <span className="text-muted-foreground">Assignee</span>
+              <span className="text-muted-foreground">{t.pages.tasks.detail.assigneeLabel}</span>
               {editing ? (
                 <Input
                   value={editAssignee}
                   onChange={(e) => setEditAssignee(e.target.value)}
-                  placeholder="agent name or human"
+                  placeholder={t.pages.tasks.detail.assigneePlaceholder}
                   className="mt-1 h-7 text-sm"
                 />
               ) : (
-                <p className="font-medium">{task.assignee ?? 'Unassigned'}</p>
+                <p className="font-medium">{task.assignee ?? t.pages.tasks.unassigned}</p>
               )}
             </div>
             <div>
-              <span className="text-muted-foreground">Project</span>
-              <p className="font-medium">{task.project ?? '-'}</p>
+              <span className="text-muted-foreground">{t.pages.tasks.detail.projectLabel}</span>
+              <p className="font-medium">{task.project ?? '—'}</p>
             </div>
             <div>
-              <span className="text-muted-foreground">Created</span>
+              <span className="text-muted-foreground">{t.pages.tasks.detail.createdLabel}</span>
               <div><TimeAgo date={task.created_at} /></div>
             </div>
             {task.updated_at && (
               <div>
-                <span className="text-muted-foreground">Updated</span>
+                <span className="text-muted-foreground">{t.pages.tasks.detail.updatedLabel}</span>
                 <div><TimeAgo date={task.updated_at} /></div>
               </div>
             )}
             {task.completed_at && (
               <div>
-                <span className="text-muted-foreground">Completed</span>
+                <span className="text-muted-foreground">{t.pages.tasks.detail.completedLabel}</span>
                 <div><TimeAgo date={task.completed_at} /></div>
               </div>
             )}
@@ -279,17 +283,17 @@ export function TaskDetailSheet({
           <Separator />
           {editing ? (
             <div className="grid gap-2">
-              <Label className="text-xs text-muted-foreground">Description</Label>
+              <Label className="text-xs text-muted-foreground">{t.pages.tasks.detail.descriptionLabel}</Label>
               <Textarea
                 value={editDesc}
                 onChange={(e) => setEditDesc(e.target.value)}
                 rows={4}
-                placeholder="Task description..."
+                placeholder={t.pages.tasks.detail.descriptionPlaceholder}
               />
             </div>
           ) : task.description ? (
             <div>
-              <p className="text-sm text-muted-foreground mb-1">Description</p>
+              <p className="text-sm text-muted-foreground mb-1">{t.pages.tasks.detail.descriptionLabel}</p>
               <p className="text-sm whitespace-pre-wrap">{task.description}</p>
             </div>
           ) : null}
@@ -298,10 +302,10 @@ export function TaskDetailSheet({
           {editing && (
             <div className="flex gap-2">
               <Button size="sm" onClick={saveEdit} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
+                {saving ? t.pages.tasks.detail.saving : t.pages.tasks.detail.save}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
-                Cancel
+                {t.pages.tasks.detail.cancel}
               </Button>
             </div>
           )}
@@ -311,7 +315,7 @@ export function TaskDetailSheet({
             <>
               <Separator />
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Notes</p>
+                <p className="text-sm text-muted-foreground mb-1">{t.pages.tasks.detail.notesLabel}</p>
                 <p className="text-sm whitespace-pre-wrap">{task.notes}</p>
               </div>
             </>
@@ -323,10 +327,10 @@ export function TaskDetailSheet({
               <Separator />
               <div>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Deliverables{outputs.length > 0 && ` (${outputs.length})`}
+                  {t.pages.tasks.detail.deliverablesLabel}{outputs.length > 0 && ` (${outputs.length})`}
                 </p>
                 {outputs.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic">No deliverables attached.</p>
+                  <p className="text-sm text-muted-foreground italic">{t.pages.tasks.detail.deliverablesEmpty}</p>
                 ) : (
                   <div className="space-y-1">
                     {outputs.map((output, idx) => {
@@ -368,10 +372,10 @@ export function TaskDetailSheet({
               {/* Note input + status buttons */}
               <div className="space-y-3">
                 <div className="grid gap-2">
-                  <Label htmlFor="task-note">Add note (optional)</Label>
+                  <Label htmlFor="task-note">{t.pages.tasks.detail.addNoteLabel}</Label>
                   <Textarea
                     id="task-note"
-                    placeholder="Note for status change..."
+                    placeholder={t.pages.tasks.detail.addNotePlaceholder}
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     maxLength={2000}
@@ -385,21 +389,21 @@ export function TaskDetailSheet({
         {!editing && (
           <SheetFooter>
             <div className="flex flex-wrap items-center gap-2 w-full">
-              {transitions.map((t) => (
+              {transitions.map((tr) => (
                 <Button
-                  key={t.status}
-                  variant={t.variant}
+                  key={tr.status}
+                  variant={tr.variant}
                   size="sm"
                   disabled={updating || deleting}
-                  onClick={() => handleStatusChange(t.status)}
+                  onClick={() => handleStatusChange(tr.status)}
                 >
-                  {t.label}
+                  {t.pages.tasks.detail.actions[tr.actionKey]}
                 </Button>
               ))}
               <div className="ml-auto">
                 {confirmDelete ? (
                   <div className="flex items-center gap-1">
-                    <span className="text-xs text-destructive mr-1">Delete?</span>
+                    <span className="text-xs text-destructive mr-1">{t.pages.tasks.detail.deletePrompt}</span>
                     <Button
                       variant="destructive"
                       size="sm"
@@ -412,14 +416,14 @@ export function TaskDetailSheet({
                         setConfirmDelete(false);
                       }}
                     >
-                      {deleting ? 'Deleting...' : 'Yes'}
+                      {deleting ? t.pages.tasks.detail.deleting : t.pages.tasks.detail.deleteYes}
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setConfirmDelete(false)}
                     >
-                      No
+                      {t.pages.tasks.detail.deleteNo}
                     </Button>
                   </div>
                 ) : (
@@ -429,7 +433,7 @@ export function TaskDetailSheet({
                     className="text-destructive hover:text-destructive"
                     onClick={() => setConfirmDelete(true)}
                   >
-                    Delete
+                    {t.pages.tasks.detail.delete}
                   </Button>
                 )}
               </div>

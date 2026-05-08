@@ -2,6 +2,7 @@
 
 import { Card } from '@/components/ui/card';
 import { PriorityBadge, OrgBadge, TimeAgo } from '@/components/shared';
+import { useT } from '@/lib/i18n';
 import type { Task } from '@/lib/types';
 
 interface TaskCardProps {
@@ -10,6 +11,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, onClick }: TaskCardProps) {
+  const t = useT();
   return (
     <Card
       className="cursor-pointer p-3 transition-colors hover:bg-muted/50"
@@ -27,7 +29,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           {task.assignee ? (
             <span className="truncate max-w-[120px]">{task.assignee}</span>
           ) : (
-            <span className="italic">Unassigned</span>
+            <span className="italic">{t.pages.tasks.unassigned}</span>
           )}
           <TimeAgo date={task.created_at} className="text-xs" />
         </div>

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { formatDistanceToNow } from 'date-fns';
+import { es as dfnsEs, enUS as dfnsEn } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useLocale } from '@/lib/i18n';
 import {
   Tooltip,
   TooltipContent,
@@ -14,13 +16,13 @@ export interface TimeAgoProps {
   className?: string;
 }
 
-function formatRelative(date: string | Date): string {
+function formatRelative(date: string | Date, dfnsLocale: typeof dfnsEs | typeof dfnsEn): string {
   try {
     const d = typeof date === 'string' ? new Date(date) : date;
-    if (isNaN(d.getTime())) return 'unknown';
-    return formatDistanceToNow(d, { addSuffix: true });
+    if (isNaN(d.getTime())) return '—';
+    return formatDistanceToNow(d, { addSuffix: true, locale: dfnsLocale });
   } catch {
-    return 'unknown';
+    return '—';
   }
 }
 
@@ -35,15 +37,17 @@ function formatAbsolute(date: string | Date): string {
 }
 
 export function TimeAgo({ date, className }: TimeAgoProps) {
-  const [relative, setRelative] = useState(() => formatRelative(date));
+  const { locale } = useLocale();
+  const dfnsLocale = locale === 'es' ? dfnsEs : dfnsEn;
+  const [relative, setRelative] = useState(() => formatRelative(date, dfnsLocale));
 
   useEffect(() => {
-    setRelative(formatRelative(date));
+    setRelative(formatRelative(date, dfnsLocale));
     const interval = setInterval(() => {
-      setRelative(formatRelative(date));
+      setRelative(formatRelative(date, dfnsLocale));
     }, 60_000);
     return () => clearInterval(interval);
-  }, [date]);
+  }, [date, dfnsLocale]);
 
   return (
     <Tooltip>

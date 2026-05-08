@@ -1,5 +1,8 @@
+'use client';
+
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useT } from '@/lib/i18n';
 import type { TaskPriority } from '@/lib/types';
 
 export interface PriorityBadgeProps {
@@ -7,25 +10,29 @@ export interface PriorityBadgeProps {
   className?: string;
 }
 
-const priorityConfig: Record<
-  string,
-  { variant: 'destructive' | 'default' | 'secondary' | 'outline'; label: string }
-> = {
-  critical: { variant: 'destructive', label: 'Critical' },
-  urgent: { variant: 'destructive', label: 'Urgent' },
-  high: { variant: 'default', label: 'High' },
-  normal: { variant: 'secondary', label: 'Normal' },
-  low: { variant: 'outline', label: 'Low' },
+const variantByPriority: Record<string, 'destructive' | 'default' | 'secondary' | 'outline'> = {
+  critical: 'destructive',
+  urgent: 'destructive',
+  high: 'default',
+  normal: 'secondary',
+  low: 'outline',
 };
 
-const fallbackConfig = { variant: 'secondary' as const, label: 'Normal' };
-
 export function PriorityBadge({ priority, className }: PriorityBadgeProps) {
-  const config = priorityConfig[priority] || fallbackConfig;
+  const t = useT();
+  const variant = variantByPriority[priority] ?? 'secondary';
+  const labelMap: Record<string, string> = {
+    critical: t.badges.priority.critical,
+    urgent: t.badges.priority.urgent,
+    high: t.badges.priority.high,
+    normal: t.badges.priority.normal,
+    low: t.badges.priority.low,
+  };
+  const label = labelMap[priority] ?? t.badges.priority.normal;
 
   return (
-    <Badge variant={config.variant} className={cn(className)}>
-      {config.label}
+    <Badge variant={variant} className={cn(className)}>
+      {label}
     </Badge>
   );
 }

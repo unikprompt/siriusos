@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/table';
 import { PriorityBadge, StatusBadge, OrgBadge, TimeAgo } from '@/components/shared';
 import { IconArrowsSort, IconSortAscending, IconSortDescending } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 import type { Task } from '@/lib/types';
 
 type SortField = 'title' | 'status' | 'priority' | 'assignee' | 'org' | 'created_at';
@@ -25,6 +26,7 @@ interface TaskListTableProps {
 }
 
 export function TaskListTable({ tasks, onTaskClick }: TaskListTableProps) {
+  const t = useT();
   const [sortField, setSortField] = useState<SortField>('created_at');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
@@ -77,12 +79,12 @@ export function TaskListTable({ tasks, onTaskClick }: TaskListTableProps) {
   }
 
   const columns: { field: SortField; label: string }[] = [
-    { field: 'title', label: 'Title' },
-    { field: 'status', label: 'Status' },
-    { field: 'priority', label: 'Priority' },
-    { field: 'assignee', label: 'Assignee' },
-    { field: 'org', label: 'Org' },
-    { field: 'created_at', label: 'Created' },
+    { field: 'title', label: t.pages.tasks.columns.title },
+    { field: 'status', label: t.pages.tasks.columns.status },
+    { field: 'priority', label: t.pages.tasks.columns.priority },
+    { field: 'assignee', label: t.pages.tasks.columns.assignee },
+    { field: 'org', label: t.pages.tasks.columns.org },
+    { field: 'created_at', label: t.pages.tasks.columns.created },
   ];
 
   return (
@@ -107,7 +109,7 @@ export function TaskListTable({ tasks, onTaskClick }: TaskListTableProps) {
         {sorted.length === 0 ? (
           <TableRow>
             <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-              No tasks found
+              {t.pages.tasks.tableEmpty}
             </TableCell>
           </TableRow>
         ) : (

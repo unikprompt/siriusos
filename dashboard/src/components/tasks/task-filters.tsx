@@ -2,6 +2,7 @@
 
 import { FilterBar } from '@/components/shared';
 import type { FilterConfig } from '@/components/shared';
+import { useT } from '@/lib/i18n';
 
 interface TaskFiltersProps {
   orgs: string[];
@@ -26,51 +27,52 @@ export function TaskFilters({
   onChange,
   onClearAll,
 }: TaskFiltersProps) {
+  const t = useT();
   const filterConfigs: FilterConfig[] = [
     {
       key: 'org',
-      label: 'Org',
+      label: t.pages.tasks.filters.org,
       value: filters.org,
       onChange: (v) => onChange('org', v),
       options: [
-        { value: 'all', label: 'All Orgs' },
+        { value: 'all', label: t.pages.tasks.filters.allOrgs },
         ...orgs.map((o) => ({ value: o, label: o })),
       ],
     },
     {
       key: 'agent',
-      label: 'Agent',
+      label: t.pages.tasks.filters.agent,
       value: filters.agent,
       onChange: (v) => onChange('agent', v),
       options: [
-        { value: 'all', label: 'All Agents' },
+        { value: 'all', label: t.pages.tasks.filters.allAgents },
         ...agents.map((a) => ({ value: a, label: a })),
       ],
     },
     {
       key: 'priority',
-      label: 'Priority',
+      label: t.pages.tasks.filters.priority,
       value: filters.priority,
       onChange: (v) => onChange('priority', v),
       options: [
-        { value: 'all', label: 'All Priorities' },
-        { value: 'urgent', label: 'Urgent' },
-        { value: 'high', label: 'High' },
-        { value: 'normal', label: 'Normal' },
-        { value: 'low', label: 'Low' },
+        { value: 'all', label: t.pages.tasks.filters.allPriorities },
+        { value: 'urgent', label: t.badges.priority.urgent },
+        { value: 'high', label: t.badges.priority.high },
+        { value: 'normal', label: t.badges.priority.normal },
+        { value: 'low', label: t.badges.priority.low },
       ],
     },
     {
       key: 'status',
-      label: 'Status',
+      label: t.pages.tasks.filters.status,
       value: filters.status,
       onChange: (v) => onChange('status', v),
       options: [
-        { value: 'all', label: 'All Statuses' },
-        { value: 'pending', label: 'Pending' },
-        { value: 'in_progress', label: 'In Progress' },
-        { value: 'blocked', label: 'Blocked' },
-        { value: 'completed', label: 'Completed' },
+        { value: 'all', label: t.pages.tasks.filters.allStatuses },
+        { value: 'pending', label: t.badges.status.pending },
+        { value: 'in_progress', label: t.badges.status.inProgress },
+        { value: 'blocked', label: t.badges.status.blocked },
+        { value: 'completed', label: t.badges.status.completed },
       ],
     },
   ];
@@ -78,11 +80,11 @@ export function TaskFilters({
   if (projects.length > 0) {
     filterConfigs.push({
       key: 'project',
-      label: 'Project',
+      label: t.pages.tasks.filters.project,
       value: filters.project,
       onChange: (v) => onChange('project', v),
       options: [
-        { value: 'all', label: 'All Projects' },
+        { value: 'all', label: t.pages.tasks.filters.allProjects },
         ...projects.map((p) => ({ value: p, label: p })),
       ],
     });

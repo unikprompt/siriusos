@@ -3,11 +3,11 @@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { StatusBadge } from '@/components/shared';
 import { TaskCard } from './task-card';
+import { useT } from '@/lib/i18n';
 import type { Task, TaskStatus } from '@/lib/types';
 
 interface KanbanColumn {
   status: TaskStatus;
-  label: string;
   tasks: Task[];
 }
 
@@ -18,27 +18,12 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ tasks, completedTodayTasks, onTaskClick }: KanbanBoardProps) {
+  const t = useT();
   const columns: KanbanColumn[] = [
-    {
-      status: 'pending',
-      label: 'Pending',
-      tasks: tasks.filter((t) => t.status === 'pending'),
-    },
-    {
-      status: 'in_progress',
-      label: 'In Progress',
-      tasks: tasks.filter((t) => t.status === 'in_progress'),
-    },
-    {
-      status: 'blocked',
-      label: 'Blocked',
-      tasks: tasks.filter((t) => t.status === 'blocked'),
-    },
-    {
-      status: 'completed',
-      label: 'Completed (today)',
-      tasks: completedTodayTasks,
-    },
+    { status: 'pending', tasks: tasks.filter((task) => task.status === 'pending') },
+    { status: 'in_progress', tasks: tasks.filter((task) => task.status === 'in_progress') },
+    { status: 'blocked', tasks: tasks.filter((task) => task.status === 'blocked') },
+    { status: 'completed', tasks: completedTodayTasks },
   ];
 
   return (
@@ -57,7 +42,7 @@ export function KanbanBoard({ tasks, completedTodayTasks, onTaskClick }: KanbanB
             <div className="flex flex-col gap-2 px-0.5 pt-0.5 pb-1">
               {col.tasks.length === 0 ? (
                 <p className="px-2 py-8 text-center text-xs text-muted-foreground">
-                  No tasks
+                  {t.pages.tasks.kanbanEmpty}
                 </p>
               ) : (
                 col.tasks.map((task) => (

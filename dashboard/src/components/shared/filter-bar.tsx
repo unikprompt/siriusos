@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { IconX } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 
 export interface FilterOption {
   value: string;
@@ -31,6 +32,7 @@ export interface FilterBarProps {
 }
 
 export function FilterBar({ filters, onClearAll, className }: FilterBarProps) {
+  const t = useT();
   const hasActiveFilter = filters.some((f) => f.value !== '' && f.value !== 'all');
 
   return (
@@ -61,7 +63,7 @@ export function FilterBar({ filters, onClearAll, className }: FilterBarProps) {
           className="h-7 gap-1 text-xs text-muted-foreground"
         >
           <IconX className="size-3" />
-          Clear filters
+          {t.common.clearFilters}
         </Button>
       )}
     </div>

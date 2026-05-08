@@ -15,6 +15,11 @@ export interface DashboardStrings {
     add: string;
     search: string;
     user: string;
+    refresh: string;
+    clearFilters: string;
+    none: string;
+    yes: string;
+    no: string;
   };
   nav: {
     sections: {
@@ -59,6 +64,22 @@ export interface DashboardStrings {
     networkError: string;
     unknownError: string;
   };
+  badges: {
+    status: {
+      pending: string;
+      inProgress: string;
+      blocked: string;
+      completed: string;
+      unknown: string;
+    };
+    priority: {
+      critical: string;
+      urgent: string;
+      high: string;
+      normal: string;
+      low: string;
+    };
+  };
   pages: {
     overview: {
       title: string;
@@ -73,6 +94,94 @@ export interface DashboardStrings {
       viewList: string;
       emptyTitle: string;
       emptyDescription: string;
+      kanbanEmpty: string;
+      tableEmpty: string;
+      unassigned: string;
+      columns: {
+        title: string;
+        status: string;
+        priority: string;
+        assignee: string;
+        org: string;
+        created: string;
+        completedToday: string;
+      };
+      filters: {
+        org: string;
+        agent: string;
+        priority: string;
+        status: string;
+        project: string;
+        allOrgs: string;
+        allAgents: string;
+        allPriorities: string;
+        allStatuses: string;
+        allProjects: string;
+      };
+      create: {
+        button: string;
+        title: string;
+        description: string;
+        titleLabel: string;
+        titlePlaceholder: string;
+        titleRequired: string;
+        descriptionLabel: string;
+        descriptionPlaceholder: string;
+        priorityLabel: string;
+        assigneeLabel: string;
+        assigneePlaceholder: string;
+        unassigned: string;
+        projectLabel: string;
+        projectPlaceholder: string;
+        needsApproval: string;
+        submit: string;
+        submitting: string;
+        cancel: string;
+        error: string;
+        networkError: string;
+      };
+      detail: {
+        statusLabel: string;
+        priorityLabel: string;
+        assigneeLabel: string;
+        assigneePlaceholder: string;
+        orgLabel: string;
+        projectLabel: string;
+        createdLabel: string;
+        updatedLabel: string;
+        completedLabel: string;
+        descriptionLabel: string;
+        descriptionPlaceholder: string;
+        notesLabel: string;
+        addNoteLabel: string;
+        addNotePlaceholder: string;
+        deliverablesLabel: string;
+        deliverablesEmpty: string;
+        needsApproval: string;
+        taskIdLabel: string;
+        editTask: string;
+        editTitlePlaceholder: string;
+        save: string;
+        saving: string;
+        cancel: string;
+        delete: string;
+        deletePrompt: string;
+        deleteYes: string;
+        deleteNo: string;
+        deleting: string;
+        titleRequired: string;
+        saveFailed: string;
+        statusFailed: string;
+        networkError: string;
+        actions: {
+          start: string;
+          complete: string;
+          block: string;
+          backToPending: string;
+          unblock: string;
+          reopen: string;
+        };
+      };
     };
     agents: {
       title: string;
@@ -135,6 +244,11 @@ const en: DashboardStrings = {
     add: 'Add',
     search: 'Search',
     user: 'User',
+    refresh: 'Refresh',
+    clearFilters: 'Clear filters',
+    none: 'None',
+    yes: 'Yes',
+    no: 'No',
   },
   nav: {
     sections: {
@@ -179,6 +293,22 @@ const en: DashboardStrings = {
     networkError: 'Network error. Please try again.',
     unknownError: 'Could not sign in. Please try again.',
   },
+  badges: {
+    status: {
+      pending: 'Pending',
+      inProgress: 'In Progress',
+      blocked: 'Blocked',
+      completed: 'Completed',
+      unknown: 'Unknown',
+    },
+    priority: {
+      critical: 'Critical',
+      urgent: 'Urgent',
+      high: 'High',
+      normal: 'Normal',
+      low: 'Low',
+    },
+  },
   pages: {
     overview: {
       title: 'Overview',
@@ -193,6 +323,94 @@ const en: DashboardStrings = {
       viewList: 'List',
       emptyTitle: 'No tasks yet',
       emptyDescription: 'Create your first task to start tracking work across your agents.',
+      kanbanEmpty: 'No tasks',
+      tableEmpty: 'No tasks found',
+      unassigned: 'Unassigned',
+      columns: {
+        title: 'Title',
+        status: 'Status',
+        priority: 'Priority',
+        assignee: 'Assignee',
+        org: 'Org',
+        created: 'Created',
+        completedToday: 'Completed (today)',
+      },
+      filters: {
+        org: 'Org',
+        agent: 'Agent',
+        priority: 'Priority',
+        status: 'Status',
+        project: 'Project',
+        allOrgs: 'All Orgs',
+        allAgents: 'All Agents',
+        allPriorities: 'All Priorities',
+        allStatuses: 'All Statuses',
+        allProjects: 'All Projects',
+      },
+      create: {
+        button: 'New Task',
+        title: 'Create Task',
+        description: 'Create a new task and assign it to an agent.',
+        titleLabel: 'Title',
+        titlePlaceholder: 'Task title…',
+        titleRequired: 'Title is required',
+        descriptionLabel: 'Description',
+        descriptionPlaceholder: 'Optional description…',
+        priorityLabel: 'Priority',
+        assigneeLabel: 'Assignee',
+        assigneePlaceholder: 'Select agent',
+        unassigned: 'Unassigned',
+        projectLabel: 'Project',
+        projectPlaceholder: 'Select project',
+        needsApproval: 'Needs approval before execution',
+        submit: 'Create Task',
+        submitting: 'Creating…',
+        cancel: 'Cancel',
+        error: 'Failed to create task',
+        networkError: 'Network error — check your connection',
+      },
+      detail: {
+        statusLabel: 'Status',
+        priorityLabel: 'Priority',
+        assigneeLabel: 'Assignee',
+        assigneePlaceholder: 'agent name or human',
+        orgLabel: 'Org',
+        projectLabel: 'Project',
+        createdLabel: 'Created',
+        updatedLabel: 'Updated',
+        completedLabel: 'Completed',
+        descriptionLabel: 'Description',
+        descriptionPlaceholder: 'Task description…',
+        notesLabel: 'Notes',
+        addNoteLabel: 'Add note (optional)',
+        addNotePlaceholder: 'Note for status change…',
+        deliverablesLabel: 'Deliverables',
+        deliverablesEmpty: 'No deliverables attached.',
+        needsApproval: 'Needs Approval',
+        taskIdLabel: 'Task ID',
+        editTask: 'Edit task',
+        editTitlePlaceholder: 'Task title…',
+        save: 'Save Changes',
+        saving: 'Saving…',
+        cancel: 'Cancel',
+        delete: 'Delete',
+        deletePrompt: 'Delete?',
+        deleteYes: 'Yes',
+        deleteNo: 'No',
+        deleting: 'Deleting…',
+        titleRequired: 'Title is required',
+        saveFailed: 'Failed to save',
+        statusFailed: 'Failed to update status',
+        networkError: 'Network error',
+        actions: {
+          start: 'Start',
+          complete: 'Complete',
+          block: 'Block',
+          backToPending: 'Back to Pending',
+          unblock: 'Unblock',
+          reopen: 'Reopen',
+        },
+      },
     },
     agents: {
       title: 'Agents',
@@ -255,6 +473,11 @@ const es: DashboardStrings = {
     add: 'Agregar',
     search: 'Buscar',
     user: 'Usuario',
+    refresh: 'Actualizar',
+    clearFilters: 'Limpiar filtros',
+    none: 'Ninguno',
+    yes: 'Sí',
+    no: 'No',
   },
   nav: {
     sections: {
@@ -299,6 +522,22 @@ const es: DashboardStrings = {
     networkError: 'Error de red. Probá de nuevo.',
     unknownError: 'No se pudo iniciar sesión. Probá de nuevo.',
   },
+  badges: {
+    status: {
+      pending: 'Pendiente',
+      inProgress: 'En curso',
+      blocked: 'Bloqueada',
+      completed: 'Completada',
+      unknown: 'Desconocido',
+    },
+    priority: {
+      critical: 'Crítica',
+      urgent: 'Urgente',
+      high: 'Alta',
+      normal: 'Normal',
+      low: 'Baja',
+    },
+  },
   pages: {
     overview: {
       title: 'Resumen',
@@ -313,6 +552,94 @@ const es: DashboardStrings = {
       viewList: 'Lista',
       emptyTitle: 'Aún no hay tareas',
       emptyDescription: 'Creá tu primera tarea para empezar a seguir el trabajo de tus agentes.',
+      kanbanEmpty: 'Sin tareas',
+      tableEmpty: 'No se encontraron tareas',
+      unassigned: 'Sin asignar',
+      columns: {
+        title: 'Título',
+        status: 'Estado',
+        priority: 'Prioridad',
+        assignee: 'Asignado a',
+        org: 'Org',
+        created: 'Creada',
+        completedToday: 'Completadas (hoy)',
+      },
+      filters: {
+        org: 'Org',
+        agent: 'Agente',
+        priority: 'Prioridad',
+        status: 'Estado',
+        project: 'Proyecto',
+        allOrgs: 'Todas las orgs',
+        allAgents: 'Todos los agentes',
+        allPriorities: 'Todas las prioridades',
+        allStatuses: 'Todos los estados',
+        allProjects: 'Todos los proyectos',
+      },
+      create: {
+        button: 'Nueva tarea',
+        title: 'Crear tarea',
+        description: 'Creá una nueva tarea y asignala a un agente.',
+        titleLabel: 'Título',
+        titlePlaceholder: 'Título de la tarea…',
+        titleRequired: 'El título es obligatorio',
+        descriptionLabel: 'Descripción',
+        descriptionPlaceholder: 'Descripción opcional…',
+        priorityLabel: 'Prioridad',
+        assigneeLabel: 'Asignado a',
+        assigneePlaceholder: 'Elegí un agente',
+        unassigned: 'Sin asignar',
+        projectLabel: 'Proyecto',
+        projectPlaceholder: 'Elegí un proyecto',
+        needsApproval: 'Requiere aprobación antes de ejecutar',
+        submit: 'Crear tarea',
+        submitting: 'Creando…',
+        cancel: 'Cancelar',
+        error: 'No se pudo crear la tarea',
+        networkError: 'Error de red — revisá tu conexión',
+      },
+      detail: {
+        statusLabel: 'Estado',
+        priorityLabel: 'Prioridad',
+        assigneeLabel: 'Asignado a',
+        assigneePlaceholder: 'nombre del agente o humano',
+        orgLabel: 'Org',
+        projectLabel: 'Proyecto',
+        createdLabel: 'Creada',
+        updatedLabel: 'Actualizada',
+        completedLabel: 'Completada',
+        descriptionLabel: 'Descripción',
+        descriptionPlaceholder: 'Descripción de la tarea…',
+        notesLabel: 'Notas',
+        addNoteLabel: 'Agregar nota (opcional)',
+        addNotePlaceholder: 'Nota para el cambio de estado…',
+        deliverablesLabel: 'Entregables',
+        deliverablesEmpty: 'No hay entregables adjuntos.',
+        needsApproval: 'Requiere aprobación',
+        taskIdLabel: 'ID de tarea',
+        editTask: 'Editar tarea',
+        editTitlePlaceholder: 'Título de la tarea…',
+        save: 'Guardar cambios',
+        saving: 'Guardando…',
+        cancel: 'Cancelar',
+        delete: 'Eliminar',
+        deletePrompt: '¿Eliminar?',
+        deleteYes: 'Sí',
+        deleteNo: 'No',
+        deleting: 'Eliminando…',
+        titleRequired: 'El título es obligatorio',
+        saveFailed: 'No se pudo guardar',
+        statusFailed: 'No se pudo cambiar el estado',
+        networkError: 'Error de red',
+        actions: {
+          start: 'Empezar',
+          complete: 'Completar',
+          block: 'Bloquear',
+          backToPending: 'Volver a pendiente',
+          unblock: 'Desbloquear',
+          reopen: 'Reabrir',
+        },
+      },
     },
     agents: {
       title: 'Agentes',

@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { IconPlus } from '@tabler/icons-react';
+import { useT } from '@/lib/i18n';
 import type { TaskPriority } from '@/lib/types';
 
 interface CreateTaskDialogProps {
@@ -32,6 +33,7 @@ interface CreateTaskDialogProps {
 }
 
 export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDialogProps) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +56,7 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
 
   async function handleSubmit() {
     if (!title.trim()) {
-      setError('Title is required');
+      setError(t.pages.tasks.create.titleRequired);
       return;
     }
     setSubmitting(true);
@@ -81,10 +83,10 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
         onCreated();
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || 'Failed to create task');
+        setError(data.error || t.pages.tasks.create.error);
       }
     } catch {
-      setError('Network error - check your connection');
+      setError(t.pages.tasks.create.networkError);
     } finally {
       setSubmitting(false);
     }
@@ -94,14 +96,12 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (o) setError(null); }}>
       <DialogTrigger render={<Button size="sm" />}>
         <IconPlus className="size-4" />
-        New Task
+        {t.pages.tasks.create.button}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Create Task</DialogTitle>
-          <DialogDescription>
-            Create a new task and assign it to an agent.
-          </DialogDescription>
+          <DialogTitle>{t.pages.tasks.create.title}</DialogTitle>
+          <DialogDescription>{t.pages.tasks.create.description}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
@@ -111,10 +111,10 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
             </div>
           )}
           <div className="grid gap-2">
-            <Label htmlFor="task-title">Title</Label>
+            <Label htmlFor="task-title">{t.pages.tasks.create.titleLabel}</Label>
             <Input
               id="task-title"
-              placeholder="Task title..."
+              placeholder={t.pages.tasks.create.titlePlaceholder}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               maxLength={500}
@@ -122,10 +122,10 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="task-desc">Description</Label>
+            <Label htmlFor="task-desc">{t.pages.tasks.create.descriptionLabel}</Label>
             <Textarea
               id="task-desc"
-              placeholder="Optional description..."
+              placeholder={t.pages.tasks.create.descriptionPlaceholder}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               maxLength={2000}
@@ -134,13 +134,13 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
 
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label>Assignee</Label>
+              <Label>{t.pages.tasks.create.assigneeLabel}</Label>
               <Select value={assignee} onValueChange={(v) => setAssignee(v ?? '')}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select agent" />
+                  <SelectValue placeholder={t.pages.tasks.create.assigneePlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="">{t.pages.tasks.create.unassigned}</SelectItem>
                   {agents.map((a) => (
                     <SelectItem key={a} value={a}>
                       {a}
@@ -151,16 +151,16 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
             </div>
 
             <div className="grid gap-2">
-              <Label>Priority</Label>
+              <Label>{t.pages.tasks.create.priorityLabel}</Label>
               <Select value={priority} onValueChange={(v) => { if (v) setPriority(v as TaskPriority); }}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="urgent">Urgent</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="normal">Normal</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="urgent">{t.badges.priority.urgent}</SelectItem>
+                  <SelectItem value="high">{t.badges.priority.high}</SelectItem>
+                  <SelectItem value="normal">{t.badges.priority.normal}</SelectItem>
+                  <SelectItem value="low">{t.badges.priority.low}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -168,13 +168,13 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
 
           {projects.length > 0 && (
             <div className="grid gap-2">
-              <Label>Project</Label>
+              <Label>{t.pages.tasks.create.projectLabel}</Label>
               <Select value={project} onValueChange={(v) => setProject(v ?? '')}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select project" />
+                  <SelectValue placeholder={t.pages.tasks.create.projectPlaceholder} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="">{t.common.none}</SelectItem>
                   {projects.map((p) => (
                     <SelectItem key={p} value={p}>
                       {p}
@@ -191,7 +191,7 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
               onCheckedChange={setNeedsApproval}
               size="sm"
             />
-            <Label className="cursor-pointer">Needs approval before execution</Label>
+            <Label className="cursor-pointer">{t.pages.tasks.create.needsApproval}</Label>
           </div>
         </div>
 
@@ -200,7 +200,7 @@ export function CreateTaskDialog({ agents, projects, onCreated }: CreateTaskDial
             onClick={handleSubmit}
             disabled={!title.trim() || submitting}
           >
-            {submitting ? 'Creating...' : 'Create Task'}
+            {submitting ? t.pages.tasks.create.submitting : t.pages.tasks.create.submit}
           </Button>
         </DialogFooter>
       </DialogContent>
