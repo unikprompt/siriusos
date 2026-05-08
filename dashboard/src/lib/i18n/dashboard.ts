@@ -486,6 +486,32 @@ export interface DashboardStrings {
         languageLabel: string;
         languageDescription: string;
       };
+      users: {
+        title: string;
+        empty: string;
+        colId: string;
+        colUsername: string;
+        colCreated: string;
+        delete: string;
+        deleteError: string;
+        addTitle: string;
+        usernameLabel: string;
+        usernamePlaceholder: string;
+        passwordLabel: string;
+        passwordPlaceholder: string;
+        addSubmit: string;
+        adding: string;
+        addError: string;
+        changePassword: string;
+        changePasswordTitle: string;
+        changePasswordSubtitle: string;
+        newPasswordLabel: string;
+        confirmChange: string;
+        changing: string;
+        changePasswordSuccess: string;
+        changePasswordError: string;
+        cancel: string;
+      };
     };
   };
 }
@@ -976,6 +1002,32 @@ const en: DashboardStrings = {
         languageLabel: 'Language',
         languageDescription: 'Pick the language for the dashboard interface.',
       },
+      users: {
+        title: 'Users',
+        empty: 'No users found.',
+        colId: 'ID',
+        colUsername: 'Username',
+        colCreated: 'Created',
+        delete: 'Delete',
+        deleteError: 'Could not delete user.',
+        addTitle: 'Add User',
+        usernameLabel: 'Username',
+        usernamePlaceholder: 'Enter username',
+        passwordLabel: 'Password',
+        passwordPlaceholder: 'At least 6 characters',
+        addSubmit: 'Add User',
+        adding: 'Adding…',
+        addError: 'Could not add user.',
+        changePassword: 'Change password',
+        changePasswordTitle: 'Change password',
+        changePasswordSubtitle: 'Set a new password for {user}. The previous one stops working immediately.',
+        newPasswordLabel: 'New password',
+        confirmChange: 'Confirm',
+        changing: 'Changing…',
+        changePasswordSuccess: 'Password updated.',
+        changePasswordError: 'Could not change password.',
+        cancel: 'Cancel',
+      },
     },
   },
 };
@@ -1465,6 +1517,32 @@ const es: DashboardStrings = {
         densityCompact: 'Compacta',
         languageLabel: 'Idioma',
         languageDescription: 'Elegí el idioma de la interfaz del dashboard.',
+      },
+      users: {
+        title: 'Usuarios',
+        empty: 'No hay usuarios.',
+        colId: 'ID',
+        colUsername: 'Usuario',
+        colCreated: 'Creado',
+        delete: 'Eliminar',
+        deleteError: 'No se pudo eliminar el usuario.',
+        addTitle: 'Agregar usuario',
+        usernameLabel: 'Usuario',
+        usernamePlaceholder: 'Ingresá un nombre de usuario',
+        passwordLabel: 'Contraseña',
+        passwordPlaceholder: 'Mínimo 6 caracteres',
+        addSubmit: 'Agregar usuario',
+        adding: 'Agregando…',
+        addError: 'No se pudo agregar el usuario.',
+        changePassword: 'Cambiar contraseña',
+        changePasswordTitle: 'Cambiar contraseña',
+        changePasswordSubtitle: 'Definí una nueva contraseña para {user}. La anterior deja de funcionar al instante.',
+        newPasswordLabel: 'Nueva contraseña',
+        confirmChange: 'Confirmar',
+        changing: 'Cambiando…',
+        changePasswordSuccess: 'Contraseña actualizada.',
+        changePasswordError: 'No se pudo cambiar la contraseña.',
+        cancel: 'Cancelar',
       },
     },
   },

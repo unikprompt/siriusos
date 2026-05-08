@@ -229,3 +229,105 @@ function findDashboardDir(): string | null {
   }
   return null;
 }
+
+// ─── reset-password subcommand ────────────────────────────────────────────────
+//
+// Recovery path when an operator forgets the dashboard password. Operates
+// directly against the SQLite users table (~/.siriusos/<instance>/dashboard/
+// siriusos-<instance>.db), bypassing NextAuth, so it works even when the
+// dashboard is offline. Reuses better-sqlite3 + bcryptjs from the dashboard
+// install so we don't pull them as runtime deps of the root CLI.
+
+dashboardCommand
+  .command('reset-password')
+  .description('Reset a dashboard user password by writing directly to the SQLite users table')
+  .option('--instance <id>', 'Instance ID', 'default')
+  .option('--user <username>', 'Username to reset', 'admin')
+  .option('--password <plain>', 'New plaintext password (omit to auto-generate a random one)')
+  .action((options: { instance: string; user: string; password?: string }) => {
+    const dashboardDir = findDashboardDir();
+    if (!dashboardDir) {
+      console.error('Could not locate the dashboard install (no dashboard/package.json near cwd or CLI).');
+      process.exit(1);
+    }
+
+    // Resolve the dashboard's own copies of better-sqlite3 + bcryptjs so we
+    // don't have to ship them with the root CLI. require.resolve walks
+    // dashboardDir's node_modules. Types are absent at the root, so this
+    // module is treated as `unknown` at compile time; runtime contract
+    // matches the dashboard usage (see dashboard/src/lib/db.ts and
+    // dashboard/src/lib/actions/settings.ts).
+    type SqliteDb = {
+      prepare: (sql: string) => {
+        get: (...args: unknown[]) => unknown;
+        run: (...args: unknown[]) => { changes: number; lastInsertRowid: number | bigint };
+      };
+      close: () => void;
+    };
+    type SqliteCtor = new (path: string, opts?: { timeout?: number }) => SqliteDb;
+    type Bcrypt = { hashSync: (data: string, saltRounds: number) => string };
+
+    let Database: SqliteCtor;
+    let bcrypt: Bcrypt;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      Database = require(require.resolve('better-sqlite3', { paths: [dashboardDir] })) as SqliteCtor;
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      bcrypt = require(require.resolve('bcryptjs', { paths: [dashboardDir] })) as Bcrypt;
+    } catch (err) {
+      console.error('Could not load dashboard dependencies (better-sqlite3, bcryptjs).');
+      console.error('Run `npm install` inside dashboard/ first, then retry.');
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+
+    const dbPath = join(homedir(), '.siriusos', options.instance, 'dashboard', `siriusos-${options.instance}.db`);
+    if (!existsSync(dbPath)) {
+      console.error(`Dashboard database not found: ${dbPath}`);
+      console.error('The dashboard probably hasn\'t booted yet. Run `siriusos dashboard --build` once first.');
+      process.exit(1);
+    }
+
+    const username = options.user.trim();
+    if (!username) {
+      console.error('Username cannot be empty.');
+      process.exit(1);
+    }
+
+    const password = options.password ?? randomBytes(16).toString('hex');
+    const generated = options.password === undefined;
+    if (password.length < 6) {
+      console.error('Password must be at least 6 characters.');
+      process.exit(1);
+    }
+
+    let db: SqliteDb;
+    try {
+      db = new Database(dbPath, { timeout: 5000 });
+    } catch (err) {
+      console.error(`Could not open database (is the dashboard running and holding a write lock?): ${dbPath}`);
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+
+    try {
+      const hash = bcrypt.hashSync(password, 12);
+      const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username) as { id: number } | undefined;
+      if (existing) {
+        db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, existing.id);
+        console.log(`✓ Password reset for user '${username}' (id=${existing.id})`);
+      } else {
+        db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)').run(username, hash);
+        console.log(`✓ Created user '${username}' with the new password`);
+      }
+      if (generated) {
+        console.log('');
+        console.log(`  New password: ${password}`);
+        console.log('');
+        console.log('  Login at the dashboard with that password, then change it from');
+        console.log('  Settings → Users → Change password.');
+      }
+    } finally {
+      db.close();
+    }
+  });

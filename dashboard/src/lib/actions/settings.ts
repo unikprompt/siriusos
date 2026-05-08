@@ -259,6 +259,28 @@ export async function addUser(username: string, password: string): Promise<Actio
   }
 }
 
+export async function changePassword(userId: number, newPassword: string): Promise<ActionResult> {
+  try {
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: 'Password must be at least 6 characters' };
+    }
+    if (newPassword.length > 200) {
+      return { success: false, error: 'Password must be under 200 characters' };
+    }
+
+    const existing = db.prepare('SELECT id FROM users WHERE id = ?').get(userId) as User | undefined;
+    if (!existing) return { success: false, error: 'User not found' };
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, userId);
+
+    revalidatePath('/settings');
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+}
+
 export async function deleteUser(userId: number): Promise<ActionResult> {
   try {
     // Prevent deleting the last user
