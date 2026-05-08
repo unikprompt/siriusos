@@ -69,12 +69,19 @@ export async function middleware(request: NextRequest) {
 
   // Allow public paths
   // Security (H7): SSE endpoints require ?token=<jwt> auth — removed from public whitelist
+  // /welcome and /install.mjs are intentionally public so the marketing
+  // landing and the one-line installer (curl ... | node) work without auth.
   if (
     pathname.startsWith('/login') ||
+    pathname.startsWith('/welcome') ||
     pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/api/waitlist') ||
     pathname.startsWith('/_next') ||
+    pathname === '/install.mjs' ||
     pathname === '/favicon.ico' ||
-    pathname === '/icon.svg'
+    pathname === '/icon.svg' ||
+    pathname === '/logo-full.svg' ||
+    pathname === '/logo-mark.svg'
   ) {
     const response = NextResponse.next();
     response.headers.set('Access-Control-Allow-Origin', corsOrigin);
