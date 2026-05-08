@@ -221,14 +221,14 @@ export default function LandingPage() {
               {t.community.eyebrow}
             </p>
 
-            <div className="mt-5 inline-flex h-24 w-24 items-center justify-center rounded-2xl bg-black/80 ring-1 ring-accent/30 p-2 shadow-[0_0_24px_-4px_rgba(201,152,42,0.25)] dark:shadow-[0_0_24px_-4px_rgba(255,210,122,0.3)]">
+            <div className="mt-5 inline-flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl ring-1 ring-accent/30 shadow-[0_0_28px_-4px_rgba(201,152,42,0.3)] dark:shadow-[0_0_28px_-4px_rgba(255,210,122,0.35)]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/operadores-aumentados.png"
+                src="/operadores-aumentados.jpg"
                 alt="Operadores Aumentados"
-                width={88}
-                height={88}
-                className="h-full w-full object-contain"
+                width={128}
+                height={128}
+                className="h-full w-full object-cover"
               />
             </div>
 
