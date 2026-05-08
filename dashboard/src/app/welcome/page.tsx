@@ -10,13 +10,9 @@ import {
   IconArrowRight,
   IconBrandGithub,
 } from '@tabler/icons-react';
-import {
-  type Locale,
-  type WelcomeStrings,
-  STRINGS,
-  detectInitialLocale,
-  LOCALE_STORAGE_KEY,
-} from '@/lib/i18n/welcome';
+import { type Locale, LOCALE_STORAGE_KEY, detectInitialLocale } from '@/lib/i18n';
+import { type WelcomeStrings, STRINGS } from '@/lib/i18n/welcome';
+import { LocaleToggle } from '@/components/locale-toggle';
 
 const PILLAR_ICONS = [
   IconClock24,
@@ -242,40 +238,6 @@ export default function WelcomePage() {
           </div>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function LocaleToggle({
-  locale,
-  onChange,
-  hydrated,
-}: {
-  locale: Locale;
-  onChange: (l: Locale) => void;
-  hydrated: boolean;
-}) {
-  return (
-    <div
-      className="inline-flex items-center rounded-md border border-border bg-surface p-0.5"
-      // Hide before hydration to avoid mismatch flash
-      style={{ visibility: hydrated ? 'visible' : 'hidden' }}
-    >
-      {(['en', 'es'] as const).map((code) => (
-        <button
-          key={code}
-          type="button"
-          onClick={() => onChange(code)}
-          aria-pressed={locale === code}
-          className={`px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors rounded-[5px] ${
-            locale === code
-              ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {code}
-        </button>
-      ))}
     </div>
   );
 }

@@ -1,6 +1,6 @@
-export type Locale = 'en' | 'es';
+import { type Locale, LOCALE_STORAGE_KEY, detectInitialLocale } from './index';
 
-export const LOCALE_STORAGE_KEY = 'siriusos-locale';
+export { type Locale, LOCALE_STORAGE_KEY, detectInitialLocale };
 
 export interface WelcomeStrings {
   nav: {
@@ -216,15 +216,3 @@ const es: WelcomeStrings = {
 };
 
 export const STRINGS: Record<Locale, WelcomeStrings> = { en, es };
-
-/** Detect initial locale from localStorage > navigator > default 'en'. */
-export function detectInitialLocale(): Locale {
-  if (typeof window === 'undefined') return 'en';
-  try {
-    const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
-    if (stored === 'en' || stored === 'es') return stored;
-  } catch { /* ignore */ }
-  const lang = navigator.language?.toLowerCase() ?? '';
-  if (lang.startsWith('es')) return 'es';
-  return 'en';
-}
