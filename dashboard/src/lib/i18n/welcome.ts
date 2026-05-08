@@ -26,6 +26,18 @@ export interface WelcomeStrings {
     sub: string;
     steps: Array<{ title: string; body: string; code?: string }>;
   };
+  install: {
+    eyebrow: string;
+    title: string;
+    sub: string;
+    osMacLabel: string;
+    osLinuxLabel: string;
+    osWindowsLabel: string;
+    osWindowsHint: string;
+    copy: string;
+    copied: string;
+    afterCommandHint: string;
+  };
   builtOn: {
     title: string;
     body: string;
@@ -108,6 +120,18 @@ const en: WelcomeStrings = {
       },
     ],
   },
+  install: {
+    eyebrow: 'Install',
+    title: 'One command. Then never the terminal again.',
+    sub: 'The script installs PM2, the SiriusOS CLI and starts the dashboard. From there a visual wizard takes over — language, organization, Telegram bot, all in your browser.',
+    osMacLabel: 'macOS',
+    osLinuxLabel: 'Linux',
+    osWindowsLabel: 'Windows',
+    osWindowsHint: 'Use WSL2 with Ubuntu — native Windows is not supported yet.',
+    copy: 'Copy',
+    copied: 'Copied',
+    afterCommandHint: 'After it finishes, your browser opens at http://localhost:3013 and the wizard guides the rest.',
+  },
   builtOn: {
     title: 'Built on Claude. Runs on your machine.',
     body: 'SiriusOS is open under the hood — TypeScript, plain JSON state, atomic file writes. Production runtime is the same code you can audit. No proprietary cloud, no data leaving your environment unless you ask it to.',
@@ -189,6 +213,18 @@ const es: WelcomeStrings = {
         code: 'siriusos dashboard --build',
       },
     ],
+  },
+  install: {
+    eyebrow: 'Instalación',
+    title: 'Un comando. Después nunca más la terminal.',
+    sub: 'El script instala PM2, el CLI de SiriusOS y arranca el dashboard. Desde ahí toma el control un wizard visual: idioma, organización, bot de Telegram, todo en el navegador.',
+    osMacLabel: 'macOS',
+    osLinuxLabel: 'Linux',
+    osWindowsLabel: 'Windows',
+    osWindowsHint: 'Usá WSL2 con Ubuntu — Windows nativo todavía no está soportado.',
+    copy: 'Copiar',
+    copied: 'Copiado',
+    afterCommandHint: 'Cuando termina, tu navegador abre en http://localhost:3013 y el wizard se encarga del resto.',
   },
   builtOn: {
     title: 'Sobre Claude. Corriendo en tu máquina.',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   IconClock24,
@@ -9,6 +9,8 @@ import {
   IconCalendarEvent,
   IconArrowRight,
   IconBrandGithub,
+  IconCopy,
+  IconCheck,
 } from '@tabler/icons-react';
 import { type Locale, useLocale } from '@/lib/i18n';
 import { type WelcomeStrings, STRINGS } from '@/lib/i18n/welcome';
@@ -178,6 +180,9 @@ export default function WelcomePage() {
         </div>
       </section>
 
+      {/* Install */}
+      <InstallSection strings={t.install} />
+
       {/* Built on */}
       <section className="relative z-10 mx-auto max-w-3xl px-6 py-16 text-center">
         <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-tight md:text-2xl">
@@ -319,5 +324,97 @@ function WaitlistForm({
       {state === 'error' && <p className="text-xs text-destructive">{strings.error}</p>}
       <p className="pt-1 text-center text-[11px] text-muted-foreground/70">{strings.sub}</p>
     </form>
+  );
+}
+
+type InstallOS = 'mac' | 'linux' | 'windows';
+const INSTALL_COMMAND = 'curl -sSL https://siriusos.unikprompt.com/install.sh | bash';
+
+function InstallSection({ strings }: { strings: WelcomeStrings['install'] }) {
+  const [os, setOs] = useState<InstallOS>('mac');
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+    if (ua.includes('win')) setOs('windows');
+    else if (ua.includes('linux')) setOs('linux');
+    else setOs('mac');
+  }, []);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(INSTALL_COMMAND);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard API unavailable — silently ignore */
+    }
+  }
+
+  const tabs: Array<{ id: InstallOS; label: string }> = [
+    { id: 'mac', label: strings.osMacLabel },
+    { id: 'linux', label: strings.osLinuxLabel },
+    { id: 'windows', label: strings.osWindowsLabel },
+  ];
+
+  const showCommand = os !== 'windows';
+
+  return (
+    <section id="install" className="relative z-10 mx-auto max-w-3xl scroll-mt-12 px-6 py-16">
+      <div className="text-center">
+        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-primary">
+          {strings.eyebrow}
+        </p>
+        <h2 className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight md:text-3xl">
+          {strings.title}
+        </h2>
+        <p className="mx-auto mt-3 max-w-2xl text-sm text-muted-foreground">{strings.sub}</p>
+      </div>
+
+      <div className="mt-8 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-center gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setOs(tab.id)}
+              aria-pressed={os === tab.id}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                os === tab.id
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-surface-2 hover:text-foreground'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-3">
+          {showCommand ? (
+            <div className="flex items-stretch gap-2">
+              <pre className="flex-1 overflow-x-auto rounded-lg bg-surface-2 px-4 py-3 font-mono text-[12.5px] leading-relaxed text-foreground/90">
+                <code>{INSTALL_COMMAND}</code>
+              </pre>
+              <button
+                type="button"
+                onClick={copy}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              >
+                {copied ? <IconCheck size={14} /> : <IconCopy size={14} />}
+                {copied ? strings.copied : strings.copy}
+              </button>
+            </div>
+          ) : (
+            <p className="rounded-lg bg-warning/10 px-4 py-3 text-xs text-warning">
+              {strings.osWindowsHint}
+            </p>
+          )}
+          {showCommand && (
+            <p className="mt-3 text-[11px] text-muted-foreground/80">{strings.afterCommandHint}</p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
