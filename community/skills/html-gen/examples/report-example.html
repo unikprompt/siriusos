@@ -433,7 +433,7 @@ footer.report-footer {
     <ul>
       <li><strong>Posts:followers asymmetry.</strong> 31 published posts on an account with 1 follower is a textbook bot signal in Meta's spam classifier.</li>
       <li><strong>Caption pattern.</strong> Heavy emoji + 7+ hashtags + outbound link (<code>acme.co</code>) in every post matches automated-marketing fingerprint.</li>
-      <li><strong>Token trust period.</strong> Page token issued 2026-05-04 (4 days). Meta applies tighter restrictions to publishing actions during the first 7–14 days of a new token's life.</li>
+      <li><strong>Token trust period.</strong> Page token age at incident: ~4 days. Meta applies tighter restrictions to publishing actions during the first 7–14 days of a new token's life.</li>
       <li><strong>Burst cadence.</strong> Four rapid retries within 25 minutes after the first failure can deepen the block.</li>
     </ul>
   </section>
@@ -442,31 +442,31 @@ footer.report-footer {
     <h2>Timeline</h2>
     <div class="timeline">
       <div class="event ok">
-        <time>2026-05-08 16:51:05 UTC</time>
+        <time>T+0 (anchor)</time>
         <div class="title">FB feed publishes successfully</div>
         <div class="body">Post id <code>122000000000000000</code>. FB and IG quotas are isolated.</div>
       </div>
       <div class="event bad">
-        <time>2026-05-08 16:51:17 UTC</time>
+        <time>T+12s</time>
         <div class="title">IG attempt #1 fails</div>
         <div class="body">12 seconds after FB success. Error message via the publish proxy proxy: "Application request limit reached".</div>
       </div>
       <div class="event bad">
-        <time>2026-05-08 17:00:24 UTC</time>
+        <time>T+9min</time>
         <div class="title">IG attempt #2 fails</div>
         <div class="body">Manual retry. Same error, same wording.</div>
       </div>
       <div class="event bad">
-        <time>2026-05-08 17:05:29 UTC</time>
+        <time>T+14min</time>
         <div class="title">IG attempt #3 fails</div>
       </div>
       <div class="event bad">
-        <time>2026-05-08 17:16:25 UTC</time>
+        <time>T+25min</time>
         <div class="title">IG attempt #4 fails</div>
         <div class="body">Fourth retry from the publish proxy. No new information surfaced.</div>
       </div>
       <div class="event">
-        <time>2026-05-08 17:24:33 UTC</time>
+        <time>T+33min</time>
         <div class="title">Direct Meta call exposes real error</div>
         <div class="body"><code>publish-direct.js</code> bypass returns full payload including <code>error_subcode: 2207051</code> and <code>is_transient: false</code> — diagnosis flips from rate limit to integrity action.</div>
       </div>
@@ -500,7 +500,7 @@ footer.report-footer {
     </details>
     <details>
       <summary>5. Use container 18000000000000000 if the block clears within 24h</summary>
-      <p>Container is in <em>FINISHED</em> state and is publishable until ~2026-05-09 17:24 UTC. Reusing it skips the create step and reduces API surface during the post-restoration window.</p>
+      <p>Container is in <em>FINISHED</em> state and remains publishable for ~24h after creation. Reusing it within that window skips the create step and reduces API surface during the post-restoration window.</p>
     </details>
   </section>
 
