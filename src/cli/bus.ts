@@ -1165,7 +1165,22 @@ busCommand
   .option('--image <path>', 'Send a photo with caption')
   .option('--file <path>', 'Send a document/file with caption (any file type)')
   .option('--plain-text', 'Skip Telegram Markdown parsing entirely. Use this when the message contains unescaped _, *, backtick, or [ that would otherwise trip the Markdown parser. Without this flag, sendMessage still retries once with parse_mode disabled on a parse-entity error — so it is purely an opt-in to save the retry roundtrip.', false)
-  .action(async (chatId: string, message: string, opts: { image?: string; file?: string; plainText?: boolean }) => {
+  .action(async (chatId: string, rawMessage: string, opts: { image?: string; file?: string; plainText?: boolean }) => {
+    // Normalize common backslash escapes that arrive as literal characters
+    // when the caller's shell uses double-quoted strings without ANSI-C
+    // quoting. Codex CLI agents construct bash like
+    //   MSG="line1\\n\\nline2"; siriusos bus send-telegram "$ID" "$MSG"
+    // bash leaves the `\n` as two literal characters, so the message renders
+    // as one wall of text with visible "\n\n" sequences in Telegram. Claude
+    // agents either use real newlines or ANSI-C quoting, so they were
+    // unaffected — but converting here makes the bus tolerant to either
+    // calling convention without forcing every agent to know shell-escaping
+    // rules. Telegram does not render literal backslash-n in any
+    // meaningful way, so converting unconditionally is safe in practice.
+    const message = rawMessage
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '\r')
+      .replace(/\\t/g, '\t');
     // Resolve bot token: agent .env first, then process.env
     const env = resolveEnv();
     let botToken = '';
