@@ -786,6 +786,35 @@ describe('FastChecker', () => {
 
       expect(result).toContain('duration: unknowns');
     });
+
+    it('emits transcript block instead of local_file when transcript provided', () => {
+      const result = FastChecker.formatTelegramVoiceMessage(
+        'Alice',
+        '123',
+        '',
+        12,
+        'Hola, llegué tarde a la reunión.',
+      );
+
+      expect(result).toContain('=== TELEGRAM VOICE from Alice (chat_id:123) ===');
+      expect(result).toContain('duration: 12s');
+      expect(result).toContain('transcript:');
+      expect(result).toContain('Hola, llegué tarde a la reunión.');
+      expect(result).not.toContain('local_file:');
+    });
+
+    it('falls back to local_file when transcript is null', () => {
+      const result = FastChecker.formatTelegramVoiceMessage(
+        'Alice',
+        '123',
+        '/tmp/voice.ogg',
+        12,
+        null,
+      );
+
+      expect(result).toContain('local_file: /tmp/voice.ogg');
+      expect(result).not.toContain('transcript:');
+    });
   });
 
   describe('heartbeat watchdog', () => {
