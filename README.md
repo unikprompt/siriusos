@@ -129,6 +129,19 @@ The ES|EN toggle lives in the navbar and in Settings → Appearance → Language
 
 ---
 
+## Voice Transcription (optional)
+
+Telegram voice messages can be auto-transcribed locally with [Whisper](https://github.com/openai/whisper) before they reach the agent. Successful transcripts replace the audio path in the prompt and the `.ogg` is deleted (same-day cleanup). Install once to enable:
+
+```bash
+pip install openai-whisper
+brew install ffmpeg            # macOS — Linux: sudo apt-get install ffmpeg
+```
+
+Zero config: defaults are model `base`, language `es`. If whisper is missing or transcription fails, the daemon falls back to the existing `local_file:` injection so the agent can still reach the audio.
+
+---
+
 ## Templates
 
 | Template | Description |
