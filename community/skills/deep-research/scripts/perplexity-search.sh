@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
-# perplexity-search.sh — drive a Perplexity Pro query through the calling
-# agent's persistent browser context and print the synthesized answer plus
-# the cited sources. See ../SKILL.md for the full contract.
+# perplexity-search.sh — run a Perplexity Sonar query through the official
+# API (api.perplexity.ai) and print the synthesized answer plus the cited
+# sources. See ../SKILL.md for the full contract.
 #
 # Usage:
 #   bash perplexity-search.sh "<query>"
 #   bash perplexity-search.sh "<query>" --mode pro|deep
 #   bash perplexity-search.sh "<query>" --json    # raw JSON envelope
 #
+# Auth:
+#   Reads $PERPLEXITY_API_KEY from the environment. The agent daemon loads
+#   it from orgs/<org>/agents/<agent>/.env at startup.
+#
 # Exit codes:
 #   0  success
-#   1  bad arguments / missing dependencies
-#   2  browser automation failure
-#   3  Perplexity returned an error (cloudflare, login required, empty answer)
+#   1  bad arguments / missing dependencies / missing API key
+#   2  API failure (network, 5xx, malformed response)
+#   3  Perplexity returned an error (4xx, quota, empty answer)
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
@@ -22,6 +26,8 @@ Usage: $0 "<query>" [--mode pro|deep] [--json]
 Examples:
   $0 "Costa Rica AI policy 2026 — current state and gaps"
   $0 "GPT-5.5 vs Claude 4.7 multi-agent benchmarks" --mode deep
+
+Required env: PERPLEXITY_API_KEY (set in orgs/<org>/agents/<agent>/.env)
 USAGE
   exit 1
 fi
@@ -53,90 +59,149 @@ if [[ "$MODE" != "pro" && "$MODE" != "deep" ]]; then
   exit 1
 fi
 
-# Locate the JSON template relative to this script regardless of cwd.
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATE="$SCRIPT_DIR/perplexity-exec-template.json"
-if [[ ! -f "$TEMPLATE" ]]; then
-  echo "Template not found at $TEMPLATE" >&2
+if [[ -z "${PERPLEXITY_API_KEY:-}" ]]; then
+  cat >&2 <<EOF
+[deep-research] PERPLEXITY_API_KEY not set.
+
+Setup:
+  1. Create a key at https://www.perplexity.ai/settings/api
+  2. Add to orgs/<org>/agents/<agent>/.env:
+       PERPLEXITY_API_KEY=pplx-...
+  3. Restart the agent so the daemon reloads .env.
+EOF
   exit 1
 fi
 
-# Substitute __QUERY__ and __MODE__ into the JSON template using Python (to
-# get JSON-safe escaping; sed cannot escape arbitrary input safely).
-PAYLOAD="$(QUERY="$QUERY" MODE="$MODE" TEMPLATE="$TEMPLATE" python3 - <<'PY'
-import os, json
-template = open(os.environ['TEMPLATE']).read()
-query = os.environ['QUERY']
-mode = os.environ['MODE']
-# json.dumps gives us a JSON string literal with proper escaping; strip outer
-# quotes since template already has them inline.
-q_esc = json.dumps(query)[1:-1]
-m_esc = json.dumps(mode)[1:-1]
-print(template.replace('__QUERY__', q_esc).replace('__MODE__', m_esc))
+case "$MODE" in
+  pro)  MODEL="sonar-pro" ;;
+  deep) MODEL="sonar-deep-research" ;;
+esac
+
+# Mode-specific timeout. Deep Research can take several minutes.
+case "$MODE" in
+  pro)  CURL_TIMEOUT=120 ;;
+  deep) CURL_TIMEOUT=600 ;;
+esac
+
+# Build the request body. Use python3 for safe JSON encoding (sed/printf
+# would corrupt embedded quotes, newlines, or unicode in the query).
+BODY="$(QUERY="$QUERY" MODEL="$MODEL" python3 - <<'PY'
+import json, os
+print(json.dumps({
+  "model": os.environ["MODEL"],
+  "messages": [
+    {"role": "user", "content": os.environ["QUERY"]},
+  ],
+}))
 PY
 )"
 
 START_MS="$(python3 -c 'import time; print(int(time.time()*1000))')"
 
-# Run the browser script. Capture both stdout (JSON envelope) and exit code.
-RESULT_JSON="$(echo "$PAYLOAD" | siriusos bus browser exec --from-stdin --format json --timeout 30000 2>&1)"
-EXIT_CODE=$?
+# Capture HTTP status separately from body. -w writes the status code
+# AFTER the body, then we split. --fail-with-body keeps body on 4xx/5xx.
+HTTP_RESPONSE="$(curl -sS \
+  --max-time "$CURL_TIMEOUT" \
+  --connect-timeout 30 \
+  -H "Authorization: Bearer ${PERPLEXITY_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -X POST "https://api.perplexity.ai/chat/completions" \
+  --data "$BODY" \
+  -w "\n__HTTP_STATUS__:%{http_code}" 2>&1)" || CURL_EXIT=$?
+CURL_EXIT="${CURL_EXIT:-0}"
 
 END_MS="$(python3 -c 'import time; print(int(time.time()*1000))')"
 DURATION=$((END_MS - START_MS))
 
-# Parse + render in one Python pass. Pull the answer from the LAST eval
-# step's details.result; that's the step that returns answer_text + sources.
-# Disable -e for this block so set -e doesn't swallow non-zero python exits
-# before we can propagate them.
+if [[ "$CURL_EXIT" -ne 0 ]]; then
+  echo "[deep-research] curl failed (exit $CURL_EXIT) after ${DURATION}ms" >&2
+  echo "$HTTP_RESPONSE" | tail -20 >&2
+  exit 2
+fi
+
+# Split body and status code.
+HTTP_STATUS="$(echo "$HTTP_RESPONSE" | awk -F: '/^__HTTP_STATUS__:/ {print $2}')"
+RESPONSE_BODY="$(echo "$HTTP_RESPONSE" | sed '/^__HTTP_STATUS__:/d')"
+
+# Stash body in a temp file so the python heredoc below has stdin free for
+# its program text (bash collapses double stdin redirects to the last one).
+BODY_FILE="$(mktemp -t pplx-body-XXXXXX)"
+trap 'rm -f "$BODY_FILE"' EXIT
+printf '%s' "$RESPONSE_BODY" > "$BODY_FILE"
+
 set +e
-RENDERED="$(EXIT_CODE="$EXIT_CODE" DURATION="$DURATION" MODE="$MODE" RAW_JSON="$RAW_JSON" python3 - <<'PY' <<<"$RESULT_JSON"
+RENDERED="$(HTTP_STATUS="$HTTP_STATUS" DURATION="$DURATION" MODE="$MODE" RAW_JSON="$RAW_JSON" BODY_FILE="$BODY_FILE" python3 - <<'PY'
 import json, os, sys
-exit_code = int(os.environ.get('EXIT_CODE', '0'))
+status = int(os.environ.get('HTTP_STATUS', '0') or 0)
 duration = int(os.environ.get('DURATION', '0'))
 mode = os.environ.get('MODE', 'pro')
 raw = bool(int(os.environ.get('RAW_JSON', '0')))
+body = open(os.environ['BODY_FILE']).read()
 
-raw_text = sys.stdin.read()
 try:
-    envelope = json.loads(raw_text)
+    payload = json.loads(body)
 except json.JSONDecodeError:
-    sys.stderr.write(f"[deep-research] failed to parse browser output as JSON. Exit code {exit_code}.\n")
-    sys.stderr.write(raw_text[:2000] + "\n")
+    sys.stderr.write(f"[deep-research] non-JSON response (HTTP {status}):\n")
+    sys.stderr.write(body[:2000] + "\n")
     sys.exit(2)
 
-if not envelope.get('ok', False):
-    failing = next((s for s in envelope.get('steps', []) if not s.get('ok')), None)
-    sys.stderr.write(f"[deep-research] browser exec failed (step #{envelope.get('steps', []).index(failing)+1 if failing else '?'}):\n")
-    sys.stderr.write(json.dumps(failing or envelope, indent=2)[:1500] + "\n")
-    sys.exit(2)
-
-# The probe step (step index 2, 0-based) tells us if Cloudflare or login blocked us.
-probe = envelope['steps'][2].get('details', {}).get('result', {}) if len(envelope['steps']) > 2 else {}
-if (probe.get('title') or '').lower().startswith('just a moment') or 'cloudflare' in (probe.get('title') or '').lower():
-    sys.stderr.write("[deep-research] Cloudflare interstitial — re-do the one-time login. See SKILL.md.\n")
-    sys.exit(3)
-if probe.get('login_required'):
-    sys.stderr.write("[deep-research] Perplexity asked for sign-in. Cookies expired — re-do the one-time login.\n")
+if status >= 400:
+    err = payload.get('error') or payload.get('message') or payload
+    sys.stderr.write(f"[deep-research] HTTP {status}: {json.dumps(err)[:1500]}\n")
+    if status == 401:
+        sys.stderr.write("[deep-research] PERPLEXITY_API_KEY rejected — verify the key at perplexity.ai/settings/api.\n")
+    elif status == 402 or status == 429:
+        sys.stderr.write("[deep-research] quota or rate limit hit. Check your Perplexity API balance.\n")
     sys.exit(3)
 
-# Final eval step holds the result.
-final = envelope['steps'][-1].get('details', {}).get('result', {})
-answer_text = (final.get('answer_text') or '').strip()
-sources = final.get('sources') or []
-final_url = final.get('final_url') or envelope.get('final_url') or ''
+choices = payload.get('choices') or []
+if not choices:
+    sys.stderr.write(f"[deep-research] no choices in response: {json.dumps(payload)[:1500]}\n")
+    sys.exit(3)
 
+answer_text = (choices[0].get('message', {}).get('content') or '').strip()
 if not answer_text:
-    sys.stderr.write("[deep-research] empty answer — selectors may have moved. Run with --no-headless to inspect.\n")
+    sys.stderr.write(f"[deep-research] empty answer. Full payload (truncated): {json.dumps(payload)[:1500]}\n")
     sys.exit(3)
+
+# Sources — prefer search_results (newer schema with title+url+date), fall
+# back to citations (older schema, just URL strings).
+sources = []
+search_results = payload.get('search_results')
+if isinstance(search_results, list) and search_results:
+    seen = set()
+    for r in search_results:
+        url = (r or {}).get('url') or ''
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        sources.append({
+            'title': (r.get('title') or url)[:200],
+            'url': url,
+            'date': r.get('date') or '',
+        })
+else:
+    citations = payload.get('citations') or []
+    seen = set()
+    for c in citations:
+        url = c if isinstance(c, str) else (c or {}).get('url')
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        sources.append({'title': url, 'url': url, 'date': ''})
+
+usage = payload.get('usage') or {}
 
 result = {
     'ok': True,
     'answer_text': answer_text,
     'sources': sources,
     'mode': mode,
+    'model': payload.get('model') or '',
     'duration_ms': duration,
-    'final_url': final_url,
+    'tokens_in': usage.get('prompt_tokens') or 0,
+    'tokens_out': usage.get('completion_tokens') or 0,
+    'tokens_total': usage.get('total_tokens') or 0,
 }
 
 if raw:
@@ -147,20 +212,21 @@ else:
     print()
     print('=== SOURCES ===')
     for i, s in enumerate(sources, 1):
-        print(f"{i}. {s.get('title','(untitled)')} — {s.get('url','')}")
+        date_part = f" ({s['date']})" if s['date'] else ''
+        print(f"{i}. {s['title']}{date_part} — {s['url']}")
+    if not sources:
+        print('(no citations returned)')
     print()
     print('=== META ===')
     print(f"mode: {mode}")
+    print(f"model: {result['model']}")
     print(f"duration_ms: {duration}")
-    print(f"final_url: {final_url}")
+    print(f"tokens: in={result['tokens_in']} out={result['tokens_out']} total={result['tokens_total']}")
 PY
 )"
-
-# RENDERED is empty when the python script exited non-zero (it sys.exit(N))
-# and we have already printed to stderr above. In that case, propagate the
-# python exit code via $?.
 PY_EXIT=$?
 set -e
+
 if [[ -n "$RENDERED" ]]; then
   echo "$RENDERED"
 fi
