@@ -26,26 +26,67 @@ The agent does not need (and does not have) a Perplexity API key. The skill ride
 
 ## One-time setup (must be done by the user)
 
-The agent's headless browser cannot solve Cloudflare's interstitial or pass Perplexity's bot challenge on a fresh context. Do the **first** Perplexity visit interactively so the cookie is stored, then headless calls work afterwards.
+The agent's headless browser cannot pass Google OAuth's "This browser or app may not be secure" check, and Cloudflare's bot challenge can also block fresh contexts. The reliable workaround is to copy cookies from your **already-logged-in real browser** (Chrome/Brave/Edge/Safari/Firefox) into the agent's persistent Playwright context using the **Cookie-Editor** browser extension.
+
+### Step 1 — Install Cookie-Editor (once)
+
+- Chrome / Brave / Edge / Arc: https://chromewebstore.google.com/detail/cookie-editor/hlkenndednhfkekhgcdicdfddnkalmdm
+- Firefox: https://addons.mozilla.org/firefox/addon/cookie-editor/
+- Safari: https://apps.apple.com/app/cookie-editor/id6446215341
+
+### Step 2 — Export Perplexity cookies
+
+1. Open https://www.perplexity.ai in your normal browser and confirm you are logged in (Pro badge visible).
+2. Click the Cookie-Editor extension icon while on `perplexity.ai`.
+3. Click the **Export** button (down-arrow icon) → choose **JSON** format.
+4. Cookie-Editor copies the JSON to your clipboard and/or saves it as a file.
+5. Save it locally, e.g. `~/Downloads/perplexity-cookies.json`.
+
+### Step 3 — Import into the agent context
 
 ```bash
-# Open Perplexity with the browser visible (Mario must run this)
-siriusos bus browser exec --no-headless --from-stdin <<'EOF'
-[
-  {"action": "open", "url": "https://www.perplexity.ai", "timeout": 60000},
-  {"action": "wait", "selector": "textarea", "timeout": 60000}
-]
-EOF
+node community/skills/deep-research/scripts/import-cookies.js \
+  --agent developer \
+  --json ~/Downloads/perplexity-cookies.json \
+  --domain perplexity.ai \
+  --clear
 ```
 
-When the window opens:
-1. Sign in to Perplexity (Google / email / etc.) so the Pro badge shows.
-2. Optionally run a free query so the rate-limit counter ticks normally.
-3. Close the window. The session cookie is now persisted in the agent's context dir.
+What this does:
+- Opens the agent's persistent Playwright context at `~/.siriusos/<instance>/state/<agent>/browser/`.
+- (Optional `--clear`) wipes any stale `*.perplexity.ai` cookies in that context.
+- Adds every Cookie-Editor cookie that matches `*.perplexity.ai`.
+- Navigates to `https://www.perplexity.ai/settings/account` and confirms the session is active (no Cloudflare interstitial, no sign-in prompt, no redirect to `/login`).
+- Prints a JSON envelope and exits non-zero if validation fails.
 
-After this, the headless `deep-research` flow below works for ~2-4 weeks (until cookies expire).
+Exit codes:
 
-To re-login after expiry, repeat the block above.
+| Code | Meaning |
+|------|---------|
+| 0 | Cookies imported, validation passed |
+| 1 | Bad arguments / missing JSON file / no usable cookies |
+| 2 | Playwright failure (cannot launch context) |
+| 3 | Validation failed (Perplexity still blocks the session) |
+
+After this, the headless `deep-research` flow below works until the cookies expire (Perplexity Pro sessions last ~2-4 weeks; Google-OAuth-backed sessions can last months but rotate when Mario logs in elsewhere).
+
+### Re-importing on expiry
+
+The first sign of expiry is `deep-research` exiting with code 3 ("Cloudflare interstitial" or "Sign in") even though no UI changes happened. Repeat steps 2 and 3 above.
+
+### Other domains
+
+The script is generic. To prime any other site (e.g. NotebookLM, Google):
+
+```bash
+node community/skills/deep-research/scripts/import-cookies.js \
+  --agent developer \
+  --json ~/Downloads/notebooklm-cookies.json \
+  --domain google.com \
+  --no-validate
+```
+
+Use `--no-validate` when you do not want the script to navigate the imported domain (validation only knows the Perplexity probe URL).
 
 ## How to invoke from an agent
 
@@ -141,3 +182,4 @@ The wrapper script renders this as the human-readable text shown above.
 - `SKILL.md` — this document
 - `scripts/perplexity-search.sh` — the wrapper script that generates the JSON exec payload, calls `siriusos bus browser exec`, parses the result, and renders the human-readable output.
 - `scripts/perplexity-exec-template.json` — JSON template for the exec payload (the wrapper does string substitution on `__QUERY__` and `__MODE__`)
+- `scripts/import-cookies.js` — standalone Node script that imports a Cookie-Editor JSON export into the agent's persistent Playwright context and validates the resulting session against Perplexity. Used during one-time setup and on cookie expiry. See "One-time setup" above.
