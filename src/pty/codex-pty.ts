@@ -296,9 +296,32 @@ export class CodexPTY {
   }
 
   /**
+   * Codex sandbox level for fresh execs. Daemon-managed agents need write
+   * access OUTSIDE the cwd (heartbeat, locks, inbox processing under
+   * `~/.siriusos/<instance>/state/<agent>/`), which `workspace-write` blocks.
+   * Default `danger-full-access` matches the existing AgentPTY+openaiStrategy
+   * path so an agent can run `siriusos bus *` commands without permission
+   * errors. Per-agent override via the optional `codex_sandbox` config field.
+   */
+  private static readonly VALID_SANDBOX_LEVELS = new Set([
+    'read-only',
+    'workspace-write',
+    'danger-full-access',
+  ]);
+
+  private getSandboxLevel(): string {
+    const fromConfig = (this._config as AgentConfig & { codex_sandbox?: string }).codex_sandbox;
+    if (typeof fromConfig === 'string' && CodexPTY.VALID_SANDBOX_LEVELS.has(fromConfig)) {
+      return fromConfig;
+    }
+    return 'danger-full-access';
+  }
+
+  /**
    * Build args for a fresh exec (new session).
    * --skip-git-repo-check: skip trust check for daemon-managed directories
-   * --sandbox workspace-write: sets approval=never + safe sandbox level
+   * --sandbox <level>: configurable, defaults to danger-full-access for
+   *   daemon-managed agents that need to write outside cwd
    * --json: structured JSONL output for reliable event detection
    * --enable <feature>: codex feature flags defaulted on for cortextOS agents
    */
@@ -306,7 +329,7 @@ export class CodexPTY {
     return [
       'exec',
       '--skip-git-repo-check',
-      '--sandbox', 'workspace-write',
+      '--sandbox', this.getSandboxLevel(),
       '--json',
       ...this.featureFlagArgs(),
       prompt,

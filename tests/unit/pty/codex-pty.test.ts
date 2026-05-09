@@ -119,3 +119,43 @@ describe('CodexPTY bootstrap pattern', () => {
     expect(pty.getOutputBuffer().isBootstrapped()).toBe(false);
   });
 });
+
+describe('CodexPTY sandbox config', () => {
+  // Reach into the private buildFreshArgs via cast for unit-test inspection.
+  // Public API doesn't expose the args, but the contract is stable enough
+  // (these are CLI flags forwarded to `codex exec`) that direct field access
+  // is the right level for these tests.
+  type FreshArgsPty = { buildFreshArgs(prompt: string): string[] };
+  function readFreshArgs(pty: unknown): string[] {
+    return (pty as FreshArgsPty).buildFreshArgs('hello');
+  }
+
+  it('defaults to danger-full-access when codex_sandbox is unset', () => {
+    const pty = new CodexPTY(mockEnv, {});
+    const args = readFreshArgs(pty);
+    const idx = args.indexOf('--sandbox');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(args[idx + 1]).toBe('danger-full-access');
+  });
+
+  it('honors codex_sandbox when set to a valid level', () => {
+    const pty = new CodexPTY(mockEnv, { codex_sandbox: 'workspace-write' } as never);
+    const args = readFreshArgs(pty);
+    const idx = args.indexOf('--sandbox');
+    expect(args[idx + 1]).toBe('workspace-write');
+  });
+
+  it('falls back to danger-full-access when codex_sandbox is invalid (typo guard)', () => {
+    const pty = new CodexPTY(mockEnv, { codex_sandbox: 'workspace_write' } as never);
+    const args = readFreshArgs(pty);
+    const idx = args.indexOf('--sandbox');
+    expect(args[idx + 1]).toBe('danger-full-access');
+  });
+
+  it('accepts read-only as a valid level', () => {
+    const pty = new CodexPTY(mockEnv, { codex_sandbox: 'read-only' } as never);
+    const args = readFreshArgs(pty);
+    const idx = args.indexOf('--sandbox');
+    expect(args[idx + 1]).toBe('read-only');
+  });
+});
