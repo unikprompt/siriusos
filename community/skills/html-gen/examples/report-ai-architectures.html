@@ -1,0 +1,725 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>AI Agent Architectures — A Comparative Overview · 2026-Q2</title>
+<style>
+:root {
+  --bg: #050510;
+  --surface: #0E1428;
+  --surface-2: #161E3D;
+  --border: #1F2A4D;
+  --primary: #A5C9FF;
+  --accent: #FFD27A;
+  --success: #5EEAD4;
+  --warning: #FFB84D;
+  --destructive: #FF6B7A;
+  --fg: #E6ECFF;
+  --muted: #7A89B8;
+  --font-display: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-body: 'Sora', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --radius: 8px;
+  --radius-lg: 12px;
+}
+[data-theme="light"] {
+  --bg: #F8FAFF;
+  --surface: #FFFFFF;
+  --surface-2: #F0F2F8;
+  --border: #D8DCE8;
+  --primary: #3D6FE5;
+  --accent: #C9982A;
+  --success: #0E9F8C;
+  --warning: #C97A0E;
+  --destructive: #D63848;
+  --fg: #0E1428;
+  --muted: #6B7494;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Star backdrop (CSS only) ── */
+.starfield {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    radial-gradient(1px 1px at 13% 22%, rgba(230,236,255,.7), transparent 60%),
+    radial-gradient(1px 1px at 47% 78%, rgba(230,236,255,.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 71% 11%, rgba(165,201,255,.7), transparent 60%),
+    radial-gradient(1px 1px at 88% 64%, rgba(230,236,255,.45), transparent 60%),
+    radial-gradient(1px 1px at 23% 88%, rgba(165,201,255,.5), transparent 60%);
+  opacity: .9;
+}
+[data-theme="light"] .starfield { display: none; }
+
+main { position: relative; z-index: 1; max-width: 1080px; margin: 0 auto; padding: var(--space-2xl) var(--space-lg); }
+
+/* ── Header ── */
+header.report-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-lg); margin-bottom: var(--space-xl); flex-wrap: wrap; }
+header.report-header .titles { flex: 1 1 360px; min-width: 0; }
+header.report-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3.5vw, 34px);
+  font-weight: 700;
+  margin: 0 0 var(--space-xs) 0;
+  letter-spacing: -0.01em;
+  color: var(--fg);
+}
+header.report-header .meta { color: var(--muted); font-size: 13px; font-family: var(--font-mono); }
+header.report-header .meta strong { color: var(--primary); font-weight: 500; }
+
+.theme-toggle {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+.theme-toggle:hover { background: var(--surface-2); border-color: var(--primary); }
+
+/* ── TL;DR ── */
+.tldr {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg) var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
+.tldr h2 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 var(--space-sm) 0;
+}
+.tldr ul { margin: 0; padding-left: 18px; }
+.tldr li { margin-bottom: var(--space-xs); }
+.tldr li::marker { color: var(--accent); }
+
+/* ── Section ── */
+section { margin-bottom: var(--space-2xl); }
+section h2 {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0 0 var(--space-md) 0;
+  font-weight: 600;
+  color: var(--fg);
+  letter-spacing: -0.01em;
+}
+section h3 {
+  font-family: var(--font-display);
+  font-size: 15px;
+  margin: var(--space-lg) 0 var(--space-sm) 0;
+  font-weight: 600;
+  color: var(--primary);
+}
+p { margin: 0 0 var(--space-md) 0; }
+
+/* ── Metric grid ── */
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+.metric-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+.metric-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--fg);
+  margin: var(--space-xs) 0;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.metric-trend { font-size: 13px; }
+.metric-trend.ok { color: var(--success); }
+.metric-trend.warn { color: var(--warning); }
+.metric-trend.bad { color: var(--destructive); }
+.metric-card .arch-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary);
+  margin-bottom: var(--space-sm);
+}
+
+/* ── Architecture cards (with SVG diagrams) ── */
+.arch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+.arch-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.arch-card .diagram {
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+}
+.arch-card .diagram svg { width: 100%; height: 100%; }
+.arch-card h3 { margin: 0; color: var(--fg); font-family: var(--font-display); font-size: 16px; }
+.arch-card .tagline { color: var(--muted); font-size: 13px; margin: 0; }
+
+/* SVG palette helpers */
+.node { fill: var(--surface); stroke: var(--primary); stroke-width: 2; }
+.node-orch { fill: color-mix(in srgb, var(--accent) 20%, var(--surface)); stroke: var(--accent); stroke-width: 2; }
+.node-leaf { fill: var(--surface); stroke: var(--muted); stroke-width: 1.5; }
+.edge { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.edge-active { stroke: var(--primary); stroke-width: 2; fill: none; }
+.label { font-family: var(--font-mono); font-size: 11px; fill: var(--fg); }
+.label-muted { font-family: var(--font-mono); font-size: 10px; fill: var(--muted); }
+
+/* ── Comparison table ── */
+table.compare { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); }
+table.compare th, table.compare td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.compare thead th {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  font-weight: 500;
+  background: var(--surface-2);
+}
+table.compare tbody tr:last-child td { border-bottom: none; }
+table.compare tbody tr:hover { background: var(--surface-2); }
+table.compare th:first-child, table.compare td:first-child {
+  font-weight: 600;
+  color: var(--primary);
+  font-family: var(--font-display);
+  white-space: nowrap;
+}
+table.compare code { font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+
+/* Severity pill */
+.pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.05em; }
+.pill.ok { color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 40%, transparent); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.pill.warn { color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); background: color-mix(in srgb, var(--warning) 10%, transparent); }
+.pill.bad { color: var(--destructive); border: 1px solid color-mix(in srgb, var(--destructive) 40%, transparent); background: color-mix(in srgb, var(--destructive) 10%, transparent); }
+
+/* ── Collapsible (pros/cons) ── */
+details {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-sm);
+}
+details[open] { background: var(--surface-2); }
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--primary);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before {
+  content: '▸';
+  display: inline-block;
+  transition: transform 0.18s ease;
+  color: var(--muted);
+  font-size: 11px;
+}
+details[open] > summary::before { transform: rotate(90deg); }
+details .pros-cons { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-md); margin-top: var(--space-md); }
+@media (max-width: 600px) { details .pros-cons { grid-template-columns: 1fr; } }
+details .pros, details .cons {
+  border-radius: var(--radius);
+  padding: var(--space-md);
+  font-size: 14px;
+}
+details .pros { background: color-mix(in srgb, var(--success) 8%, transparent); border-left: 3px solid var(--success); }
+details .cons { background: color-mix(in srgb, var(--destructive) 8%, transparent); border-left: 3px solid var(--destructive); }
+details .pros h4, details .cons h4 {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 var(--space-sm) 0;
+}
+details .pros h4 { color: var(--success); }
+details .cons h4 { color: var(--destructive); }
+details ul { margin: 0; padding-left: 18px; }
+details li { margin-bottom: 4px; }
+
+/* ── Timeline ── */
+.timeline { position: relative; margin: var(--space-md) 0; padding-left: 28px; }
+.timeline::before { content: ''; position: absolute; left: 8px; top: 4px; bottom: 4px; width: 2px; background: var(--border); }
+.timeline .event { position: relative; padding-bottom: var(--space-md); }
+.timeline .event::before {
+  content: '';
+  position: absolute;
+  left: -28px; top: 6px;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+}
+.timeline .event.accent::before { border-color: var(--accent); }
+.timeline .event time {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+.timeline .event .title { font-weight: 600; color: var(--fg); }
+.timeline .event .body { font-size: 14px; color: var(--fg); margin-top: 4px; }
+.timeline .event code { font-family: var(--font-mono); font-size: 12px; background: var(--surface-2); padding: 1px 6px; border-radius: 4px; color: var(--accent); }
+
+/* ── Footer ── */
+footer.report-footer {
+  margin-top: var(--space-2xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: var(--space-md);
+}
+
+/* ── Print ── */
+@media print {
+  .starfield, .theme-toggle { display: none !important; }
+  body { background: white !important; color: black !important; font-size: 11pt; }
+  main { max-width: none; padding: 0; }
+  .metric-card, .tldr, details, table.compare, .arch-card { background: white !important; border-color: #ccc !important; color: black !important; }
+  .arch-card .diagram { background: #f8f8f8 !important; }
+  details[open] { background: #fafafa !important; }
+  a { color: black !important; text-decoration: underline; }
+  section { page-break-inside: avoid; }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+/* Focus rings */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<div class="starfield" aria-hidden="true"></div>
+
+<main>
+  <header class="report-header">
+    <div class="titles">
+      <h1>AI Agent Architectures — A Comparative Overview</h1>
+      <div class="meta">
+        Author: <strong>Project Alpha · Acme Corp R&amp;D</strong> · Version <strong>1.0</strong> · Period <strong>2026-Q2</strong>
+      </div>
+    </div>
+    <button class="theme-toggle" type="button" aria-label="Toggle theme" onclick="toggleTheme()">Toggle theme</button>
+  </header>
+
+  <div class="tldr" role="region" aria-label="TL;DR">
+    <h2>TL;DR</h2>
+    <ul>
+      <li><strong>Single agent</strong> wins on simplicity and predictability — best when scope is narrow and tools fit a single context window.</li>
+      <li><strong>Multi-agent</strong> trades coordination overhead for parallelism. Strong when subtasks are clearly separable.</li>
+      <li><strong>Hierarchical</strong> (orchestrator + workers) scales with task complexity at the cost of orchestration latency.</li>
+      <li><strong>Swarm</strong> patterns favor throughput and emergent behavior, but introduce non-determinism that complicates debugging.</li>
+      <li>No single architecture dominates. Choice depends on task structure, latency budget, and observability needs.</li>
+    </ul>
+  </div>
+
+  <section>
+    <h2>Architectures at a glance</h2>
+    <div class="arch-grid">
+
+      <!-- Single agent -->
+      <div class="arch-card">
+        <div class="diagram">
+          <svg viewBox="0 0 220 160" role="img" aria-label="Single agent topology: one node connected to three tools">
+            <title>Single agent: one LLM with three tool affordances</title>
+            <line class="edge" x1="110" y1="80" x2="50" y2="40"/>
+            <line class="edge" x1="110" y1="80" x2="50" y2="120"/>
+            <line class="edge" x1="110" y1="80" x2="190" y2="80"/>
+            <circle class="node" cx="110" cy="80" r="22"/>
+            <text class="label" x="110" y="84" text-anchor="middle">A</text>
+            <rect class="node-leaf" x="20" y="28" width="40" height="24" rx="4"/>
+            <text class="label-muted" x="40" y="44" text-anchor="middle">tool</text>
+            <rect class="node-leaf" x="20" y="108" width="40" height="24" rx="4"/>
+            <text class="label-muted" x="40" y="124" text-anchor="middle">tool</text>
+            <rect class="node-leaf" x="170" y="68" width="40" height="24" rx="4"/>
+            <text class="label-muted" x="190" y="84" text-anchor="middle">tool</text>
+          </svg>
+        </div>
+        <h3>Single agent</h3>
+        <p class="tagline">One LLM, one context, direct tool use. The classic ReAct/agent loop.</p>
+      </div>
+
+      <!-- Multi-agent -->
+      <div class="arch-card">
+        <div class="diagram">
+          <svg viewBox="0 0 220 160" role="img" aria-label="Multi-agent topology: three peer agents with handoff edges">
+            <title>Multi-agent: peer agents with bidirectional handoffs</title>
+            <line class="edge" x1="60" y1="50" x2="160" y2="50"/>
+            <line class="edge" x1="60" y1="50" x2="110" y2="120"/>
+            <line class="edge" x1="160" y1="50" x2="110" y2="120"/>
+            <circle class="node" cx="60" cy="50" r="20"/>
+            <text class="label" x="60" y="54" text-anchor="middle">A1</text>
+            <circle class="node" cx="160" cy="50" r="20"/>
+            <text class="label" x="160" y="54" text-anchor="middle">A2</text>
+            <circle class="node" cx="110" cy="120" r="20"/>
+            <text class="label" x="110" y="124" text-anchor="middle">A3</text>
+          </svg>
+        </div>
+        <h3>Multi-agent</h3>
+        <p class="tagline">Peer agents with role specialization and explicit handoffs.</p>
+      </div>
+
+      <!-- Hierarchical -->
+      <div class="arch-card">
+        <div class="diagram">
+          <svg viewBox="0 0 220 160" role="img" aria-label="Hierarchical topology: one orchestrator above three workers">
+            <title>Hierarchical: an orchestrator dispatches to workers</title>
+            <line class="edge-active" x1="110" y1="50" x2="50" y2="120"/>
+            <line class="edge-active" x1="110" y1="50" x2="110" y2="120"/>
+            <line class="edge-active" x1="110" y1="50" x2="170" y2="120"/>
+            <circle class="node-orch" cx="110" cy="50" r="22"/>
+            <text class="label" x="110" y="54" text-anchor="middle">O</text>
+            <circle class="node" cx="50" cy="120" r="18"/>
+            <text class="label" x="50" y="124" text-anchor="middle">W</text>
+            <circle class="node" cx="110" cy="120" r="18"/>
+            <text class="label" x="110" y="124" text-anchor="middle">W</text>
+            <circle class="node" cx="170" cy="120" r="18"/>
+            <text class="label" x="170" y="124" text-anchor="middle">W</text>
+          </svg>
+        </div>
+        <h3>Hierarchical</h3>
+        <p class="tagline">Orchestrator decomposes work; workers execute and report back.</p>
+      </div>
+
+      <!-- Swarm -->
+      <div class="arch-card">
+        <div class="diagram">
+          <svg viewBox="0 0 220 160" role="img" aria-label="Swarm topology: many small nodes connected in a mesh">
+            <title>Swarm: many lightweight agents with mesh communication</title>
+            <line class="edge" x1="55" y1="40" x2="115" y2="55"/>
+            <line class="edge" x1="115" y1="55" x2="170" y2="35"/>
+            <line class="edge" x1="55" y1="40" x2="40" y2="100"/>
+            <line class="edge" x1="115" y1="55" x2="100" y2="115"/>
+            <line class="edge" x1="170" y1="35" x2="180" y2="95"/>
+            <line class="edge" x1="40" y1="100" x2="100" y2="115"/>
+            <line class="edge" x1="100" y1="115" x2="180" y2="95"/>
+            <line class="edge" x1="40" y1="100" x2="80" y2="135"/>
+            <line class="edge" x1="100" y1="115" x2="80" y2="135"/>
+            <line class="edge" x1="100" y1="115" x2="150" y2="135"/>
+            <line class="edge" x1="180" y1="95" x2="150" y2="135"/>
+            <circle class="node-leaf" cx="55" cy="40" r="9"/>
+            <circle class="node-leaf" cx="115" cy="55" r="9"/>
+            <circle class="node-leaf" cx="170" cy="35" r="9"/>
+            <circle class="node-leaf" cx="40" cy="100" r="9"/>
+            <circle class="node-leaf" cx="100" cy="115" r="9"/>
+            <circle class="node-leaf" cx="180" cy="95" r="9"/>
+            <circle class="node-leaf" cx="80" cy="135" r="9"/>
+            <circle class="node-leaf" cx="150" cy="135" r="9"/>
+          </svg>
+        </div>
+        <h3>Swarm</h3>
+        <p class="tagline">Many lightweight agents, mesh communication, emergent coordination.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Fictional benchmark snapshot</h2>
+    <p style="color:var(--muted);font-size:13px">Numbers below are illustrative composites for comparison shape, not measured benchmarks. Real performance depends on task type, model, prompt structure, and tool latency.</p>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <span class="arch-tag">Single</span>
+        <div class="metric-label">Throughput</div>
+        <div class="metric-value">850 <span style="font-size:14px;color:var(--muted)">tok/s</span></div>
+        <div class="metric-trend">p50 latency 2.1s · accuracy 73%</div>
+      </div>
+      <div class="metric-card">
+        <span class="arch-tag">Multi</span>
+        <div class="metric-label">Throughput</div>
+        <div class="metric-value">2,400 <span style="font-size:14px;color:var(--muted)">tok/s</span></div>
+        <div class="metric-trend ok">+182% vs single · accuracy 81%</div>
+      </div>
+      <div class="metric-card">
+        <span class="arch-tag">Hierarchical</span>
+        <div class="metric-label">Throughput</div>
+        <div class="metric-value">1,900 <span style="font-size:14px;color:var(--muted)">tok/s</span></div>
+        <div class="metric-trend warn">p50 5.8s (orchestration cost) · accuracy 87%</div>
+      </div>
+      <div class="metric-card">
+        <span class="arch-tag">Swarm</span>
+        <div class="metric-label">Throughput</div>
+        <div class="metric-value">3,200 <span style="font-size:14px;color:var(--muted)">tok/s</span></div>
+        <div class="metric-trend ok">p50 3.1s · accuracy 78%</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Side-by-side comparison</h2>
+    <table class="compare" aria-describedby="cmp-cap">
+      <caption id="cmp-cap" style="text-align:left;color:var(--muted);font-size:12px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.1em;padding-bottom:8px">Five operational dimensions across the four reference architectures</caption>
+      <thead>
+        <tr>
+          <th>Architecture</th>
+          <th>Parallelism</th>
+          <th>Scaling</th>
+          <th>Debuggability</th>
+          <th>Coordination cost</th>
+          <th>Best for</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Single agent</td>
+          <td><span class="pill bad">none</span></td>
+          <td><span class="pill warn">vertical</span></td>
+          <td><span class="pill ok">linear trace</span></td>
+          <td><span class="pill ok">zero</span></td>
+          <td>Narrow scoped tasks, deterministic flows, MVPs</td>
+        </tr>
+        <tr>
+          <td>Multi-agent</td>
+          <td><span class="pill warn">moderate</span></td>
+          <td><span class="pill warn">role-bound</span></td>
+          <td><span class="pill warn">fan-out trace</span></td>
+          <td><span class="pill warn">handoff cost</span></td>
+          <td>Workflows with naturally separable subtasks</td>
+        </tr>
+        <tr>
+          <td>Hierarchical</td>
+          <td><span class="pill ok">high</span></td>
+          <td><span class="pill ok">horizontal</span></td>
+          <td><span class="pill ok">tree trace</span></td>
+          <td><span class="pill warn">orchestrator overhead</span></td>
+          <td>Long-running multi-stage projects, supervised execution</td>
+        </tr>
+        <tr>
+          <td>Swarm</td>
+          <td><span class="pill ok">very high</span></td>
+          <td><span class="pill ok">elastic</span></td>
+          <td><span class="pill bad">non-deterministic</span></td>
+          <td><span class="pill bad">protocol cost</span></td>
+          <td>High-throughput exploration, search, evaluation grids</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Pros and cons</h2>
+
+    <details open>
+      <summary>Single agent</summary>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Simplest to build and reason about — one prompt, one context.</li>
+            <li>Linear traces; failure modes map cleanly to code paths.</li>
+            <li>Lowest token overhead per outcome.</li>
+            <li>No coordination protocol to design or debug.</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Hits context window ceiling on large tasks.</li>
+            <li>No parallelism — wall-clock scales linearly with subtasks.</li>
+            <li>Specialized prompts compete in one window, lowering accuracy on mixed tasks.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Multi-agent (peers)</summary>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Role specialization — each agent's prompt is tighter and shorter.</li>
+            <li>Genuine parallelism when subtasks are independent.</li>
+            <li>Failure isolation — one agent's mistake does not poison others' contexts.</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Handoff protocol is the new failure surface.</li>
+            <li>Shared state needs explicit synchronization.</li>
+            <li>Token cost can balloon if agents redundantly fetch context.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Hierarchical (orchestrator + workers)</summary>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Clear authority gradient simplifies decision-making.</li>
+            <li>Orchestrator owns plan and observability; workers stay narrow.</li>
+            <li>Scales to very long tasks via worker recycling.</li>
+            <li>Supervisor patterns enable rollback and retry semantics.</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Orchestrator becomes the bottleneck and single point of failure.</li>
+            <li>Two-hop latency on every dispatch (plan → worker → result).</li>
+            <li>Plan drift: orchestrator's view can diverge from worker reality.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+
+    <details>
+      <summary>Swarm</summary>
+      <div class="pros-cons">
+        <div class="pros">
+          <h4>Pros</h4>
+          <ul>
+            <li>Highest throughput on embarrassingly parallel work.</li>
+            <li>Resilient — the loss of any single agent is invisible to the system.</li>
+            <li>Natural fit for search, sampling, and exploration tasks.</li>
+          </ul>
+        </div>
+        <div class="cons">
+          <h4>Cons</h4>
+          <ul>
+            <li>Non-deterministic outputs; reproducibility is hard.</li>
+            <li>Protocol design (gossip, voting, leader election) is research-grade work.</li>
+            <li>Observability collapses — no single trace tells the whole story.</li>
+            <li>Token cost can be enormous if agents converse densely.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section>
+    <h2>Evolution timeline</h2>
+    <div class="timeline">
+      <div class="event">
+        <time>2023</time>
+        <div class="title">ReAct loop and the first tool-use agents</div>
+        <div class="body">Single-agent loops with <code>think → act → observe</code> become a viable pattern. Open-source frameworks ship LLM-driven shell access and web search. Most production "agents" are still effectively single-agent.</div>
+      </div>
+      <div class="event">
+        <time>2024</time>
+        <div class="title">Multi-agent frameworks gain traction</div>
+        <div class="body">Pattern libraries for peer agents and explicit handoffs reach mainstream awareness. Practitioners discover that role specialization beats one mega-prompt for many workflows, and that handoff cost is the new debugging frontier.</div>
+      </div>
+      <div class="event accent">
+        <time>2025</time>
+        <div class="title">Hierarchical orchestration matures</div>
+        <div class="body">Supervisor-style patterns dominate enterprise pilots. Orchestrators with explicit state machines, retry policies, and human-in-the-loop checkpoints prove easier to operate than free-form peer agents. Observability tooling shifts to tree traces.</div>
+      </div>
+      <div class="event">
+        <time>2026</time>
+        <div class="title">Swarm experiments and hybrid stacks</div>
+        <div class="body">Research labs publish swarm coordination protocols (gossip, stigmergy-inspired memory pools). Production teams converge on hybrids: a hierarchical core with swarm wings for search-heavy subtasks. The architecture question becomes "which mix?" rather than "which one?".</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Choosing an architecture</h2>
+    <p>Reach for the simplest topology that meets the latency, accuracy, and observability budget. Layer in coordination only when the task structurally requires it.</p>
+    <details open>
+      <summary>Decision heuristics</summary>
+      <div style="margin-top:var(--space-md);font-size:14px">
+        <ul>
+          <li><strong>Stays in one window?</strong> Single agent.</li>
+          <li><strong>Cleanly separable subtasks, low coordination?</strong> Multi-agent peers.</li>
+          <li><strong>Long-running, supervised, stateful?</strong> Hierarchical with an orchestrator.</li>
+          <li><strong>Embarrassingly parallel, throughput-bound, OK with noise?</strong> Swarm.</li>
+          <li><strong>Mixed?</strong> Hybrid — most production systems land here.</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <footer class="report-footer">
+    <span>Generated by <strong style="color:var(--primary)">html-gen</strong> · Stellar Night design system</span>
+    <span>Acme Corp · Project Alpha · 2026-Q2</span>
+  </footer>
+</main>
+
+<script>
+function toggleTheme() {
+  const html = document.documentElement;
+  const next = html.dataset.theme === 'dark' ? 'light' : 'dark';
+  html.dataset.theme = next;
+  try { localStorage.setItem('html-gen-theme', next); } catch (_) {}
+}
+try {
+  const saved = localStorage.getItem('html-gen-theme');
+  if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+} catch (_) {}
+</script>
+</body>
+</html>
