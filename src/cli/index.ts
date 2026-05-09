@@ -31,6 +31,7 @@ import { costBudgetCommand } from './cost-budget.js';
 import { anomalyDetectionCommand } from './anomaly-detection.js';
 import { browserCommand } from './browser.js';
 import { routineRunsCommand } from './routine-runs.js';
+import { migratePathsCommand } from './migrate-paths.js';
 
 const program = new Command();
 
@@ -67,6 +68,7 @@ program.addCommand(injectWorkerCommand);
 program.addCommand(setProviderCommand);
 program.addCommand(purgeCommand);
 program.addCommand(obsidianCommand);
+program.addCommand(migratePathsCommand);
 busCommand.addCommand(obsidianCommand);
 busCommand.addCommand(skillSuggestionsCommand);
 busCommand.addCommand(costBudgetCommand);

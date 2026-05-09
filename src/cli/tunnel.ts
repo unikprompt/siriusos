@@ -513,7 +513,7 @@ function isWatchdogServiceLoaded(): boolean {
   return spawnSync('launchctl', ['list', WATCHDOG_PLIST_LABEL], { stdio: 'pipe' }).status === 0;
 }
 
-function getCortextosBinary(): string {
+function getSiriusosBinary(): string {
   try {
     const p = execSync('which siriusos', { encoding: 'utf-8', stdio: 'pipe' }).trim();
     if (p) return p;
@@ -522,7 +522,7 @@ function getCortextosBinary(): string {
 }
 
 function writeWatchdogPlist(instance: string, hostname: string, intervalSec: number, failThreshold: number): void {
-  const cortextosBin = getCortextosBinary();
+  const siriusosBin = getSiriusosBinary();
   const nodeBinDir = detectNodePath();
   const logDir = join(homedir(), '.siriusos', instance, 'logs', 'tunnel');
   const ctxRoot = join(homedir(), '.siriusos', instance);
@@ -548,7 +548,7 @@ function writeWatchdogPlist(instance: string, hostname: string, intervalSec: num
 
     <key>ProgramArguments</key>
     <array>
-        <string>${cortextosBin}</string>
+        <string>${siriusosBin}</string>
         <string>tunnel</string>
         <string>watchdog</string>
         <string>run</string>

@@ -70,7 +70,7 @@ curl -fsSL https://siriusos.unikprompt.com/install.mjs | node
 node -e "$(irm https://siriusos.unikprompt.com/install.mjs)"
 ```
 
-El instalador (en Node) clona el repo en `~/cortextos`, verifica prerrequisitos (Node 20+, jq, CLI de claude, build tools) y en Windows revisa que tengas WSL2 — los agentes corren scripts bash, así que WSL es obligatorio (el instalador te guía con `wsl --install` si falta).
+El instalador (en Node) clona el repo en `~/siriusos`, verifica prerrequisitos (Node 20+, jq, CLI de claude, build tools) y en Windows revisa que tengas WSL2 — los agentes corren scripts bash, así que WSL es obligatorio (el instalador te guía con `wsl --install` si falta).
 
 Variables de entorno: `SIRIUSOS_DIR=/ruta/custom` para cambiar la ubicación, `SIRIUSOS_BRANCH=feature/foo` para fijar una rama específica.
 

@@ -12,15 +12,18 @@ export const ecosystemCommand = new Command('ecosystem')
   .action(async (options: { instance: string; org?: string; output: string }) => {
     const ctxRoot = join(homedir(), '.siriusos', options.instance);
     // BUG-035 (companion fix): same project-root discovery as enable-agent.ts
-    // so `siriusos ecosystem` works from outside ~/cortextos.
+    // so `siriusos ecosystem` works from outside ~/siriusos.
     let projectRoot: string;
     if (process.env.CTX_FRAMEWORK_ROOT) {
       projectRoot = process.env.CTX_FRAMEWORK_ROOT;
     } else if (process.env.CTX_PROJECT_ROOT) {
       projectRoot = process.env.CTX_PROJECT_ROOT;
     } else {
-      const canonical = join(homedir(), 'cortextos');
-      projectRoot = existsSync(join(canonical, 'orgs')) ? canonical : process.cwd();
+      const canonical = join(homedir(), 'siriusos');
+      const legacy = join(homedir(), 'cortextos');
+      if (existsSync(join(canonical, 'orgs'))) projectRoot = canonical;
+      else if (existsSync(join(legacy, 'orgs'))) projectRoot = legacy;
+      else projectRoot = process.cwd();
     }
 
     // Find all agents

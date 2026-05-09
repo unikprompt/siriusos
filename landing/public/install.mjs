@@ -2,8 +2,8 @@
 /**
  * SiriusOS cross-platform installer
  *
- * Mac/Linux:   curl -fsSL https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs | node
- * Windows:     node -e "$(irm https://raw.githubusercontent.com/grandamenium/cortextos/main/install.mjs)"
+ * Mac/Linux:   curl -fsSL https://raw.githubusercontent.com/unikprompt/siriusos/main/install.mjs | node
+ * Windows:     node -e "$(irm https://raw.githubusercontent.com/unikprompt/siriusos/main/install.mjs)"
  * Local test:  node install.mjs
  */
 
@@ -12,8 +12,9 @@ import { existsSync, mkdirSync, writeFileSync, readdirSync, statSync, chmodSync 
 import { join } from 'path';
 import { homedir, platform } from 'os';
 
-const REPO_URL = process.env.SIRIUSOS_REPO || 'https://github.com/grandamenium/cortextos.git';
-const INSTALL_DIR = process.env.SIRIUSOS_DIR || join(homedir(), 'cortextos');
+const REPO_URL = process.env.SIRIUSOS_REPO || 'https://github.com/unikprompt/siriusos.git';
+const INSTALL_DIR = process.env.SIRIUSOS_DIR || join(homedir(), 'siriusos');
+const LEGACY_INSTALL_DIR = join(homedir(), 'cortextos');
 
 // SIRIUSOS_BRANCH lets you install a specific branch instead of `main`. Useful
 // for testing fixes before they merge:
@@ -358,6 +359,41 @@ if (IS_WINDOWS) {
 }
 
 console.log('');
+
+// ─── 6b. Detect legacy ~/cortextos install (pre-0.1.8) ───────────────────────
+// SiriusOS 0.1.7 and earlier installed to ~/cortextos. As of 0.1.8 the
+// canonical install location is ~/siriusos. If we find a legacy install and
+// no current install exists, warn the operator and stop — they should run
+// `siriusos migrate-paths` from inside ~/cortextos to relocate cleanly,
+// rather than have this installer create a fresh sibling install that
+// silently shadows the legacy one.
+
+if (
+  INSTALL_DIR === join(homedir(), 'siriusos') &&
+  !existsSync(INSTALL_DIR) &&
+  existsSync(LEGACY_INSTALL_DIR) &&
+  existsSync(join(LEGACY_INSTALL_DIR, '.git'))
+) {
+  console.log('');
+  console.log(`${Y}  ! Detected legacy install at ${LEGACY_INSTALL_DIR}${R}`);
+  console.log('    SiriusOS 0.1.8+ installs to ~/siriusos. Your existing install at');
+  console.log('    ~/cortextos is still functional — proceeding with a fresh ~/siriusos');
+  console.log('    install would create a second copy and the two would diverge.');
+  console.log('');
+  console.log(`    ${BOLD}Recommended migration path:${R}`);
+  console.log(`    ${Y}  cd ~/cortextos && git pull upstream main --ff-only${R}`);
+  console.log(`    ${Y}  npm install && npm run build${R}`);
+  console.log(`    ${Y}  pm2 stop siriusos-daemon${R}`);
+  console.log(`    ${Y}  mv ~/cortextos ~/siriusos && cd ~/siriusos${R}`);
+  console.log(`    ${Y}  node dist/cli.js migrate-paths${R}`);
+  console.log(`    ${Y}  npm link${R}`);
+  console.log(`    ${Y}  pm2 start ecosystem.config.js && pm2 save${R}`);
+  console.log('');
+  console.log('    Or, to install fresh anyway and leave the old install untouched:');
+  console.log(`    ${Y}  SIRIUSOS_DIR=~/siriusos-new curl ... | node${R}`);
+  console.log('');
+  process.exit(1);
+}
 
 // ─── 7. Clone or update ───────────────────────────────────────────────────────
 

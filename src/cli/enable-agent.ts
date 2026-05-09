@@ -10,21 +10,28 @@ import { TelegramAPI, formatValidateError } from '../telegram/api.js';
  * `process.cwd()`. Order of precedence:
  *   1. CTX_FRAMEWORK_ROOT env var (explicit, set by ecosystem.config.js)
  *   2. CTX_PROJECT_ROOT env var (legacy alias)
- *   3. ~/cortextos/ (the canonical install location from install.mjs)
- *   4. process.cwd() (last-resort legacy fallback)
+ *   3. ~/siriusos/ (the canonical install location from install.mjs)
+ *   4. ~/cortextos/ (legacy install location, pre-rename — kept so installs
+ *      that have not yet run `siriusos migrate-paths` keep working)
+ *   5. process.cwd() (last-resort legacy fallback)
  *
  * Without this, `siriusos enable` and similar CLI commands silently fail
- * outside ~/cortextos with a misleading "no .env found" error, even when
- * the .env exists at the canonical location. The error message is then
- * misleading because it doesn't list the paths that were checked.
+ * outside the install root with a misleading "no .env found" error, even
+ * when the .env exists at the canonical location. The error message lists
+ * the paths that were checked so the user can debug.
  */
 export function discoverProjectRoot(): string {
   if (process.env.CTX_FRAMEWORK_ROOT) return process.env.CTX_FRAMEWORK_ROOT;
   if (process.env.CTX_PROJECT_ROOT) return process.env.CTX_PROJECT_ROOT;
-  // Canonical install location (install.mjs always installs to ~/cortextos)
-  const canonical = join(homedir(), 'cortextos');
+  // Canonical install location (install.mjs installs to ~/siriusos as of 0.1.8)
+  const canonical = join(homedir(), 'siriusos');
   if (existsSync(join(canonical, 'orgs')) || existsSync(join(canonical, 'agents'))) {
     return canonical;
+  }
+  // Legacy install location (pre-0.1.8 installs lived at ~/cortextos)
+  const legacy = join(homedir(), 'cortextos');
+  if (existsSync(join(legacy, 'orgs')) || existsSync(join(legacy, 'agents'))) {
+    return legacy;
   }
   return process.cwd();
 }
@@ -169,7 +176,7 @@ export const enableAgentCommand = new Command('enable')
       if (orgDir) console.error(`  - ${join(orgDir, 'agents', agent, '.env')}`);
       console.error(`  - ${join(projectRoot, 'agents', agent, '.env')}`);
       console.error(`Project root: ${projectRoot}`);
-      console.error(`(Set CTX_FRAMEWORK_ROOT to override path discovery, or run from inside ~/cortextos.)`);
+      console.error(`(Set CTX_FRAMEWORK_ROOT to override path discovery, or run from inside ~/siriusos.)`);
       console.error(`Create the .env with BOT_TOKEN and CHAT_ID before enabling.`);
       process.exit(1);
     }
