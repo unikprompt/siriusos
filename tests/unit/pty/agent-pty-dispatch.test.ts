@@ -29,7 +29,7 @@ describe('AgentPTY provider dispatch', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'cortextos-agent-pty-test-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'siriusos-agent-pty-test-'));
   });
 
   afterEach(() => {

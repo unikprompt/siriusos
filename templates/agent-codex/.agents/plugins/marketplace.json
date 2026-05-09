@@ -1,0 +1,20 @@
+{
+  "name": "{{agent_name}}",
+  "interface": {
+    "displayName": "{{agent_name}}"
+  },
+  "plugins": [
+    {
+      "name": "siriusos-agent-skills",
+      "source": {
+        "source": "local",
+        "path": "./plugins/siriusos-agent-skills"
+      },
+      "policy": {
+        "installation": "INSTALLED_BY_DEFAULT",
+        "authentication": "ON_USE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

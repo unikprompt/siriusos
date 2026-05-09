@@ -44,7 +44,14 @@ interface AgentConfig {
   max_session_seconds?: number;
   max_crashes_per_day?: number;
   startup_delay?: number;
+  runtime?: 'claude-code' | 'codex-app-server' | 'hermes';
 }
+
+const MODEL_PLACEHOLDER: Record<NonNullable<AgentConfig['runtime']>, string> = {
+  'claude-code': 'claude-sonnet-4-5',
+  'codex-app-server': 'gpt-5-codex',
+  hermes: 'hermes-1',
+};
 
 interface SettingsTabProps {
   agentName: string;

@@ -1994,6 +1994,8 @@ busCommand
   .argument('<reply>', 'Reply text')
   .argument('[msg-id]', 'Inbox message ID to ACK')
   .action((agent: string, reply: string, msgId?: string) => {
+    // Same literal '\n'/'\t' normalize as send-telegram (codex agent fix).
+    reply = reply.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
     const { mkdirSync, appendFileSync } = require('fs');
     const { join } = require('path');
     const env = resolveEnv();

@@ -18,6 +18,7 @@ triggers: ["new agent", "create agent", "spawn agent", "add agent", "restart", "
 4. **ALWAYS use `siriusos enable` to start agents.** Never manually edit PM2 config.
 5. **NEVER share bot tokens between agents.** Each agent gets its own bot from @BotFather.
 6. **NEVER hardcode chat IDs.** Get them from the actual user via Telegram getUpdates.
+7. **ALWAYS ask the user which runtime** (claude-code vs codex-app-server) before scaffolding a new agent. Default to claude-code only if the user has no preference. Never silently pick.
 
 ---
 
@@ -38,7 +39,17 @@ After collecting the bot token and chat ID, always ask the user:
 
 ```bash
 # Option A: CLI (recommended)
-siriusos add-agent <name> --template agent --org <org>
+# STEP 0 — REQUIRED BEFORE SCAFFOLDING — Ask the user which runtime:
+#   "Should this agent run on Claude Code (Anthropic) or Codex (OpenAI gpt-5-codex)?"
+# Default to claude-code if the user has no preference. Never silently pick.
+# Codex agents MUST use the agent-codex template; orchestrator/analyst/m2c1-worker
+# do not have codex variants — the CLI will reject the mismatch.
+
+# claude-code path (the common one):
+siriusos add-agent <name> --template agent --org <org> --runtime claude-code
+
+# codex-app-server path (gpt-5-codex via codex CLI app-server JSONRPC):
+siriusos add-agent <name> --template agent-codex --org <org> --runtime codex-app-server
 
 # Option B: Manual
 TEMPLATE="agent"  # or "orchestrator" or "analyst"
@@ -150,16 +161,16 @@ siriusos bus hard-restart --reason "context exhaustion"
 
 ### Hook Reload Lifecycle
 
-`.claude/settings.json` hooks (PreToolUse, PostToolUse, Stop, SessionStart, etc) are loaded once when the Claude CLI process starts. They are NOT reloaded by `cortextos bus self-restart` — soft restart relaunches Claude with `--continue`, which reuses the existing process settings cache. Project-level hooks added or changed in `settings.json` since the original boot DO NOT take effect under soft restart.
+`.claude/settings.json` hooks (PreToolUse, PostToolUse, Stop, SessionStart, etc) are loaded once when the Claude CLI process starts. They are NOT reloaded by `siriusos bus self-restart` — soft restart relaunches Claude with `--continue`, which reuses the existing process settings cache. Project-level hooks added or changed in `settings.json` since the original boot DO NOT take effect under soft restart.
 
 **When wiring a new hook to a running agent, use a hard restart, not a soft restart:**
 
 ```bash
 # From inside the agent itself, or from another agent/terminal:
-cortextos bus hard-restart --reason "loading new hook"
+siriusos bus hard-restart --reason "loading new hook"
 
 # Equivalent ops-side path:
-cortextos stop <agent> && cortextos start <agent>
+siriusos stop <agent> && siriusos start <agent>
 ```
 
 Both kill the existing PID and respawn a fresh process that re-reads `settings.json` from scratch. Verify by adding a one-line debug write to your hook script before testing — if the file shows up after a benign tool call, the hook is loaded.
@@ -219,7 +230,7 @@ Guide the user through BotFather:
 2. Send `/newbot`
 3. Enter display name (e.g., "Assistant - MyOrg Bot")
 4. Enter username (must end in `bot`, e.g., `assistant_myorg_bot`)
-5. Copy the token (format: `1234567890:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`)
+5. Copy the token (format: `<numeric-id>:<35-char-secret>` (e.g. `<your-bot-token>`))
 
 ### Getting Chat ID
 
@@ -395,7 +406,7 @@ siriusos enable "$AGENT" --org "$ORG" --restart
 1. Confirm `settings.json` is valid JSON and the hook block is in the right shape (matcher, type=command, etc).
 2. Try a benign tool call that should trigger the hook. If nothing happens, the hook is not loaded.
 3. **Do NOT soft-restart** — `--continue` does not reload project hooks (see Hook Reload Lifecycle in Section 2).
-4. Hard-restart the agent: `cortextos bus hard-restart --reason "load new hook"`. The daemon kills the PID and respawns a fresh process that re-reads `settings.json`.
+4. Hard-restart the agent: `siriusos bus hard-restart --reason "load new hook"`. The daemon kills the PID and respawns a fresh process that re-reads `settings.json`.
 5. If the hook still does not fire after a fresh PID, instrument the script with an unconditional write to `/tmp/<agent>-hook-test.log` at the very top of `main()`, run a benign tool, and check whether the file appears. If yes, the hook is firing but the script is returning early. If no, the hook is wired wrong in `settings.json`.
 
 ---
@@ -404,7 +415,7 @@ siriusos enable "$AGENT" --org "$ORG" --restart
 
 | I need to... | Command |
 |---|---|
-| Create new agent | `siriusos add-agent <name> --template <type> --org <org>` |
+| Create new agent | `siriusos add-agent <name> --template agent --org <org> --runtime claude-code` (or `--template agent-codex --runtime codex-app-server` after asking the user which runtime) |
 | Enable agent | `siriusos enable <agent> --org <org>` |
 | Disable agent | `siriusos disable <agent> --org <org>` |
 | Soft restart (self) | `siriusos bus self-restart --reason "<reason>"` |

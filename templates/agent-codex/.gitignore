@@ -1,0 +1,7 @@
+local/
+.env
+.siriusos-env
+memory/
+!plugins/siriusos-agent-skills/skills/memory/
+*.log
+.cache/
