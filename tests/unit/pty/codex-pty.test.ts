@@ -159,3 +159,57 @@ describe('CodexPTY sandbox config', () => {
     expect(args[idx + 1]).toBe('read-only');
   });
 });
+
+describe('CodexPTY model arg', () => {
+  type ArgsPty = {
+    buildFreshArgs(prompt: string): string[];
+    buildResumeArgs(prompt: string): string[];
+  };
+  function readFresh(pty: unknown): string[] {
+    return (pty as ArgsPty).buildFreshArgs('hi');
+  }
+  function readResume(pty: unknown): string[] {
+    return (pty as ArgsPty).buildResumeArgs('hi');
+  }
+
+  it('omits --model when config.model is unset (CLI default wins)', () => {
+    const pty = new CodexPTY(mockEnv, {});
+    expect(readFresh(pty)).not.toContain('--model');
+    expect(readResume(pty)).not.toContain('--model');
+  });
+
+  it('omits --model when config.model is an empty string', () => {
+    const pty = new CodexPTY(mockEnv, { model: '' } as never);
+    expect(readFresh(pty)).not.toContain('--model');
+    expect(readResume(pty)).not.toContain('--model');
+  });
+
+  it('threads --model into buildFreshArgs when config.model is set', () => {
+    const pty = new CodexPTY(mockEnv, { model: 'gpt-5.3-codex' } as never);
+    const args = readFresh(pty);
+    const idx = args.indexOf('--model');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(args[idx + 1]).toBe('gpt-5.3-codex');
+  });
+
+  it('threads --model into buildResumeArgs when config.model is set', () => {
+    const pty = new CodexPTY(mockEnv, { model: 'gpt-5-high' } as never);
+    const args = readResume(pty);
+    const idx = args.indexOf('--model');
+    expect(idx).toBeGreaterThanOrEqual(0);
+    expect(args[idx + 1]).toBe('gpt-5-high');
+  });
+
+  it('only one --model pair appears (no duplicate flags)', () => {
+    const pty = new CodexPTY(mockEnv, { model: 'gpt-5-mini' } as never);
+    const args = readFresh(pty);
+    const occurrences = args.filter((a) => a === '--model').length;
+    expect(occurrences).toBe(1);
+  });
+
+  it('preserves the prompt as the final positional after --model', () => {
+    const pty = new CodexPTY(mockEnv, { model: 'gpt-5.3-codex' } as never);
+    const args = readFresh(pty);
+    expect(args[args.length - 1]).toBe('hi');
+  });
+});

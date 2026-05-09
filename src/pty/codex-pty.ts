@@ -318,10 +318,29 @@ export class CodexPTY {
   }
 
   /**
+   * Args for the Codex CLI's `-m/--model <MODEL>` flag, threaded from
+   * AgentConfig.model. Without this, the agent ignores config.json's model
+   * field and falls back to whatever default is in `~/.codex/config.toml` —
+   * which silently defeats per-agent model configuration.
+   *
+   * Returns empty array when config.model is unset/empty so the user's CLI
+   * default still wins. Verified against codex-cli v0.130.0: --model is
+   * accepted by both `exec` and `exec resume`.
+   */
+  private modelArgs(): string[] {
+    const model = this._config.model;
+    return typeof model === 'string' && model.length > 0
+      ? ['--model', model]
+      : [];
+  }
+
+  /**
    * Build args for a fresh exec (new session).
    * --skip-git-repo-check: skip trust check for daemon-managed directories
    * --sandbox <level>: configurable, defaults to danger-full-access for
    *   daemon-managed agents that need to write outside cwd
+   * --model <model>: from config.model when set; otherwise rely on
+   *   ~/.codex/config.toml default
    * --json: structured JSONL output for reliable event detection
    * --enable <feature>: codex feature flags defaulted on for cortextOS agents
    */
@@ -330,6 +349,7 @@ export class CodexPTY {
       'exec',
       '--skip-git-repo-check',
       '--sandbox', this.getSandboxLevel(),
+      ...this.modelArgs(),
       '--json',
       ...this.featureFlagArgs(),
       prompt,
@@ -340,6 +360,8 @@ export class CodexPTY {
    * Build args for resuming the most recent session in this cwd.
    * --last: pick most recent thread for current cwd (cwd-filtered by default)
    * --dangerously-bypass-approvals-and-sandbox: required for exec resume (--sandbox not available)
+   * --model <model>: from config.model when set; --model is accepted by
+   *   `exec resume` in v0.130.0 (verified via `codex exec resume --help`)
    * --enable <feature>: codex feature flags defaulted on for cortextOS agents
    */
   private buildResumeArgs(prompt: string): string[] {
@@ -349,6 +371,7 @@ export class CodexPTY {
       '--last',
       '--skip-git-repo-check',
       '--dangerously-bypass-approvals-and-sandbox',
+      ...this.modelArgs(),
       '--json',
       ...this.featureFlagArgs(),
       prompt,
