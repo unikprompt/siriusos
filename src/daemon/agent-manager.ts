@@ -16,6 +16,7 @@ import { collectTelegramCommands, registerTelegramCommands } from '../bus/metric
 import { stripControlChars } from '../utils/validate.js';
 import { processMediaMessage } from '../telegram/media.js';
 import { transcribeVoice } from './whisper-transcribe.js';
+import { handleSlashCommand } from './slash-commands.js';
 
 type LogFn = (msg: string) => void;
 
@@ -315,7 +316,7 @@ export class AgentManager {
       const stateDir = join(this.ctxRoot, 'state', name);
       const poller = new TelegramPoller(telegramApi, stateDir);
 
-      poller.onMessage((msg) => {
+      poller.onMessage(async (msg) => {
         // ALLOWED_USER gate: if configured, ignore messages from other users.
         // Use numeric comparison to avoid string coercion issues.
         if (allowedUserId) {
@@ -406,7 +407,39 @@ export class AgentManager {
         }
 
         // Text message (non-media)
-        const text = stripControlChars(msg.text || '');
+        const rawText = stripControlChars(msg.text || '');
+
+        // Daemon-side slash commands: intercept /clear, /restart, /status,
+        // /plan before the message reaches the agent. Other slashes (e.g.
+        // /commit, /compact) fall through to Claude Code's built-ins.
+        // Async-await here would block the poller's onMessage handler —
+        // the slash handler is fire-and-forget for restart/telegram, so
+        // we await synchronously and resolve quickly (heartbeat read is
+        // a tiny file read; sendTelegram is dispatched but not awaited
+        // inside handleSlashCommand).
+        let textForAgent = rawText;
+        try {
+          const slash = await handleSlashCommand(rawText, {
+            agentName: name,
+            chatId: effectiveChatId,
+            ctxRoot: this.ctxRoot,
+            log,
+            restartAgent: (n) => this.restartAgent(n),
+            sendTelegram: telegramApi
+              ? (cid, txt) => telegramApi.sendMessage(cid, txt, undefined, { parseMode: null })
+              : () => Promise.resolve(),
+          });
+          if (slash.handled) {
+            log(`Slash command consumed by daemon — message not queued to agent`);
+            return;
+          }
+          if (typeof slash.transformedText === 'string') {
+            textForAgent = slash.transformedText;
+          }
+        } catch (err) {
+          log(`Slash command handler error (continuing as plain text): ${(err as Error).message}`);
+        }
+
         const lastSent = FastChecker.readLastSent(stateDir, effectiveChatId);
         // Build reply context from the replied-to message.
         const replyToText = buildReplyContext(msg.reply_to_message);
@@ -415,7 +448,7 @@ export class AgentManager {
         const formatted = FastChecker.formatTelegramTextMessage(
           from,
           effectiveChatId,
-          text,
+          textForAgent,
           this.frameworkRoot,
           replyToText,
           lastSent ?? undefined,
