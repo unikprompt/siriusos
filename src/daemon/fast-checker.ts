@@ -366,11 +366,10 @@ Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
   /**
    * Format a Telegram voice/audio message for injection.
    *
-   * When `transcript` is provided (whisper succeeded), the transcript replaces
-   * the `local_file:` line because the source .ogg has been deleted by the
-   * transcription step. When transcript is null/undefined (whisper failed,
-   * disabled, or source kept), `local_file:` is shown so the agent can still
-   * point the user at the audio.
+   * `transcript` is populated by `src/telegram/transcribe.ts` when whisper-cli
+   * and the GGML model are available; otherwise it stays undefined and the
+   * agent receives only the .ogg path. The codex extractor surfaces the
+   * transcript block when present.
    */
   static formatTelegramVoiceMessage(
     from: string,

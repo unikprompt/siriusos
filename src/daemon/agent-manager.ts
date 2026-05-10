@@ -15,7 +15,6 @@ import { recordInboundTelegram, cacheLastSent, logOutboundMessage, buildRecentHi
 import { collectTelegramCommands, registerTelegramCommands } from '../bus/metrics.js';
 import { stripControlChars } from '../utils/validate.js';
 import { processMediaMessage } from '../telegram/media.js';
-import { transcribeVoice } from './whisper-transcribe.js';
 import { handleSlashCommand } from './slash-commands.js';
 
 type LogFn = (msg: string) => void;
@@ -374,19 +373,10 @@ export class AgentManager {
             } else if (media.type === 'document') {
               formatted = FastChecker.formatTelegramDocumentMessage(from, effectiveChatId, media.text, relFilePath, media.file_name!);
             } else if (media.type === 'voice' || media.type === 'audio') {
-              // Try local whisper transcription. On success, transcribeVoice
-              // deletes the .ogg (same-day cleanup) and returns the text. On
-              // any failure (timeout, missing whisper, parse error) returns
-              // null and leaves the file in place so the agent can still
-              // reach the audio via local_file.
-              const absVoicePath = media.file_path;
-              const transcript = absVoicePath
-                ? await transcribeVoice(absVoicePath, { log })
-                : null;
-              // After cleanup the rel path no longer resolves; pass empty so
-              // the format function omits the local_file line.
-              const pathForMsg = transcript ? '' : relFilePath;
-              formatted = FastChecker.formatTelegramVoiceMessage(from, effectiveChatId, pathForMsg, media.duration, transcript);
+              // Transcription happens in processMediaMessage via whisper-cli
+              // (src/telegram/transcribe.ts). media.transcript is null when
+              // disabled / failed — the agent still receives the .ogg path.
+              formatted = FastChecker.formatTelegramVoiceMessage(from, effectiveChatId, relFilePath, media.duration, media.transcript);
             } else {
               // video or video_note
               formatted = FastChecker.formatTelegramVideoMessage(from, effectiveChatId, media.text, relFilePath, media.file_name || '', media.duration);
