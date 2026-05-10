@@ -89,9 +89,20 @@ describe('median + agentToProjectId', () => {
   it('median of even-length list averages middle two', () => {
     expect(median([4, 1, 3, 2])).toBe(2.5);
   });
-  it('agentToProjectId follows ccusage path convention', () => {
+  it('agentToProjectId follows ccusage path convention with siriusos default', () => {
+    const prevRoot = process.env.CTX_FRAMEWORK_ROOT;
+    delete process.env.CTX_FRAMEWORK_ROOT;
+    const id = agentToProjectId('developer', 'unikprompt');
+    expect(id).toMatch(/-siriusos-orgs-unikprompt-agents-developer$/);
+    if (prevRoot !== undefined) process.env.CTX_FRAMEWORK_ROOT = prevRoot;
+  });
+  it('agentToProjectId derives folder name from CTX_FRAMEWORK_ROOT', () => {
+    const prevRoot = process.env.CTX_FRAMEWORK_ROOT;
+    process.env.CTX_FRAMEWORK_ROOT = '/Users/mario/cortextos';
     const id = agentToProjectId('developer', 'unikprompt');
     expect(id).toMatch(/-cortextos-orgs-unikprompt-agents-developer$/);
+    if (prevRoot !== undefined) process.env.CTX_FRAMEWORK_ROOT = prevRoot;
+    else delete process.env.CTX_FRAMEWORK_ROOT;
   });
 });
 

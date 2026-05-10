@@ -32,7 +32,7 @@ Setup is one human-in-the-loop step: provision an API key.
 
 1. Go to https://www.perplexity.ai/settings/api
 2. Add a payment method if Perplexity asks (the Sonar API is metered separately from the Pro consumer subscription).
-3. Click **Create API Key**, name it (e.g. `cortextos-developer`), copy the `pplx-...` value.
+3. Click **Create API Key**, name it (e.g. `siriusos-developer`), copy the `pplx-...` value.
 
 ### Step 2 — Save it in the agent's `.env`
 

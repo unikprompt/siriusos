@@ -23,7 +23,7 @@ triggers: ["upstream check", "framework update", "check upstream", "upstream aut
 
 ### Step 1 — Fetch and inspect
 ```bash
-cd /path/to/cortextos
+cd /path/to/siriusos
 siriusos bus check-upstream
 ```
 Read the output. If it reports no new commits, skip to Step 7 (log noop and stop).
@@ -65,14 +65,14 @@ When flagging: collect the commit SHAs, commit messages, and touched paths, and 
 ### Step 4 — Apply safe bugfix / docs / chore commits
 If all new commits are pure bugfix or docs/chore AND none touch the guardrail paths:
 ```bash
-cd /path/to/cortextos
-CORTEXTOS_CONFIRM_UPSTREAM_MERGE=yes siriusos bus check-upstream --apply
+cd /path/to/siriusos
+SIRIUSOS_CONFIRM_UPSTREAM_MERGE=yes siriusos bus check-upstream --apply
 ```
-**The `CORTEXTOS_CONFIRM_UPSTREAM_MERGE=yes` env var is required.** Without it, `check-upstream --apply` returns `{"status": "error", "error": "Refusing to auto-merge upstream..."}` as a safety gate. The env var is the "I have reviewed the diff and I trust the changes" signal. Set it inline, not exported, so it does not leak into subsequent unrelated commands.
+**The `SIRIUSOS_CONFIRM_UPSTREAM_MERGE=yes` env var is required.** Without it, `check-upstream --apply` returns `{"status": "error", "error": "Refusing to auto-merge upstream..."}` as a safety gate. The env var is the "I have reviewed the diff and I trust the changes" signal. Set it inline, not exported, so it does not leak into subsequent unrelated commands. (The legacy name `CORTEXTOS_CONFIRM_UPSTREAM_MERGE` is also accepted for back-compat with pre-0.1.9 scripts.)
 
 After applying:
 ```bash
-cd /path/to/cortextos
+cd /path/to/siriusos
 npm install
 npm audit --audit-level=moderate
 npm run build

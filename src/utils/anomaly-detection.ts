@@ -209,7 +209,17 @@ export function agentToProjectId(agent: string, org: string): string {
   // generated id stays a stable identifier without leaking a developer name
   // into builds shipped on npm.
   const user = process.env.USER || 'user';
-  return `-Users-${user}-cortextos-orgs-${org}-agents-${agent}`;
+  // Derive the install folder name from CTX_FRAMEWORK_ROOT so the projectId
+  // matches what ccusage actually records when Claude Code launches from
+  // that folder. This handles all install layouts:
+  //   - canonical 0.1.8+ : ~/siriusos
+  //   - legacy 0.1.7-    : ~/cortextos
+  //   - custom locations : ~/work/siriusos, ~/SiriusOS-prod, etc.
+  // Falls back to 'siriusos' for fresh installs where CTX_FRAMEWORK_ROOT is
+  // not yet set (the canonical default since 0.1.8).
+  const root = process.env.CTX_FRAMEWORK_ROOT || process.env.CTX_PROJECT_ROOT;
+  const folderName = root ? root.split('/').filter(Boolean).pop() ?? 'siriusos' : 'siriusos';
+  return `-Users-${user}-${folderName}-orgs-${org}-agents-${agent}`;
 }
 
 export function median(values: number[]): number {

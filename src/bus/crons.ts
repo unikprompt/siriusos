@@ -40,7 +40,7 @@ interface CronsFile {
  * process.cwd() — that produced the long-standing UX bug where
  * `siriusos bus list-crons <agent>` from the repo root said
  * "No crons configured" because it looked for crons under
- * /Users/.../cortextos/state/agents/<agent>/crons.json instead of
+ * /Users/.../siriusos/state/agents/<agent>/crons.json instead of
  * the actual ~/.siriusos/default/state/agents/<agent>/crons.json.
  *
  * Tests still inject CTX_ROOT pointing to a tempdir as before, so

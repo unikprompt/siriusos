@@ -390,10 +390,14 @@ export function checkUpstream(
 
   // If --apply: merge upstream
   if (options.apply) {
-    if (process.env.CORTEXTOS_CONFIRM_UPSTREAM_MERGE !== 'yes') {
+    // Accept both SIRIUSOS_ (canonical since 0.1.9) and CORTEXTOS_ (legacy
+    // back-compat for scripts written before the rename) prefixes.
+    const confirm = process.env.SIRIUSOS_CONFIRM_UPSTREAM_MERGE
+                 ?? process.env.CORTEXTOS_CONFIRM_UPSTREAM_MERGE;
+    if (confirm !== 'yes') {
       return {
         status: 'error',
-        error: 'Refusing to auto-merge upstream. Review the diff first (run without --apply), then re-run with CORTEXTOS_CONFIRM_UPSTREAM_MERGE=yes if you trust the changes.',
+        error: 'Refusing to auto-merge upstream. Review the diff first (run without --apply), then re-run with SIRIUSOS_CONFIRM_UPSTREAM_MERGE=yes if you trust the changes.',
       };
     }
     const localItems = getCatalogItems('local');
