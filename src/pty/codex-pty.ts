@@ -26,7 +26,7 @@ interface IPtySpawnOptions {
 type SpawnFn = (file: string, args: string[], options: IPtySpawnOptions) => IPty;
 
 /**
- * Codex PTY adapter for cortextOS daemon.
+ * Codex PTY adapter for SiriusOS daemon.
  *
  * Codex uses a turn-based exec model — each conversation turn spawns a new
  * process (`codex exec` or `codex exec resume --last`). There is no persistent
@@ -278,7 +278,7 @@ export class CodexPTY {
   }
 
   /**
-   * Default Codex feature flags enabled for every cortextOS-managed codex agent.
+   * Default Codex feature flags enabled for every SiriusOS-managed codex agent.
    * Currently: `goals` (native goal tracking surface). Per-agent overrides can
    * be added via the optional `codex_features` array on AgentConfig in future.
    */
@@ -342,7 +342,7 @@ export class CodexPTY {
    * --model <model>: from config.model when set; otherwise rely on
    *   ~/.codex/config.toml default
    * --json: structured JSONL output for reliable event detection
-   * --enable <feature>: codex feature flags defaulted on for cortextOS agents
+   * --enable <feature>: codex feature flags defaulted on for SiriusOS agents
    */
   private buildFreshArgs(prompt: string): string[] {
     return [
@@ -362,7 +362,7 @@ export class CodexPTY {
    * --dangerously-bypass-approvals-and-sandbox: required for exec resume (--sandbox not available)
    * --model <model>: from config.model when set; --model is accepted by
    *   `exec resume` in v0.130.0 (verified via `codex exec resume --help`)
-   * --enable <feature>: codex feature flags defaulted on for cortextOS agents
+   * --enable <feature>: codex feature flags defaulted on for SiriusOS agents
    */
   private buildResumeArgs(prompt: string): string[] {
     return [
