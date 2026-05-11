@@ -1,0 +1,59 @@
+{
+  "name": "siriusos-single",
+  "version": "0.1.0",
+  "description": "Lite version of SiriusOS — one Telegram agent + Claude Code in 5 minutes",
+  "main": "dist/cli.js",
+  "bin": {
+    "siriusos-single": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "claude",
+    "telegram",
+    "agent",
+    "ai",
+    "siriusos"
+  ],
+  "author": {
+    "name": "Mario Edwards",
+    "url": "https://siriusos.unikprompt.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/unikprompt/siriusos.git",
+    "directory": "single"
+  },
+  "homepage": "https://siriusos.unikprompt.com/single",
+  "bugs": {
+    "url": "https://github.com/unikprompt/siriusos/issues"
+  },
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "dist/*.js",
+    "README.md"
+  ],
+  "dependencies": {
+    "@inquirer/prompts": "^8.3.2",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "node-pty": "^1.1.0",
+    "ora": "^9.3.0",
+    "strip-ansi": "^7.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.5.0",
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}
