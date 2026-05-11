@@ -62,27 +62,40 @@ jobs:
             echo "Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) by upstream-monitor workflow."
             echo "Already-cherry-picked commits are excluded automatically."
             echo ""
-            echo "| SHA | Date | Author | Subject |"
-            echo "|---|---|---|---|"
+            echo "| Tipo | SHA | Date | Author | Subject |"
+            echo "|---|---|---|---|---|"
             while IFS='|' read -r sha date author subject; do
               [ -z "$sha" ] && continue
               # Escape pipes in subject so they don't break table cells
               subject="${subject//|/\\|}"
-              echo "| \`$sha\` | $date | $author | $subject |"
+              # Classify by conventional-commit prefix
+              if [[ "$subject" =~ ^(fix|hotfix)(\(.+\))?[!]?: ]]; then
+                tipo="🐛 BUGFIX"
+              elif [[ "$subject" =~ ^(docs|chore|test|refactor|ci|build|perf|style)(\(.+\))?[!]?: ]]; then
+                tipo="📄 DOCS/CHORE"
+              elif [[ "$subject" =~ ^feat(\(.+\))?[!]?: ]]; then
+                tipo="✨ FEAT"
+              else
+                tipo="❓ MIXED"
+              fi
+              echo "| $tipo | \`$sha\` | $date | $author | $subject |"
             done <<< "${{ steps.diff.outputs.missing }}"
             echo ""
             echo "### How to apply"
             echo ""
             echo '```bash'
-            echo "cd ~/cortextos"
+            echo "cd ~/siriusos"
             echo "git fetch upstream"
-            echo "git cherry-pick <SHA>      # one at a time, resolve conflicts"
-            echo "npm run build && npm test  # verify"
+            echo "# Revisa cada commit con: git show <SHA>"
+            echo "# Para aplicar el lote completo (bugfix/docs/chore + paths seguros):"
+            echo "SIRIUSOS_CONFIRM_UPSTREAM_MERGE=yes siriusos bus check-upstream --apply"
+            echo "# Build + test + npm audit corren como gate. Si falla alguno, revisa antes de pushear."
             echo "git push origin main"
             echo '```'
             echo ""
-            echo "Conflicts are likely on rebrand-touched files (cortextos→siriusos)."
-            echo "Resolve in favour of the SiriusOS naming and keep the upstream logic."
+            echo "Commits con strings \`cortextos\` públicos (CLI, paths, mensajes al usuario): hacer cherry-pick manual y reescribir a \`siriusos\` antes de aplicar."
+            echo ""
+            echo "See \`community/skills/framework-upstream-auto-update/SKILL.md\` for the full policy."
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
