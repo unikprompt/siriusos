@@ -38,6 +38,16 @@ export class AgentPTY {
   private config: AgentConfig;
   private onExitHandler: ((exitCode: number, signal?: number) => void) | null = null;
   private spawnFn: SpawnFn | null = null;
+  private dataHandlers: Array<(data: string) => void> = [];
+
+  /**
+   * Subscribe to raw PTY output. Each subscriber receives every chunk
+   * the underlying pty emits, in order. Used by SiriusOS Single to
+   * forward agent output to Telegram. Multiple subscribers are allowed.
+   */
+  onData(cb: (data: string) => void): void {
+    this.dataHandlers.push(cb);
+  }
 
   constructor(env: CtxEnv, config: AgentConfig, logPath?: string, bootstrapPattern?: string) {
     this.env = env;
@@ -176,9 +186,12 @@ export class AgentPTY {
 
     this._alive = true;
 
-    // Set up output capture
+    // Set up output capture + fan-out to subscribers
     this.pty.onData((data: string) => {
       this.outputBuffer.push(data);
+      for (const handler of this.dataHandlers) {
+        try { handler(data); } catch { /* subscriber errors must not break PTY loop */ }
+      }
     });
 
     // Set up exit handler
