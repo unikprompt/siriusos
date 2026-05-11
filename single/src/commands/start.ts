@@ -1,20 +1,37 @@
 import { Command } from 'commander';
-import { existsSync, mkdirSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import { spawn } from 'child_process';
 import chalk from 'chalk';
-import stripAnsi from 'strip-ansi';
 import { TelegramAPI } from '../telegram/api.js';
 import { TelegramPoller } from '../telegram/poller.js';
 import { processMediaMessage } from '../telegram/media.js';
-import { AgentPTY } from '../pty/agent-pty.js';
 import { appendDailyMemory } from '../memory/daily.js';
-import type { AgentConfig, CtxEnv, TelegramMessage } from '../types.js';
+import type { AgentConfig, TelegramMessage } from '../types.js';
 
 const SINGLE_HOME = join(homedir(), '.siriusos-single');
 
+/**
+ * Run the agent in headless / one-shot mode per Telegram message:
+ *
+ *   user msg → spawn `claude -p [--continue] -p "<msg>"` → capture stdout → send to Telegram
+ *
+ * Why this design (vs. a persistent PTY):
+ *  - `claude -p` is non-interactive: no TUI banner, no trust-folder prompt,
+ *    no welcome screen, no status spinners, no input echo. Stdout is just
+ *    the assistant's reply text. Perfect for piping to Telegram.
+ *  - Session continuity comes from Claude Code's `--continue` flag, which
+ *    auto-resumes the most recent conversation in the current cwd. We mark
+ *    the first message with a sentinel file so it spawns WITHOUT --continue
+ *    (nothing to resume yet); all subsequent messages carry --continue.
+ *  - The trade-off is ~2-3s of process spin-up per message, which is fine
+ *    for a chat-pace workload. The trade-off the OTHER way (TUI parsing)
+ *    is unbounded brittleness as Claude Code's UI evolves.
+ */
+
 export const startCommand = new Command('start')
-  .description('Start your agent (boots Telegram poller + Claude Code PTY)')
+  .description('Start your agent (Telegram poller + headless Claude per message)')
   .argument('[agent_name]', 'Agent name (defaults to the only configured agent)')
   .action(async (agentNameArg: string | undefined) => {
     const agentName = resolveAgentName(agentNameArg);
@@ -25,8 +42,6 @@ export const startCommand = new Command('start')
       process.exit(1);
     }
 
-    // -- Load config + env -------------------------------------------------
-
     const config = readConfig(agentDir);
     const env = readEnvFile(join(agentDir, '.env'));
     const botToken = env.BOT_TOKEN;
@@ -34,111 +49,92 @@ export const startCommand = new Command('start')
     const allowedUser = env.ALLOWED_USER || chatId;
 
     if (!botToken || !chatId) {
-      console.error(chalk.red(`\nMissing BOT_TOKEN or CHAT_ID in ${agentDir}/.env. Re-run 'siriusos-single init'.\n`));
+      console.error(chalk.red(`\nMissing BOT_TOKEN or CHAT_ID in ${agentDir}/.env.\n`));
       process.exit(1);
     }
 
-    // -- Boot Telegram -----------------------------------------------------
-
     const api = new TelegramAPI(botToken);
     console.log(chalk.bold.blue(`\nBooting ${agentName}...`));
-    await api.sendMessage(chatId, '🤖 Booting up... one moment.', undefined, { parseMode: null }).catch(() => undefined);
+    await api.sendMessage(chatId, '🤖 Booting up...', undefined, { parseMode: null }).catch(() => undefined);
 
-    // -- Spawn Claude Code PTY ---------------------------------------------
+    // -- State directories --------------------------------------------------
 
-    const ctxEnv: CtxEnv = {
-      instanceId: 'single',
-      ctxRoot: SINGLE_HOME,
-      frameworkRoot: SINGLE_HOME,
-      agentName,
-      agentDir,
-      org: 'single',
-      projectRoot: agentDir,
-      timezone: config.timezone,
-    };
     const stateDir = join(agentDir, 'state');
     mkdirSync(stateDir, { recursive: true });
-    const logPath = join(stateDir, 'stdout.log');
-
-    const pty = new AgentPTY(ctxEnv, config, logPath);
-    const bootPrompt = buildBootPrompt(agentName, config);
-    await pty.spawn('fresh', bootPrompt);
-
-    // -- Wire PTY output → Telegram with debounced flush -------------------
-
-    const FLUSH_DEBOUNCE_MS = 2500;
-    let pendingChunks: string[] = [];
-    let flushTimer: NodeJS.Timeout | null = null;
-
-    const flush = async () => {
-      flushTimer = null;
-      if (pendingChunks.length === 0) return;
-      const raw = pendingChunks.join('');
-      pendingChunks = [];
-
-      const cleaned = sanitizeAgentOutput(raw);
-      if (!cleaned) return;
-
-      try {
-        await api.sendMessage(chatId, cleaned, undefined, { parseMode: null });
-      } catch (err) {
-        console.error('[telegram] sendMessage failed:', err);
-      }
-      appendDailyMemory(agentDir, 'agent', cleaned);
-    };
-
-    pty.onData((chunk) => {
-      pendingChunks.push(chunk);
-      if (flushTimer) clearTimeout(flushTimer);
-      flushTimer = setTimeout(flush, FLUSH_DEBOUNCE_MS);
-    });
-
-    pty.onExit((exitCode) => {
-      console.log(chalk.yellow(`\n[pty] Claude exited (code ${exitCode}). Run 'siriusos-single start' to restart.`));
-      api.sendMessage(chatId, '⚠️ Agent stopped. Restart with `siriusos-single start`.', undefined, { parseMode: null }).catch(() => undefined);
-      process.exit(exitCode);
-    });
-
-    // -- Wire Telegram → PTY (with ALLOWED_USER gate + voice transcription) -
-
     const downloadDir = join(stateDir, 'downloads');
+    const sessionMarker = join(stateDir, '.session-started');
+
+    // -- Telegram poller ---------------------------------------------------
+
     const poller = new TelegramPoller(api, stateDir);
+    let inflight = 0;
 
     poller.onMessage(async (msg: TelegramMessage) => {
       const senderId = msg.from?.id;
       if (allowedUser && senderId && String(senderId) !== String(allowedUser)) {
-        // Silent drop — don't echo unauthorized senders
         return;
       }
 
+      inflight++;
       try {
-        const formatted = await formatTelegramMessage(msg, api, downloadDir);
-        if (!formatted) return;
+        const userPrompt = await formatTelegramMessage(msg, api, downloadDir);
+        if (!userPrompt) return;
 
-        appendDailyMemory(agentDir, 'user', formatted);
-        pty.write(formatted + '\n');
+        appendDailyMemory(agentDir, 'user', userPrompt);
+
+        const isFirstRun = !existsSync(sessionMarker);
+        const reply = await runClaude(userPrompt, {
+          agentDir,
+          agentName,
+          model: config.model || 'claude-sonnet-4-6',
+          language: config.language || 'es',
+          timezone: config.timezone,
+          continueSession: !isFirstRun,
+        });
+
+        if (isFirstRun) {
+          writeFileSync(sessionMarker, new Date().toISOString());
+        }
+
+        if (reply) {
+          await api.sendMessage(chatId, reply, undefined, { parseMode: null }).catch((err) => {
+            console.error('[telegram] sendMessage failed:', err);
+          });
+          appendDailyMemory(agentDir, 'agent', reply);
+        } else {
+          await api.sendMessage(chatId, '(silencio — el agente no produjo respuesta)', undefined, { parseMode: null }).catch(() => undefined);
+        }
       } catch (err) {
         console.error('[telegram-handler]', err);
+        await api.sendMessage(chatId, `⚠️ Error: ${err instanceof Error ? err.message : err}`, undefined, { parseMode: null }).catch(() => undefined);
+      } finally {
+        inflight--;
       }
     });
 
-    // -- Boot complete ------------------------------------------------------
+    // -- Boot complete -----------------------------------------------------
 
-    setTimeout(() => {
-      api.sendMessage(chatId, '✅ Online. Send me a message.', undefined, { parseMode: null }).catch(() => undefined);
-    }, 5000);
-
+    await api.sendMessage(chatId, '✅ Online. Mándame un mensaje.', undefined, { parseMode: null }).catch(() => undefined);
     console.log(chalk.green(`\n✓ ${agentName} is running.`));
-    console.log(chalk.dim(`  PTY log: ${logPath}`));
+    console.log(chalk.dim(`  Agent dir: ${agentDir}`));
     console.log(chalk.dim('  Send Telegram messages to your bot. Ctrl+C to stop.\n'));
 
-    // -- Graceful shutdown --------------------------------------------------
+    // -- Graceful shutdown -------------------------------------------------
 
-    const shutdown = (signal: string) => {
+    let shuttingDown = false;
+    const shutdown = async (signal: string) => {
+      if (shuttingDown) return;
+      shuttingDown = true;
       console.log(chalk.yellow(`\n[${signal}] Shutting down...`));
       poller.stop();
-      if (flushTimer) clearTimeout(flushTimer);
-      pty.kill();
+      if (inflight > 0) {
+        console.log(chalk.dim(`  Waiting for ${inflight} in-flight message(s)...`));
+        // Give in-flight messages up to 30s to finish
+        const deadline = Date.now() + 30_000;
+        while (inflight > 0 && Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 250));
+        }
+      }
       process.exit(0);
     };
     process.on('SIGINT', () => shutdown('SIGINT'));
@@ -146,6 +142,91 @@ export const startCommand = new Command('start')
 
     await poller.start();
   });
+
+// ---------------------------------------------------------------------------
+// Claude invocation
+// ---------------------------------------------------------------------------
+
+interface RunClaudeOptions {
+  agentDir: string;
+  agentName: string;
+  model: string;
+  language: string;
+  timezone?: string;
+  continueSession: boolean;
+}
+
+/**
+ * Spawn `claude -p` and collect its stdout. Returns the assistant's reply
+ * as a trimmed string, or null if the process exited non-zero or produced
+ * no output.
+ *
+ * Timeout: 5 minutes. Stderr is captured for diagnostics but not sent to
+ * Telegram (would leak internal errors to the user).
+ */
+function runClaude(userMessage: string, opts: RunClaudeOptions): Promise<string | null> {
+  return new Promise((resolve) => {
+    const args = [
+      '-p',
+      '--model', opts.model,
+      '--append-system-prompt', buildSystemPrompt(opts),
+      ...(opts.continueSession ? ['--continue'] : []),
+      userMessage,
+    ];
+
+    const proc = spawn('claude', args, {
+      cwd: opts.agentDir,
+      env: { ...process.env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    proc.stdout.on('data', (d) => { stdout += d.toString(); });
+    proc.stderr.on('data', (d) => { stderr += d.toString(); });
+
+    const timeout = setTimeout(() => {
+      console.error('[claude] timeout — killing process');
+      proc.kill('SIGTERM');
+    }, 5 * 60 * 1000);
+
+    proc.on('exit', (code) => {
+      clearTimeout(timeout);
+      if (code !== 0) {
+        console.error(`[claude] exit ${code}`);
+        if (stderr) console.error(`[claude stderr] ${stderr.slice(0, 500)}`);
+        // Still try to return stdout if we got any — claude sometimes exits
+        // non-zero for non-fatal warnings.
+        const fallback = stdout.trim();
+        resolve(fallback || null);
+        return;
+      }
+      resolve(stdout.trim() || null);
+    });
+
+    proc.on('error', (err) => {
+      clearTimeout(timeout);
+      console.error('[claude] spawn error:', err);
+      resolve(null);
+    });
+  });
+}
+
+function buildSystemPrompt(opts: RunClaudeOptions): string {
+  return [
+    `Eres "${opts.agentName}", un agente conversacional al que un operador escribe a través de Telegram.`,
+    '',
+    `Reglas:`,
+    `- El input incluye un header "=== TELEGRAM from {nombre} (chat_id:{id}) ===". El cuerpo es el mensaje del usuario.`,
+    `- Tu respuesta se envía AUTOMÁTICAMENTE como mensaje de Telegram. NO uses bloques de código Markdown ni formato pesado — Telegram no renderiza Markdown completo. Texto natural; solo backticks para comandos cortos.`,
+    `- Sé directo y conciso. Sin preámbulos del tipo "Claro,..." o "Voy a...". Responde al grano.`,
+    `- Para audios, el contenido transcrito viene marcado con "[transcript]:". Trátalo como si fuera el mensaje del usuario.`,
+    `- En este directorio (${opts.agentDir}) tienes una carpeta memory/ con archivos YYYY-MM-DD.md de conversaciones previas. Léelos si necesitas recuperar contexto. También hay una carpeta local/ donde el usuario puede añadir instrucciones custom (lee local/CLAUDE.md si existe).`,
+    '',
+    `Idioma principal: ${opts.language}.`,
+    opts.timezone ? `Zona horaria: ${opts.timezone}.` : '',
+  ].filter(Boolean).join('\n');
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -162,11 +243,11 @@ function resolveAgentName(arg: string | undefined): string {
     .filter((d: any) => d.isDirectory())
     .map((d: any) => d.name);
   if (entries.length === 0) {
-    console.error(chalk.red(`\nNo agents configured in ${SINGLE_HOME}. Run 'siriusos-single init' first.\n`));
+    console.error(chalk.red(`\nNo agents configured.\n`));
     process.exit(1);
   }
   if (entries.length > 1) {
-    console.error(chalk.red(`\nMultiple agents configured: ${entries.join(', ')}. Pass an agent name: siriusos-single start <name>\n`));
+    console.error(chalk.red(`\nMultiple agents: ${entries.join(', ')}. Pass an agent name: siriusos-single start <name>\n`));
     process.exit(1);
   }
   return entries[0];
@@ -174,9 +255,7 @@ function resolveAgentName(arg: string | undefined): string {
 
 function readConfig(agentDir: string): AgentConfig {
   const configPath = join(agentDir, 'config.json');
-  if (!existsSync(configPath)) {
-    return {};
-  }
+  if (!existsSync(configPath)) return {};
   try {
     return JSON.parse(readFileSync(configPath, 'utf-8'));
   } catch {
@@ -199,30 +278,6 @@ function readEnvFile(envPath: string): Record<string, string> {
   return out;
 }
 
-function buildBootPrompt(agentName: string, config: AgentConfig): string {
-  return [
-    `Eres "${agentName}", un agente persistente que conversa con tu operador a través de Telegram.`,
-    '',
-    `Reglas:`,
-    `- Cada mensaje del usuario llega con el header "=== TELEGRAM from {nombre} ===". Tu respuesta SE ENVÍA AUTOMÁTICAMENTE como mensaje de Telegram al usuario.`,
-    `- Responde en texto natural sin código de formato (no uses bloques Markdown salvo backticks para comandos). Telegram no renderiza Markdown completo.`,
-    `- Sé directo y conciso. Evita preámbulos.`,
-    `- Para mensajes de voz, el contenido transcrito viene en el campo "[transcript]". Trata el transcript como si fuera el mensaje del usuario.`,
-    `- Tienes una carpeta local memory/ con archivos YYYY-MM-DD.md. Léelos al inicio de cada sesión para recuperar contexto.`,
-    `- Tienes una carpeta local/ donde puedes guardar instrucciones custom (ej. local/CLAUDE.md) si el usuario te lo pide.`,
-    '',
-    `Idioma principal: ${config.language || 'es'}.`,
-    config.timezone ? `Zona horaria: ${config.timezone}.` : '',
-    '',
-    `Empieza leyendo memory/ para tu contexto previo y luego espera el primer mensaje del usuario.`,
-  ].filter(Boolean).join('\n');
-}
-
-/**
- * Format an incoming Telegram message into the standard inject string the
- * agent reads. For voice/audio, downloads the media and (if whisper-cli
- * is available) inlines the transcript.
- */
 async function formatTelegramMessage(
   msg: TelegramMessage,
   api: TelegramAPI,
@@ -254,38 +309,4 @@ async function formatTelegramMessage(
     `=== TELEGRAM from ${from} (chat_id:${chatId}) ===`,
     text,
   ].join('\n');
-}
-
-/**
- * Clean Claude PTY output for Telegram delivery:
- *  - Strip ANSI escape sequences (cursor moves, colors, etc.)
- *  - Strip Claude Code TUI chrome (boxes drawn with │ ─ ╭ ╮, footer hints)
- *  - Collapse runs of blank lines
- *  - Trim leading/trailing whitespace
- *
- * If nothing remains after cleanup, returns empty string so the debounced
- * flusher skips sending an empty Telegram message.
- */
-function sanitizeAgentOutput(raw: string): string {
-  let text = stripAnsi(raw);
-
-  // Drop UI box-drawing lines (Claude's TUI prompt frame)
-  text = text
-    .split('\n')
-    .filter((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return true;
-      // Claude TUI uses Unicode box chars; drop lines that are mostly box chars
-      const boxRatio = (trimmed.match(/[│─╭╮╯╰┌┐└┘├┤┬┴┼]/g) || []).length / trimmed.length;
-      if (boxRatio > 0.3) return false;
-      // Drop common Claude Code footer hints
-      if (/^\s*(>\s+Try|↑\/↓ history|esc to clear|ctrl\+[a-z])/i.test(trimmed)) return false;
-      return true;
-    })
-    .join('\n');
-
-  // Collapse 3+ blank lines to 2
-  text = text.replace(/\n{3,}/g, '\n\n');
-
-  return text.trim();
 }
