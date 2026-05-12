@@ -159,14 +159,14 @@ The ES|EN toggle lives in the navbar and in Settings → Appearance → Language
 
 ## Voice Transcription (optional)
 
-Telegram voice messages can be auto-transcribed locally with [Whisper](https://github.com/openai/whisper) before they reach the agent. Successful transcripts replace the audio path in the prompt and the `.ogg` is deleted (same-day cleanup). Install once to enable:
+Telegram voice messages can be auto-transcribed locally with [whisper.cpp](https://github.com/ggerganov/whisper.cpp) before they reach the agent. SiriusOS invokes the local `whisper-cli` binary with a GGML model, so no hosted API is required. Install once to enable:
 
 ```bash
-pip install openai-whisper
-brew install ffmpeg            # macOS — Linux: sudo apt-get install ffmpeg
+brew install whisper-cpp ffmpeg
+bash scripts/install-whisper-model.sh
 ```
 
-Zero config: defaults are model `base`, language `es`. If whisper is missing or transcription fails, the daemon falls back to the existing `local_file:` injection so the agent can still reach the audio.
+Zero config: defaults are model `ggml-base.bin` at `~/.siriusos/models/`, language `es`, and `whisper-cli`/`ffmpeg` from `PATH`. Override with `CTX_WHISPER_MODEL`, `CTX_WHISPER_LANG`, `CTX_WHISPER_BIN`, or `CTX_FFMPEG_BIN`. If local transcription is missing or fails, the daemon falls back to the existing `local_file:` injection so the agent can still reach the audio.
 
 ---
 

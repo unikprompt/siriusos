@@ -54,6 +54,31 @@ flowchart TD
 
 ---
 
+## Ediciones: Single vs Full
+
+SiriusOS se distribuye en dos sabores para que elijas el que mejor te calce:
+
+| | **siriusos-single** | **siriusos** (full) |
+|---|---|---|
+| Instalación | `npm install -g siriusos-single` | Instalador en una línea (ver más abajo) |
+| Tiempo de setup | ~5 minutos | ~15 minutos |
+| Agentes | Uno (Telegram) | Múltiples, coordinados |
+| Supervisor de procesos | Ninguno (foreground) | Daemon PM2 |
+| Dashboard web | — | ✓ UI Next.js |
+| Knowledge base / RAG | — | ✓ |
+| Configuración multi-org | — | ✓ |
+| Workflow de aprobaciones | — | ✓ |
+| Tareas programadas (cron) | — | ✓ |
+| Memoria (Markdown diario) | ✓ | ✓ |
+| Transcripción de voz | ✓ (whisper.cpp) | ✓ (whisper.cpp) |
+| Camino de upgrade | `siriusos-single export` → `siriusos import-agent <tarball>` | — |
+
+Elegí **single** si querés una primera experiencia rápida o solo necesitás un agente Telegram. Elegí **full** si vas a correr varios agentes, querés el dashboard o necesitás orquestación. Empezá chico y crecé después — el tarball de export preserva la configuración y la memoria de tu agente.
+
+Mirá [`single/README.md`](single/README.md) para el quickstart de la edición single.
+
+---
+
 ## Inicio rápido
 
 **Requisitos:** Node.js 20+, API key de Claude, token de bot de Telegram (@BotFather).
@@ -146,10 +171,23 @@ El toggle ES|EN del navbar (y el selector de idioma en Ajustes) cambia toda la i
 | Dependencia | Notas |
 |---|---|
 | Node.js 20+ | [nodejs.org](https://nodejs.org) |
-| macOS o Linux | Windows: todavía no soportado |
+| macOS, Linux o Windows 10/11 | En Windows se usa Task Scheduler para persistencia tras reinicio — ver `scripts/install-windows-pm2-startup.ps1` |
 | Claude Code | `npm install -g @anthropic-ai/claude-code` + `claude login` |
 | PM2 | `npm install -g pm2` |
 | Token de bot de Telegram | Lo creás vía @BotFather |
+
+---
+
+## Transcripción de voz (opcional)
+
+Los mensajes de voz de Telegram se pueden transcribir localmente con [whisper.cpp](https://github.com/ggerganov/whisper.cpp) antes de que lleguen al agente. SiriusOS invoca el binario local `whisper-cli` con un modelo GGML, así que no se necesita ninguna API hosteada. Se instala una sola vez:
+
+```bash
+brew install whisper-cpp ffmpeg
+bash scripts/install-whisper-model.sh
+```
+
+Sin configuración extra: por defecto se usa el modelo `ggml-base.bin` en `~/.siriusos/models/`, idioma `es`, y `whisper-cli`/`ffmpeg` desde el `PATH`. Se puede sobrescribir con `CTX_WHISPER_MODEL`, `CTX_WHISPER_LANG`, `CTX_WHISPER_BIN` o `CTX_FFMPEG_BIN`. Si la transcripción local no está instalada o falla, el daemon cae al `local_file:` original para que el agente igual pueda acceder al audio.
 
 ---
 
