@@ -391,7 +391,7 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
               className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
             >
               <option value="claude-code">Claude Code (default)</option>
-              <option value="codex">CodexPTY (recommended for Codex)</option>
+              <option value="codex-app-server">Codex App Server (recommended for Codex)</option>
               <option value="hermes">Hermes (experimental)</option>
             </select>
             <p className="mt-1 text-xs text-muted-foreground">
