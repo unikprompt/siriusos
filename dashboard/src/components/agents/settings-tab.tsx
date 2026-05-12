@@ -5,7 +5,7 @@ import { IconDeviceFloppy, IconSettings } from '@tabler/icons-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type Provider = 'anthropic' | 'openai';
-type Runtime = 'claude-code' | 'codex' | 'hermes';
+type Runtime = 'claude-code' | 'codex-app-server' | 'hermes';
 
 const MODELS_BY_PROVIDER: Record<Provider, string[]> = {
   anthropic: [
@@ -44,7 +44,6 @@ interface AgentConfig {
   max_session_seconds?: number;
   max_crashes_per_day?: number;
   startup_delay?: number;
-  runtime?: 'claude-code' | 'codex-app-server' | 'hermes';
 }
 
 const MODEL_PLACEHOLDER: Record<NonNullable<AgentConfig['runtime']>, string> = {
@@ -396,8 +395,8 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
               <option value="hermes">Hermes (experimental)</option>
             </select>
             <p className="mt-1 text-xs text-muted-foreground">
-              {config.runtime === 'codex'
-                ? 'Dedicated Codex adapter: fresh `codex exec` per turn, better quota handling. Requires provider=openai + codex CLI.'
+              {config.runtime === 'codex-app-server'
+                ? 'Codex app-server adapter (JSONRPC): native lifecycle, token usage tracking, and cost view. Requires provider=openai + codex CLI.'
                 : config.runtime === 'hermes'
                 ? 'Hermes runtime — internal/experimental. Not recommended for daily use.'
                 : 'Standard Claude Code PTY (works with provider=anthropic and the legacy provider=openai path).'}
