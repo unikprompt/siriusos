@@ -53,6 +53,31 @@ flowchart TD
 
 ---
 
+## Editions: Single vs Full
+
+SiriusOS ships in two flavors so you can pick the right footprint:
+
+| | **siriusos-single** | **siriusos** (full) |
+|---|---|---|
+| Install | `npm install -g siriusos-single` | One-line installer (see below) |
+| Setup time | ~5 minutes | ~15 minutes |
+| Agents | One Telegram agent | Multiple, coordinated |
+| Process supervisor | None (foreground) | PM2 daemon |
+| Web dashboard | — | ✓ Next.js UI |
+| Knowledge base / RAG | — | ✓ |
+| Multi-org configuration | — | ✓ |
+| Approvals workflow | — | ✓ |
+| Cron-scheduled tasks | — | ✓ |
+| Memory (daily Markdown) | ✓ | ✓ |
+| Voice transcription | ✓ (whisper.cpp) | ✓ (whisper.cpp) |
+| Upgrade path | `siriusos-single export` → `siriusos import-agent <tarball>` | — |
+
+Pick **single** if you want a quick first-time experience or just need a single Telegram agent. Pick **full** if you're running multiple agents, want the dashboard, or need orchestration. Start small and upgrade later — the export tarball preserves your agent's config and memory.
+
+See [`single/README.md`](single/README.md) for the single-edition quickstart.
+
+---
+
 ## Quick Start
 
 **Requirements:** Node.js 20+, Claude API key, Telegram bot token from @BotFather.
