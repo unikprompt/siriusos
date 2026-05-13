@@ -28,7 +28,7 @@
 import { homedir } from 'os';
 import { join } from 'path';
 import { parseDurationMs, readCronState, updateCronFire } from '../bus/cron-state.js';
-import { readCronsWithStatus, updateCron } from '../bus/crons.js';
+import { readCronsWithStatus, removeCron, updateCron } from '../bus/crons.js';
 import type { CronDefinition } from '../types/index.js';
 import { appendExecutionLog } from './cron-execution-log.js';
 
@@ -145,15 +145,29 @@ function changeKeyFor(c: CronDefinition): string {
 }
 
 /**
+ * A one-shot cron fires once at a specific time and is then removed.
+ * Marker: presence of `fire_at`. Per CronDefinition docstring, if `fire_at`
+ * is set the daemon treats this as a one-shot regardless of `schedule`.
+ */
+function isOneShot(cron: CronDefinition): boolean {
+  return Boolean(cron.fire_at);
+}
+
+/**
  * Compute the next fire time for a cron definition.
  *
- * For interval shorthands ("6h", "30m") we count forward from the
- * reference time.  For cron expressions we call nextFireFromCron().
+ * One-shot crons (with `fire_at` set) return their absolute fire time,
+ * regardless of `schedule`. Recurring crons use the interval shorthand
+ * ("6h", "30m") counted forward from the reference time, or a 5-field
+ * cron expression evaluated via nextFireFromCron().
  *
  * @param cron        - The cron definition.
  * @param referenceMs - Epoch ms to count forward from (usually now or lastFiredAt).
  */
 function computeNextFireAt(cron: CronDefinition, referenceMs: number): number {
+  if (isOneShot(cron)) {
+    return Date.parse(cron.fire_at as string);
+  }
   const durationMs = parseDurationMs(cron.schedule);
   if (!isNaN(durationMs)) {
     return referenceMs + durationMs;
@@ -524,6 +538,25 @@ export class CronScheduler {
           );
         }
 
+        // One-shot crons (fire_at set) fire exactly once and are then removed
+        // from both disk and the in-memory schedule. Without this, the next
+        // tick would call computeNextFireAt → Date.parse(fire_at) (in the past)
+        // → catch-up-fire forever.
+        if (isOneShot(cron)) {
+          try {
+            removeCron(this.agentName, name);
+          } catch (err) {
+            this.logger(
+              `[cron-scheduler] WARNING: failed to remove one-shot "${name}" from disk — ` +
+              `${err instanceof Error ? err.message : String(err)}. ` +
+              `Removed from in-memory schedule; disk entry may re-fire on restart.`
+            );
+          }
+          this.scheduled.delete(name);
+          this.logger(`[cron-scheduler] one-shot cron "${name}" fired and removed`);
+          continue; // sc is gone, skip clearing firing flag
+        }
+
         // Advance in-memory nextFireAt
         const next = computeNextFireAt(cron, now);
         if (!isNaN(next)) {
@@ -536,10 +569,29 @@ export class CronScheduler {
           continue; // sc is gone, skip clearing firing flag
         }
       } else {
-        // Dispatch failed (all retries exhausted). Advance nextFireAt anyway so
-        // we don't re-fire the same scheduled slot on every subsequent tick —
-        // that produced a busy-loop when an agent was unreachable. Treat the
-        // failed window as a missed slot and schedule the next normal fire.
+        // Dispatch failed (all retries exhausted). For one-shots, remove from
+        // disk + memory — retrying a one-shot forever defeats the "fire once"
+        // contract. The execution log records the failure for forensics.
+        if (isOneShot(cron)) {
+          try {
+            removeCron(this.agentName, name);
+          } catch (err) {
+            this.logger(
+              `[cron-scheduler] WARNING: failed to remove failed one-shot "${name}" from disk — ` +
+              `${err instanceof Error ? err.message : String(err)}.`
+            );
+          }
+          this.scheduled.delete(name);
+          this.logger(
+            `[cron-scheduler] one-shot cron "${name}" failed after all retries — removed (failure in execution log)`
+          );
+          continue; // sc is gone, skip clearing firing flag
+        }
+
+        // Recurring cron — advance nextFireAt anyway so we don't re-fire the
+        // same scheduled slot on every subsequent tick (that produced a busy-
+        // loop when an agent was unreachable). Treat the failed window as a
+        // missed slot and schedule the next normal fire.
         const next = computeNextFireAt(cron, now);
         if (!isNaN(next)) {
           sc.nextFireAt = next;

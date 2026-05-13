@@ -16,6 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const mockReadCrons  = vi.fn();
 const mockUpdateCron = vi.fn();
+const mockRemoveCron = vi.fn();
 // readCronsWithStatus is what cron-scheduler actually calls (post-iter-9).
 // By default it mirrors mockReadCrons with corrupt:false so existing tests
 // keep working.  Tests that need to assert the corruption path can override
@@ -26,6 +27,7 @@ vi.mock('../../../src/bus/crons.js', () => ({
   readCrons:  (...args: unknown[]) => mockReadCrons(...args),
   readCronsWithStatus: (...args: unknown[]) => mockReadCronsWithStatus(...args),
   updateCron: (...args: unknown[]) => mockUpdateCron(...args),
+  removeCron: (...args: unknown[]) => mockRemoveCron(...args),
 }));
 
 // Mock cron-state.ts so post-fire updateCronFire() never touches real disk.
@@ -201,6 +203,7 @@ describe('CronScheduler', () => {
     fired  = [];
     mockReadCrons.mockReset();
     mockUpdateCron.mockReset();
+    mockRemoveCron.mockReset();
     mockReadCronsWithStatus.mockReset();
     mockUpdateCronFire.mockReset();
     mockReadCronState.mockReset();
@@ -858,5 +861,121 @@ describe('CronScheduler', () => {
     expect(names).toContain('a');
     expect(names).toContain('b');
     expect(names).not.toContain('c'); // disabled, not scheduled
+  });
+
+  // -------------------------------------------------------------------------
+  // One-shot crons (fire_at) — fix for daemon ignoring fire_at
+  // -------------------------------------------------------------------------
+
+  it('one-shot cron with fire_at fires at the absolute timestamp (schedule empty)', async () => {
+    const fireAtMs = Date.now() + 5 * 60_000; // 5 minutes from now
+    mockReadCrons.mockReturnValue([
+      makeCron({
+        name: 'one-shot',
+        schedule: '',
+        fire_at: new Date(fireAtMs).toISOString(),
+      }),
+    ]);
+    scheduler.start();
+
+    // Before fire_at: no fire
+    await vi.advanceTimersByTimeAsync(4 * 60_000);
+    expect(fired).toHaveLength(0);
+
+    // At fire_at + one tick: fires
+    await vi.advanceTimersByTimeAsync(60_000 + TICK);
+    expect(fired).toHaveLength(1);
+    expect(fired[0].name).toBe('one-shot');
+  });
+
+  it('one-shot cron is removed from disk after firing (does not double-fire)', async () => {
+    const fireAtMs = Date.now() + 60_000;
+    mockReadCrons.mockReturnValue([
+      makeCron({
+        name: 'one-shot',
+        schedule: '',
+        fire_at: new Date(fireAtMs).toISOString(),
+      }),
+    ]);
+    scheduler.start();
+
+    // Fire it
+    await vi.advanceTimersByTimeAsync(60_000 + TICK);
+    expect(fired).toHaveLength(1);
+    expect(mockRemoveCron).toHaveBeenCalledWith('test-agent', 'one-shot');
+
+    // Advance well past — must NOT fire again
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(fired).toHaveLength(1);
+  });
+
+  it('one-shot cron with fire_at in the past catch-up fires once on start, then removes', async () => {
+    const pastFireAtMs = Date.now() - 3 * 60_000; // 3 minutes ago
+    mockReadCrons.mockReturnValue([
+      makeCron({
+        name: 'missed-one-shot',
+        schedule: '',
+        fire_at: new Date(pastFireAtMs).toISOString(),
+      }),
+    ]);
+    scheduler.start();
+
+    // Catch-up fires on next tick
+    await vi.advanceTimersByTimeAsync(TICK);
+    expect(fired).toHaveLength(1);
+    expect(fired[0].name).toBe('missed-one-shot');
+    expect(mockRemoveCron).toHaveBeenCalledWith('test-agent', 'missed-one-shot');
+
+    // No re-fire later
+    await vi.advanceTimersByTimeAsync(10 * 60_000);
+    expect(fired).toHaveLength(1);
+  });
+
+  it('fire_at takes precedence over schedule (one-shot wins even when both set)', async () => {
+    const fireAtMs = Date.now() + 90_000; // 1.5 minutes
+    mockReadCrons.mockReturnValue([
+      makeCron({
+        name: 'both-fields',
+        schedule: '1h', // would otherwise fire in 1 hour
+        fire_at: new Date(fireAtMs).toISOString(),
+      }),
+    ]);
+    scheduler.start();
+
+    // fire_at (90s) fires before the 1h schedule would
+    await vi.advanceTimersByTimeAsync(90_000 + TICK);
+    expect(fired).toHaveLength(1);
+    expect(mockRemoveCron).toHaveBeenCalledWith('test-agent', 'both-fields');
+
+    // No 1h-interval re-fire after removal
+    await vi.advanceTimersByTimeAsync(60 * 60_000);
+    expect(fired).toHaveLength(1);
+  });
+
+  it('one-shot that exhausts all retries is removed (no infinite retry loop)', async () => {
+    const fireAtMs = Date.now() + 60_000;
+    const failingFire = vi.fn().mockRejectedValue(new Error('PTY unavailable'));
+    const failScheduler = new CronScheduler({
+      agentName: 'test-agent',
+      onFire: failingFire,
+      logger: (msg) => { logs.push(msg); },
+    });
+    mockReadCrons.mockReturnValue([
+      makeCron({
+        name: 'failing-one-shot',
+        schedule: '',
+        fire_at: new Date(fireAtMs).toISOString(),
+      }),
+    ]);
+    failScheduler.start();
+
+    // Fire fires, retries, ultimately fails — then removed.
+    // Retries take 1+4+16=21s. Allow 60s + tick + retry budget.
+    await vi.advanceTimersByTimeAsync(60_000 + TICK);
+    await vi.advanceTimersByTimeAsync(30_000); // drain retry delays
+    expect(failingFire).toHaveBeenCalled();
+    expect(mockRemoveCron).toHaveBeenCalledWith('test-agent', 'failing-one-shot');
+
+    failScheduler.stop();
   });
 });
