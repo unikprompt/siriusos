@@ -6,6 +6,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type Provider = 'anthropic' | 'openai';
 type Runtime = 'claude-code' | 'codex-app-server' | 'hermes';
+type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 
 const MODELS_BY_PROVIDER: Record<Provider, string[]> = {
   anthropic: [
@@ -44,6 +45,7 @@ interface AgentConfig {
   max_session_seconds?: number;
   max_crashes_per_day?: number;
   startup_delay?: number;
+  reasoning_effort?: ReasoningEffort;
 }
 
 const MODEL_PLACEHOLDER: Record<NonNullable<AgentConfig['runtime']>, string> = {
@@ -402,6 +404,25 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
                 : 'Standard Claude Code PTY (works with provider=anthropic and the legacy provider=openai path).'}
             </p>
           </div>
+
+          {config.runtime === 'codex-app-server' && (
+            <div>
+              <label className="text-xs text-muted-foreground">Reasoning Effort</label>
+              <select
+                value={config.reasoning_effort || 'high'}
+                onChange={e => setConfig(p => ({ ...p, reasoning_effort: e.target.value as ReasoningEffort }))}
+                className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+              >
+                <option value="minimal">Minimal — fastest, lowest reasoning</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High (recommended)</option>
+              </select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Higher effort = better reasoning but 30-50% more tokens per turn. Lower if you hit context bloat or crashes.
+              </p>
+            </div>
+          )}
 
           {(() => {
             const provider: Provider = config.provider || 'anthropic';

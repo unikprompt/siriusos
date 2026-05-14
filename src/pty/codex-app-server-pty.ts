@@ -416,7 +416,15 @@ export class CodexAppServerPTY {
       }
 
       const spawnFn = this._spawnFn!;
+      // Optional reasoning effort override. When set in config.json, passed to
+      // the codex CLI via `-c model_reasoning_effort=<value>` so the agent
+      // produces shorter / cheaper turns. Absent → codex CLI default (currently
+      // 'high' on v0.130.x).
+      const effortArgs: string[] = this._config.reasoning_effort
+        ? ['-c', `model_reasoning_effort=${this._config.reasoning_effort}`]
+        : [];
       const pty = spawnFn('codex', [
+        ...effortArgs,
         'app-server',
         '--enable', 'goals',
         '--listen', this._socketListenArg,

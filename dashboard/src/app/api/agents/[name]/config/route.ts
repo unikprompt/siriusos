@@ -68,7 +68,7 @@ export async function PATCH(
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const allowed = ['timezone', 'day_mode_start', 'day_mode_end', 'communication_style', 'approval_rules', 'max_session_seconds', 'max_crashes_per_day', 'startup_delay', 'model', 'provider', 'runtime', 'ctx_warning_threshold', 'ctx_handoff_threshold'];
+  const allowed = ['timezone', 'day_mode_start', 'day_mode_end', 'communication_style', 'approval_rules', 'max_session_seconds', 'max_crashes_per_day', 'startup_delay', 'model', 'provider', 'runtime', 'ctx_warning_threshold', 'ctx_handoff_threshold', 'reasoning_effort'];
   if (body.provider !== undefined && body.provider !== 'anthropic' && body.provider !== 'openai') {
     return Response.json({ error: "provider must be 'anthropic' or 'openai'" }, { status: 400 });
   }
@@ -110,6 +110,17 @@ export async function PATCH(
   if (body.ctx_warning_threshold !== undefined && body.ctx_handoff_threshold !== undefined) {
     if ((body.ctx_warning_threshold as number) >= (body.ctx_handoff_threshold as number)) {
       return Response.json({ error: 'ctx_warning_threshold must be less than ctx_handoff_threshold' }, { status: 400 });
+    }
+  }
+
+  // Validate reasoning_effort: must be one of the codex CLI accepted values
+  if (body.reasoning_effort !== undefined) {
+    const validEfforts = ['minimal', 'low', 'medium', 'high'] as const;
+    if (typeof body.reasoning_effort !== 'string' || !validEfforts.includes(body.reasoning_effort as any)) {
+      return Response.json(
+        { error: `reasoning_effort must be one of: ${validEfforts.join(', ')}` },
+        { status: 400 },
+      );
     }
   }
 

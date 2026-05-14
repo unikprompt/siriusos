@@ -201,6 +201,15 @@ export interface AgentConfig {
    * poller will be skipped regardless.
    */
   telegram_polling?: boolean;
+  /**
+   * Reasoning effort hint for OpenAI codex-app-server runtimes. Passed to the
+   * codex CLI via `-c model_reasoning_effort=<value>` override at spawn time.
+   * Higher effort produces better reasoning but consumes 30-50% more tokens
+   * per turn — lower this to `medium` or `low` if you hit context bloat or
+   * context_too_large crashes. Ignored for non-codex runtimes. When absent the
+   * codex CLI uses its own default (varies by version, currently `high`).
+   */
+  reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
 }
 
 export interface CronEntry {
