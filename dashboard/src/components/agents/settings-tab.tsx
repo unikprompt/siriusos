@@ -189,6 +189,7 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
         max_session_seconds: config.max_session_seconds,
         max_crashes_per_day: config.max_crashes_per_day,
         startup_delay: config.startup_delay,
+        reasoning_effort: config.reasoning_effort,
       },
       setAgSaving,
       setAgMessage,
