@@ -54,9 +54,9 @@ interface CronExecutionLogEntry {
   error: string | null;
 }
 
-export type CronHealthState = 'healthy' | 'warning' | 'failure' | 'never-fired';
+type CronHealthState = 'healthy' | 'warning' | 'failure' | 'never-fired';
 
-export interface CronHealthRow {
+interface CronHealthRow {
   agent: string;
   org: string;
   cronName: string;
@@ -70,7 +70,7 @@ export interface CronHealthRow {
   nextFire: string;
 }
 
-export interface AgentHealthSummary {
+interface AgentHealthSummary {
   agent: string;
   org: string;
   total: number;
@@ -80,7 +80,7 @@ export interface AgentHealthSummary {
   neverFired: number;
 }
 
-export interface FleetHealthResponse {
+interface FleetHealthResponse {
   rows: CronHealthRow[];
   summary: {
     total: number;

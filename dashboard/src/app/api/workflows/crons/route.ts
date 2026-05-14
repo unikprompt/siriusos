@@ -47,7 +47,7 @@ interface CronExecutionLogEntry {
   error: string | null;
 }
 
-export interface CronSummaryRow {
+interface CronSummaryRow {
   agent: string;
   org: string;
   cron: CronDefinition;
