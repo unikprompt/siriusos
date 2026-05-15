@@ -9,12 +9,14 @@ export interface RuntimeBadgeProps {
 
 const RUNTIME_LABEL: Record<AgentRuntime, string> = {
   'claude-code': 'Claude',
+  codex: 'Codex Exec',
   'codex-app-server': 'Codex',
   hermes: 'Hermes',
 };
 
 const RUNTIME_CLASSES: Record<AgentRuntime, string> = {
   'claude-code': 'bg-amber-500/10 text-amber-600 border-amber-500/30',
+  codex: 'bg-sky-500/10 text-sky-600 border-sky-500/30',
   'codex-app-server': 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
   hermes: 'bg-violet-500/10 text-violet-600 border-violet-500/30',
 };

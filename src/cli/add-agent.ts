@@ -5,7 +5,7 @@ import { homedir } from 'os';
 import { OrgContext } from '../types';
 import { validateAgentName } from '../utils/validate';
 
-const VALID_RUNTIMES = ['claude-code', 'hermes', 'codex-app-server'] as const;
+const VALID_RUNTIMES = ['claude-code', 'hermes', 'codex', 'codex-app-server'] as const;
 type RuntimeKind = typeof VALID_RUNTIMES[number];
 
 // Templates that don't have a codex variant yet. Pairing any of these with
@@ -28,7 +28,8 @@ export const addAgentCommand = new Command('add-agent')
       process.exit(1);
     }
 
-    if (options.runtime === 'codex-app-server' && (NON_CODEX_TEMPLATES as readonly string[]).includes(options.template)) {
+    const isCodexVariant = options.runtime === 'codex' || options.runtime === 'codex-app-server';
+    if (isCodexVariant && (NON_CODEX_TEMPLATES as readonly string[]).includes(options.template)) {
       console.error(`Error: no codex variant of "${options.template}" yet. Use --template agent for a codex agent (or file an issue to track adding a codex-${options.template} variant).`);
       process.exit(1);
     }
@@ -89,17 +90,17 @@ export const addAgentCommand = new Command('add-agent')
     mkdirSync(agentDir, { recursive: true });
     mkdirSync(join(agentDir, 'memory'), { recursive: true });
 
-    // For codex-app-server, skills live under plugins/siriusos-agent-skills/skills
-    // and are copied in by the template; .claude/skills is Claude-Code-only.
-    const isCodexAppServer = options.runtime === 'codex-app-server';
-    if (!isCodexAppServer) {
+    // For codex variants (both `codex` exec-mode and `codex-app-server`), skills
+    // live under plugins/siriusos-agent-skills/skills and are copied in by the
+    // template; .claude/skills is Claude-Code-only.
+    if (!isCodexVariant) {
       mkdirSync(join(agentDir, '.claude', 'skills'), { recursive: true });
     }
 
     // Resolve template name. Codex agents created with the default --template agent
     // get the codex-specific bootstrap in templates/agent-codex/. Any explicit
     // --template choice is honored as-is so orchestrator/analyst/etc still work.
-    const effectiveTemplate = (isCodexAppServer && options.template === 'agent')
+    const effectiveTemplate = (isCodexVariant && options.template === 'agent')
       ? 'agent-codex'
       : options.template;
 
@@ -116,7 +117,8 @@ export const addAgentCommand = new Command('add-agent')
 
     // Codex agents: link each local skill into ~/.codex/skills/<agent>__<skill>
     // so codex-app-server's host-wide skill discovery sees the per-agent set.
-    if (isCodexAppServer) {
+    // Skipped for `codex` exec-mode — that runtime does not expose skills.
+    if (options.runtime === 'codex-app-server') {
       try {
         const linksCreated = installCodexSkillSymlinks(agentDir, name);
         if (linksCreated > 0) {

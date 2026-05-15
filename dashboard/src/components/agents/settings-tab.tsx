@@ -5,7 +5,7 @@ import { IconDeviceFloppy, IconSettings } from '@tabler/icons-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
 type Provider = 'anthropic' | 'openai';
-type Runtime = 'claude-code' | 'codex-app-server' | 'hermes';
+type Runtime = 'claude-code' | 'codex' | 'codex-app-server' | 'hermes';
 type ReasoningEffort = 'minimal' | 'low' | 'medium' | 'high';
 
 const MODELS_BY_PROVIDER: Record<Provider, string[]> = {
@@ -50,6 +50,7 @@ interface AgentConfig {
 
 const MODEL_PLACEHOLDER: Record<NonNullable<AgentConfig['runtime']>, string> = {
   'claude-code': 'claude-sonnet-4-5',
+  codex: 'gpt-5-codex',
   'codex-app-server': 'gpt-5-codex',
   hermes: 'hermes-1',
 };
@@ -394,12 +395,15 @@ export function SettingsTab({ agentName }: SettingsTabProps) {
               className="mt-1 block w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
             >
               <option value="claude-code">Claude Code (default)</option>
-              <option value="codex-app-server">Codex App Server (recommended for Codex)</option>
+              <option value="codex">Codex Exec (lightweight, no framework)</option>
+              <option value="codex-app-server">Codex App Server (full integration)</option>
               <option value="hermes">Hermes (experimental)</option>
             </select>
             <p className="mt-1 text-xs text-muted-foreground">
-              {config.runtime === 'codex-app-server'
-                ? 'Codex app-server adapter (JSONRPC): native lifecycle, token usage tracking, and cost view. Requires provider=openai + codex CLI.'
+              {config.runtime === 'codex'
+                ? 'Spawns `codex exec` per turn. No persistent thread, no bootstrap files loaded, no siriusos skills. Each turn is fresh — costs ~5-10× less context than app-server. Best for ChatGPT Plus tier and standalone research / quick code questions.'
+                : config.runtime === 'codex-app-server'
+                ? 'Codex app-server adapter (JSONRPC): native lifecycle, persistent thread, token usage tracking, goals + skills + cost view. Heavier per turn. Best fit for ChatGPT Pro tier.'
                 : config.runtime === 'hermes'
                 ? 'Hermes runtime — internal/experimental. Not recommended for daily use.'
                 : 'Standard Claude Code PTY (works with provider=anthropic and the legacy provider=openai path).'}

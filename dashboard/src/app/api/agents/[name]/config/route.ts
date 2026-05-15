@@ -72,8 +72,14 @@ export async function PATCH(
   if (body.provider !== undefined && body.provider !== 'anthropic' && body.provider !== 'openai') {
     return Response.json({ error: "provider must be 'anthropic' or 'openai'" }, { status: 400 });
   }
-  if (body.runtime !== undefined && body.runtime !== 'claude-code' && body.runtime !== 'codex-app-server' && body.runtime !== 'hermes') {
-    return Response.json({ error: "runtime must be 'claude-code', 'codex-app-server', or 'hermes'" }, { status: 400 });
+  if (
+    body.runtime !== undefined &&
+    body.runtime !== 'claude-code' &&
+    body.runtime !== 'codex' &&
+    body.runtime !== 'codex-app-server' &&
+    body.runtime !== 'hermes'
+  ) {
+    return Response.json({ error: "runtime must be 'claude-code', 'codex', 'codex-app-server', or 'hermes'" }, { status: 400 });
   }
   const timeRegex = /^\d{2}:\d{2}$/;
   if (body.day_mode_start && !timeRegex.test(body.day_mode_start as string)) {
