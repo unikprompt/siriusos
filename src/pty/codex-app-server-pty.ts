@@ -81,6 +81,14 @@ const SOCKET_BASENAME = 'codex.sock';
 const SOCKET_PATH_WARN_BYTES = 100;
 const BOOTSTRAP_PATTERN = '[codex-app-server] ready';
 
+// If the prior context_status.json for the persisted thread reports usage at
+// or above this percentage, treat the thread as bloated beyond rescue and
+// start fresh on the next boot instead of resuming. Codex's `excludeTurns`
+// does not actually evict accumulated turns from the resumed thread, so a
+// thread that hit handoff keeps re-triggering it on every restart and the
+// agent enters a HARD-RESTART loop (see 2026-05-15 incident).
+const THREAD_BLOAT_GUARD_PCT = 90;
+
 const SLASH_REWRITE_RE = /^\/([a-z][a-z0-9_-]*)(?:\s+([\s\S]*))?$/i;
 const LOCAL_SLASH_COMMANDS = new Set(['goal']);
 
@@ -483,7 +491,14 @@ export class CodexAppServerPTY {
   }
 
   private async startOrResumeThread(mode: 'fresh' | 'continue'): Promise<void> {
-    const persisted = this.readThreadState();
+    let persisted = this.readThreadState();
+    if (persisted) {
+      const bloatPct = this.readBloatedThreadPercentage(persisted.threadId);
+      if (bloatPct !== null) {
+        this.clearPersistedThreadOnBloat(bloatPct);
+        persisted = null;
+      }
+    }
     if (persisted) {
       try {
         const resumed = await this.request<ThreadResponse>('thread/resume', {
@@ -890,6 +905,50 @@ export class CodexAppServerPTY {
       return parsed.cwd === this._cwd && parsed.threadId ? parsed : null;
     } catch {
       return null;
+    }
+  }
+
+  /**
+   * Inspect the last-written context_status.json for the persisted thread and
+   * return the recorded usage percentage when it matches `threadId` and meets
+   * the bloat threshold. Returns `null` otherwise. Used at boot to decide
+   * whether to skip resuming a thread that was already past the bloat line —
+   * resuming such threads re-loads accumulated turns and re-triggers the
+   * handoff loop within seconds.
+   */
+  private readBloatedThreadPercentage(threadId: string): number | null {
+    const statusPath = join(this._stateDir, 'context_status.json');
+    if (!existsSync(statusPath)) return null;
+    try {
+      const parsed = JSON.parse(readFileSync(statusPath, 'utf-8')) as {
+        session_id?: unknown;
+        used_percentage?: unknown;
+      };
+      if (parsed.session_id !== threadId) return null;
+      if (typeof parsed.used_percentage !== 'number') return null;
+      if (parsed.used_percentage < THREAD_BLOAT_GUARD_PCT) return null;
+      return parsed.used_percentage;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Delete the persisted thread state file (and stale context_status) so the
+   * next thread-resolution attempt falls through to `thread/start`. The stale
+   * context_status is removed to prevent the new fresh session from being
+   * judged by the bloated thread's last reading.
+   */
+  private clearPersistedThreadOnBloat(usedPct: number): void {
+    this._outputBuffer.push(
+      `[codex-app-server] bloat guard: clearing persisted thread (prior used_percentage=${usedPct.toFixed(1)}%, threshold=${THREAD_BLOAT_GUARD_PCT}%)\n`,
+    );
+    for (const target of [this._threadStatePath, join(this._stateDir, 'context_status.json')]) {
+      try {
+        if (existsSync(target)) unlinkSync(target);
+      } catch (err) {
+        this._outputBuffer.push(`[codex-app-server] failed to clear ${target}: ${err}\n`);
+      }
     }
   }
 
