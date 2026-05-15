@@ -20,6 +20,7 @@ import type { BusPaths, TelegramMessage } from '../types/index.js';
  */
 export interface OutboundLogMetadata {
   parseMode?: 'html' | 'none';
+  type?: string;
 }
 
 /**
