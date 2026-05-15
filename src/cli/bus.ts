@@ -1247,6 +1247,248 @@ busCommand
   });
 
 busCommand
+  .command('send-poll')
+  .description('Send a native Telegram poll')
+  .argument('<chat-id>', 'Telegram chat ID')
+  .argument('<question>', 'Poll question text')
+  .argument('<options...>', 'Poll options (2-10)')
+  .option('--anonymous', 'Make poll anonymous (default: non-anonymous)', false)
+  .option('--multi', 'Allow multiple answers', false)
+  .action(async (chatId: string, question: string, options: string[], opts: { anonymous?: boolean; multi?: boolean }) => {
+    if (options.length < 2) {
+      console.error('Error: polls require at least 2 options');
+      process.exit(1);
+    }
+    if (options.length > 10) {
+      console.error('Error: Telegram polls support at most 10 options');
+      process.exit(1);
+    }
+    const env = resolveEnv();
+    let botToken = '';
+    if (env.agentDir) {
+      const agentEnv = join(env.agentDir, '.env');
+      if (existsSync(agentEnv)) {
+        const content = readFileSync(agentEnv, 'utf-8');
+        const match = content.match(/^BOT_TOKEN=(.+)$/m);
+        if (match && match[1].trim()) botToken = match[1].trim();
+      }
+    }
+    if (!botToken) botToken = process.env.BOT_TOKEN || '';
+    if (!botToken) {
+      console.error('Error: BOT_TOKEN not configured.');
+      process.exit(1);
+    }
+    const api = new TelegramAPI(botToken);
+    try {
+      const result = await api.sendPoll(chatId, question, options, {
+        isAnonymous: opts.anonymous,
+        allowsMultipleAnswers: opts.multi,
+      });
+      const pollId = result?.result?.poll?.id ?? 'unknown';
+      console.log(`Poll sent (poll_id: ${pollId})`);
+      if (env.agentName && env.ctxRoot) {
+        try {
+          const paths = resolvePaths(env.agentName, env.instanceId, env.org);
+          logEvent(paths, env.agentName, env.org, 'message', 'telegram_poll_sent', 'info', JSON.stringify({ chat_id: chatId, poll_id: pollId, question }));
+        } catch { /* non-fatal */ }
+      }
+    } catch (err: any) {
+      console.error(`Failed to send poll: ${err.message || err}`);
+      process.exit(1);
+    }
+  });
+
+busCommand
+  .command('send-buttons')
+  .description('Send a message with custom inline keyboard buttons')
+  .argument('<chat-id>', 'Telegram chat ID')
+  .argument('<message>', 'Message text')
+  .argument('<buttons...>', 'Buttons as "label:callback_data" pairs. Use | to separate rows.')
+  .action(async (chatId: string, rawMessage: string, buttons: string[]) => {
+    const message = rawMessage.replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\t/g, '\t');
+    const env = resolveEnv();
+    let botToken = '';
+    if (env.agentDir) {
+      const agentEnv = join(env.agentDir, '.env');
+      if (existsSync(agentEnv)) {
+        const content = readFileSync(agentEnv, 'utf-8');
+        const match = content.match(/^BOT_TOKEN=(.+)$/m);
+        if (match && match[1].trim()) botToken = match[1].trim();
+      }
+    }
+    if (!botToken) botToken = process.env.BOT_TOKEN || '';
+    if (!botToken) {
+      console.error('Error: BOT_TOKEN not configured.');
+      process.exit(1);
+    }
+    const keyboard: Array<Array<{ text: string; callback_data: string }>> = [];
+    let currentRow: Array<{ text: string; callback_data: string }> = [];
+    for (const btn of buttons) {
+      if (btn === '|') {
+        if (currentRow.length > 0) { keyboard.push(currentRow); currentRow = []; }
+        continue;
+      }
+      const colonIdx = btn.indexOf(':');
+      if (colonIdx === -1) {
+        console.error(`Error: button "${btn}" must be in "label:callback_data" format`);
+        process.exit(1);
+      }
+      const label = btn.slice(0, colonIdx);
+      const cbData = btn.slice(colonIdx + 1);
+      if (cbData.length > 64) {
+        console.error(`Error: callback_data "${cbData}" exceeds Telegram's 64-byte limit`);
+        process.exit(1);
+      }
+      currentRow.push({ text: label, callback_data: `btn_${cbData}` });
+    }
+    if (currentRow.length > 0) keyboard.push(currentRow);
+    const api = new TelegramAPI(botToken);
+    try {
+      const result = await api.sendMessage(chatId, message, { inline_keyboard: keyboard });
+      const msgId = result?.result?.message_id ?? 0;
+      console.log(`Buttons sent (message_id: ${msgId})`);
+      if (env.agentName && env.ctxRoot) {
+        logOutboundMessage(env.ctxRoot, env.agentName, chatId, message, msgId, { type: 'buttons' });
+        try {
+          const paths = resolvePaths(env.agentName, env.instanceId, env.org);
+          logEvent(paths, env.agentName, env.org, 'message', 'telegram_buttons_sent', 'info', JSON.stringify({ chat_id: chatId, message_id: msgId, buttons: buttons.length }));
+        } catch { /* non-fatal */ }
+      }
+    } catch (err: any) {
+      console.error(`Failed to send: ${err.message || err}`);
+      process.exit(1);
+    }
+  });
+
+busCommand
+  .command('send-checklist')
+  .description('Send an interactive checklist with toggle buttons')
+  .argument('<chat-id>', 'Telegram chat ID')
+  .argument('<title>', 'Checklist title')
+  .argument('<items...>', 'Checklist items')
+  .action(async (chatId: string, title: string, items: string[]) => {
+    if (items.length < 1) {
+      console.error('Error: checklist requires at least 1 item');
+      process.exit(1);
+    }
+    if (items.length > 20) {
+      console.error('Error: checklist supports at most 20 items');
+      process.exit(1);
+    }
+    const env = resolveEnv();
+    let botToken = '';
+    if (env.agentDir) {
+      const agentEnv = join(env.agentDir, '.env');
+      if (existsSync(agentEnv)) {
+        const content = readFileSync(agentEnv, 'utf-8');
+        const match = content.match(/^BOT_TOKEN=(.+)$/m);
+        if (match && match[1].trim()) botToken = match[1].trim();
+      }
+    }
+    if (!botToken) botToken = process.env.BOT_TOKEN || '';
+    if (!botToken) {
+      console.error('Error: BOT_TOKEN not configured.');
+      process.exit(1);
+    }
+    const checklistId = `cl_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const state = items.map(() => false);
+    const stateDir = env.ctxRoot ? join(env.ctxRoot, 'state', env.agentName || 'unknown') : '';
+    if (stateDir) {
+      const { mkdirSync, writeFileSync } = require('fs');
+      mkdirSync(stateDir, { recursive: true });
+      writeFileSync(join(stateDir, `checklist-${checklistId}.json`), JSON.stringify({ id: checklistId, title, items, state, chatId }) + '\n', 'utf-8');
+    }
+    const keyboard: Array<Array<{ text: string; callback_data: string }>> = items.map((item, i) => [{
+      text: `☐ ${item}`,
+      callback_data: `cltoggle_${checklistId}_${i}`,
+    }]);
+    const api = new TelegramAPI(botToken);
+    try {
+      const msg = `${title}\n\n0/${items.length} completados`;
+      const result = await api.sendMessage(chatId, msg, { inline_keyboard: keyboard });
+      const msgId = result?.result?.message_id ?? 0;
+      if (stateDir) {
+        const { writeFileSync } = require('fs');
+        const stateFile = join(stateDir, `checklist-${checklistId}.json`);
+        writeFileSync(stateFile, JSON.stringify({ id: checklistId, title, items, state, chatId, messageId: msgId }) + '\n', 'utf-8');
+      }
+      console.log(`Checklist sent (id: ${checklistId}, message_id: ${msgId})`);
+      if (env.agentName && env.ctxRoot) {
+        try {
+          const paths = resolvePaths(env.agentName, env.instanceId, env.org);
+          logEvent(paths, env.agentName, env.org, 'message', 'telegram_checklist_sent', 'info', JSON.stringify({ chat_id: chatId, checklist_id: checklistId, items: items.length }));
+        } catch { /* non-fatal */ }
+      }
+    } catch (err: any) {
+      console.error(`Failed to send checklist: ${err.message || err}`);
+      process.exit(1);
+    }
+  });
+
+busCommand
+  .command('send-priority')
+  .description('Send a priority ranking prompt — user taps items in order of priority')
+  .argument('<chat-id>', 'Telegram chat ID')
+  .argument('<question>', 'Question text (e.g. "What should we work on first?")')
+  .argument('<items...>', 'Items to rank (2-10)')
+  .action(async (chatId: string, question: string, items: string[]) => {
+    if (items.length < 2) {
+      console.error('Error: priority ranking requires at least 2 items');
+      process.exit(1);
+    }
+    if (items.length > 10) {
+      console.error('Error: priority ranking supports at most 10 items');
+      process.exit(1);
+    }
+    const env = resolveEnv();
+    let botToken = '';
+    if (env.agentDir) {
+      const agentEnv = join(env.agentDir, '.env');
+      if (existsSync(agentEnv)) {
+        const content = readFileSync(agentEnv, 'utf-8');
+        const match = content.match(/^BOT_TOKEN=(.+)$/m);
+        if (match && match[1].trim()) botToken = match[1].trim();
+      }
+    }
+    if (!botToken) botToken = process.env.BOT_TOKEN || '';
+    if (!botToken) {
+      console.error('Error: BOT_TOKEN not configured.');
+      process.exit(1);
+    }
+    const prioId = `prio_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const stateDir = env.ctxRoot ? join(env.ctxRoot, 'state', env.agentName || 'unknown') : '';
+    if (stateDir) {
+      const { mkdirSync, writeFileSync } = require('fs');
+      mkdirSync(stateDir, { recursive: true });
+      writeFileSync(join(stateDir, `priority-${prioId}.json`), JSON.stringify({ id: prioId, question, items, ranked: [], chatId }) + '\n', 'utf-8');
+    }
+    const keyboard: Array<Array<{ text: string; callback_data: string }>> = items.map((item, i) => [{
+      text: `${item}`,
+      callback_data: `priorank_${prioId}_${i}`,
+    }]);
+    const api = new TelegramAPI(botToken);
+    try {
+      const msg = `${question}\n\nTocá los items en orden de prioridad (primero = más importante):`;
+      const result = await api.sendMessage(chatId, msg, { inline_keyboard: keyboard });
+      const msgId = result?.result?.message_id ?? 0;
+      if (stateDir) {
+        const { writeFileSync } = require('fs');
+        writeFileSync(join(stateDir, `priority-${prioId}.json`), JSON.stringify({ id: prioId, question, items, ranked: [], chatId, messageId: msgId }) + '\n', 'utf-8');
+      }
+      console.log(`Priority ranking sent (id: ${prioId}, message_id: ${msgId})`);
+      if (env.agentName && env.ctxRoot) {
+        try {
+          const paths = resolvePaths(env.agentName, env.instanceId, env.org);
+          logEvent(paths, env.agentName, env.org, 'message', 'telegram_priority_sent', 'info', JSON.stringify({ chat_id: chatId, priority_id: prioId, items: items.length }));
+        } catch { /* non-fatal */ }
+      }
+    } catch (err: any) {
+      console.error(`Failed to send priority ranking: ${err.message || err}`);
+      process.exit(1);
+    }
+  });
+
+busCommand
   .command('estimate-burn')
   .description('Estimate token burn for a brief before dispatching it to an agent')
   .argument('[path]', 'Path to a brief file (omit to read from stdin)')

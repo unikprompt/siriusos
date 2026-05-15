@@ -532,6 +532,24 @@ export class TelegramAPI {
   }
 
   /**
+   * Send a native Telegram poll.
+   */
+  async sendPoll(
+    chatId: string | number,
+    question: string,
+    options: string[],
+    opts?: { isAnonymous?: boolean; allowsMultipleAnswers?: boolean },
+  ): Promise<any> {
+    return this.post('sendPoll', {
+      chat_id: chatId,
+      question,
+      options: JSON.stringify(options.map(o => ({ text: o }))),
+      is_anonymous: opts?.isAnonymous ?? false,
+      allows_multiple_answers: opts?.allowsMultipleAnswers ?? false,
+    });
+  }
+
+  /**
    * Send typing indicator.
    */
   async sendChatAction(chatId: string | number, action: string = 'typing'): Promise<any> {

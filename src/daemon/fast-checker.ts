@@ -785,6 +785,99 @@ Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
       return;
     }
 
+    // Custom button callbacks: btn_{callback_data}
+    const btnMatch = data.match(/^btn_(.+)$/);
+    if (btnMatch) {
+      const cbData = btnMatch[1];
+      if (this.telegramApi) {
+        try { await this.telegramApi.answerCallbackQuery(callbackQueryId, cbData); } catch { /* ignore */ }
+        if (chatId && messageId) {
+          const origText = query.message?.text || '';
+          try { await this.telegramApi.editMessageText(chatId, messageId, `${origText}\n\n✅ Selected: ${cbData}`); } catch { /* ignore */ }
+        }
+      }
+      this.agent.injectMessage(`=== TELEGRAM CALLBACK from user (chat_id:${chatId}) ===\ncallback_data: ${cbData}\nmessage_id: ${messageId}\nReply using: siriusos bus send-telegram ${chatId} '<your reply>'\n`);
+      this.log(`Custom button callback: ${cbData}`);
+      return;
+    }
+
+    // Checklist toggle: cltoggle_{checklistId}_{itemIdx}
+    const clMatch = data.match(/^cltoggle_(.+)_(\d+)$/);
+    if (clMatch) {
+      const checklistId = clMatch[1];
+      const itemIdx = parseInt(clMatch[2], 10);
+      const stateFile = join(this.paths.stateDir, `checklist-${checklistId}.json`);
+      if (existsSync(stateFile)) {
+        try {
+          const clState = JSON.parse(readFileSync(stateFile, 'utf-8'));
+          clState.state[itemIdx] = !clState.state[itemIdx];
+          writeFileSync(stateFile, JSON.stringify(clState) + '\n', 'utf-8');
+          const done = clState.state.filter((s: boolean) => s).length;
+          const total = clState.items.length;
+          const keyboard = clState.items.map((item: string, i: number) => [{
+            text: `${clState.state[i] ? '✅' : '☐'} ${item}`,
+            callback_data: `cltoggle_${checklistId}_${i}`,
+          }]);
+          const msg = `${clState.title}\n\n${done}/${total} completados`;
+          if (this.telegramApi && chatId && messageId) {
+            try { await this.telegramApi.answerCallbackQuery(callbackQueryId, clState.state[itemIdx] ? '✅' : '☐'); } catch { /* ignore */ }
+            try { await this.telegramApi.editMessageText(chatId, messageId, msg, { inline_keyboard: keyboard }); } catch { /* ignore */ }
+          }
+          if (done === total) {
+            this.agent.injectMessage(`=== CHECKLIST COMPLETE (chat_id:${chatId}) ===\nchecklist_id: ${checklistId}\ntitle: ${clState.title}\nAll ${total} items checked.\n`);
+          }
+          this.log(`Checklist ${checklistId}: toggled item ${itemIdx} (${done}/${total})`);
+        } catch (err) { this.log(`Checklist toggle error: ${err}`); }
+      }
+      return;
+    }
+
+    // Priority ranking: priorank_{prioId}_{itemIdx}
+    const prioMatch = data.match(/^priorank_(.+)_(\d+)$/);
+    if (prioMatch) {
+      const prioId = prioMatch[1];
+      const itemIdx = parseInt(prioMatch[2], 10);
+      const stateFile = join(this.paths.stateDir, `priority-${prioId}.json`);
+      if (existsSync(stateFile)) {
+        try {
+          const prioState = JSON.parse(readFileSync(stateFile, 'utf-8'));
+          if (prioState.ranked.includes(itemIdx)) {
+            if (this.telegramApi) {
+              try { await this.telegramApi.answerCallbackQuery(callbackQueryId, 'Ya rankeado'); } catch { /* ignore */ }
+            }
+            return;
+          }
+          prioState.ranked.push(itemIdx);
+          writeFileSync(stateFile, JSON.stringify(prioState) + '\n', 'utf-8');
+          const rank = prioState.ranked.length;
+          const total = prioState.items.length;
+          const keyboard = prioState.items.map((item: string, i: number) => {
+            const rankedPos = prioState.ranked.indexOf(i);
+            if (rankedPos !== -1) {
+              return [{ text: `${rankedPos + 1}. ${item} ✅`, callback_data: `priorank_${prioId}_${i}` }];
+            }
+            return [{ text: `${item}`, callback_data: `priorank_${prioId}_${i}` }];
+          });
+          const rankedList = prioState.ranked.map((idx: number, pos: number) => `${pos + 1}. ${prioState.items[idx]}`).join('\n');
+          const msg = rank < total
+            ? `${prioState.question}\n\n${rankedList}\n\n${rank}/${total} rankeados, tocá el siguiente:`
+            : `${prioState.question}\n\n${rankedList}\n\n✅ Ranking completo`;
+          if (this.telegramApi) {
+            try { await this.telegramApi.answerCallbackQuery(callbackQueryId, `#${rank}`); } catch { /* ignore */ }
+            if (chatId && messageId) {
+              try { await this.telegramApi.editMessageText(chatId, messageId, msg, rank < total ? { inline_keyboard: keyboard } : undefined); } catch { /* ignore */ }
+            }
+          }
+          if (rank === total) {
+            const resultList = prioState.ranked.map((idx: number, pos: number) => `${pos + 1}. ${prioState.items[idx]}`).join('\n');
+            this.agent.injectMessage(`=== PRIORITY RANKING COMPLETE (chat_id:${chatId}) ===\npriority_id: ${prioId}\nquestion: ${prioState.question}\nranking:\n${resultList}\n`);
+          }
+          this.log(`Priority ${prioId}: ranked item ${itemIdx} as #${rank} (${rank}/${total})`);
+        } catch (err) { this.log(`Priority ranking error: ${err}`); }
+      }
+      return;
+    }
+
     this.log(`Unhandled callback data: ${data}`);
   }
 
