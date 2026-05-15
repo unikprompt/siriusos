@@ -859,6 +859,101 @@ describe('CodexAppServerPTY thread lifecycle', () => {
       expect.anything(),
     );
   });
+
+  it('bloat guard: nukes persisted thread and starts fresh when prior context_status >= 90%', async () => {
+    fsMocks.existsSync.mockReturnValue(true);
+    fsMocks.readFileSync.mockImplementation((p: string) => {
+      if (String(p).endsWith('codex-app-server-thread.json')) {
+        return JSON.stringify({
+          threadId: 'bloated-thread',
+          cwd: '/tmp/fw/orgs/acme/agents/codex-app-agent',
+          updatedAt: '2026-05-15T15:20:00Z',
+        });
+      }
+      if (String(p).endsWith('context_status.json')) {
+        return JSON.stringify({
+          session_id: 'bloated-thread',
+          used_percentage: 100,
+          context_window_size: 258400,
+        });
+      }
+      return '';
+    });
+    requestMock.mockResolvedValue({ result: { thread: { id: 'fresh-thread-after-nuke' } } });
+    const pty = new CodexAppServerPTY(mockEnv, {});
+    (pty as unknown as { _rpc: { request: typeof requestMock } })._rpc = { request: requestMock };
+
+    await (pty as unknown as { startOrResumeThread(mode: 'fresh' | 'continue'): Promise<void> }).startOrResumeThread('fresh');
+
+    expect(fsMocks.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('codex-app-server-thread.json'));
+    expect(fsMocks.unlinkSync).toHaveBeenCalledWith(expect.stringContaining('context_status.json'));
+    expect(requestMock).not.toHaveBeenCalledWith('thread/resume', expect.anything());
+    expect(requestMock).toHaveBeenCalledWith('thread/start', expect.objectContaining({
+      cwd: '/tmp/fw/orgs/acme/agents/codex-app-agent',
+    }));
+  });
+
+  it('bloat guard: preserves persisted thread when prior context_status < 90%', async () => {
+    fsMocks.existsSync.mockReturnValue(true);
+    fsMocks.readFileSync.mockImplementation((p: string) => {
+      if (String(p).endsWith('codex-app-server-thread.json')) {
+        return JSON.stringify({
+          threadId: 'healthy-thread',
+          cwd: '/tmp/fw/orgs/acme/agents/codex-app-agent',
+          updatedAt: '2026-05-15T15:20:00Z',
+        });
+      }
+      if (String(p).endsWith('context_status.json')) {
+        return JSON.stringify({
+          session_id: 'healthy-thread',
+          used_percentage: 55,
+          context_window_size: 258400,
+        });
+      }
+      return '';
+    });
+    requestMock.mockResolvedValue({ result: { thread: { id: 'healthy-thread' } } });
+    const pty = new CodexAppServerPTY(mockEnv, {});
+    (pty as unknown as { _rpc: { request: typeof requestMock } })._rpc = { request: requestMock };
+
+    await (pty as unknown as { startOrResumeThread(mode: 'fresh' | 'continue'): Promise<void> }).startOrResumeThread('fresh');
+
+    expect(fsMocks.unlinkSync).not.toHaveBeenCalledWith(expect.stringContaining('codex-app-server-thread.json'));
+    expect(requestMock).toHaveBeenCalledWith('thread/resume', expect.objectContaining({
+      threadId: 'healthy-thread',
+    }));
+  });
+
+  it('bloat guard: preserves persisted thread when context_status session_id does not match', async () => {
+    fsMocks.existsSync.mockReturnValue(true);
+    fsMocks.readFileSync.mockImplementation((p: string) => {
+      if (String(p).endsWith('codex-app-server-thread.json')) {
+        return JSON.stringify({
+          threadId: 'current-thread',
+          cwd: '/tmp/fw/orgs/acme/agents/codex-app-agent',
+          updatedAt: '2026-05-15T15:20:00Z',
+        });
+      }
+      if (String(p).endsWith('context_status.json')) {
+        return JSON.stringify({
+          session_id: 'unrelated-old-thread',
+          used_percentage: 100,
+          context_window_size: 258400,
+        });
+      }
+      return '';
+    });
+    requestMock.mockResolvedValue({ result: { thread: { id: 'current-thread' } } });
+    const pty = new CodexAppServerPTY(mockEnv, {});
+    (pty as unknown as { _rpc: { request: typeof requestMock } })._rpc = { request: requestMock };
+
+    await (pty as unknown as { startOrResumeThread(mode: 'fresh' | 'continue'): Promise<void> }).startOrResumeThread('fresh');
+
+    expect(fsMocks.unlinkSync).not.toHaveBeenCalledWith(expect.stringContaining('codex-app-server-thread.json'));
+    expect(requestMock).toHaveBeenCalledWith('thread/resume', expect.objectContaining({
+      threadId: 'current-thread',
+    }));
+  });
 });
 
 describe('CodexAppServerPTY event handling', () => {
