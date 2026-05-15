@@ -488,6 +488,41 @@ export class AgentManager {
         checker.queueTelegramMessage(formatted);
       });
 
+      poller.onPollAnswer((answer) => {
+        // ALLOWED_USER gate: only consume votes from the configured operator.
+        // Channel-voter polls (`voter_chat`) bypass this gate because they
+        // do not carry a `user.id` to compare; today we surface them anyway
+        // since send-poll is initiated by the agent — but tighten if abuse
+        // patterns appear.
+        if (allowedUserId && answer.user) {
+          const allowedId = parseInt(allowedUserId, 10);
+          if (answer.user.id !== allowedId) {
+            log('Ignoring poll_answer from unauthorized user (allowed_user gate)');
+            return;
+          }
+        }
+
+        const from = stripControlChars(
+          answer.user?.first_name
+            || answer.user?.username
+            || answer.voter_chat?.title
+            || answer.voter_chat?.username
+            || 'Unknown',
+        );
+        const answerChatId = answer.user?.id ?? answer.voter_chat?.id ?? chatId ?? '';
+        const formatted = FastChecker.formatTelegramPollAnswer(
+          from,
+          answerChatId,
+          answer.poll_id,
+          answer.option_ids ?? [],
+        );
+        if (checker.isDuplicate(formatted)) {
+          log('Duplicate Telegram poll_answer suppressed');
+          return;
+        }
+        checker.queueTelegramMessage(formatted);
+      });
+
       poller.start().catch(err => {
         log(`Telegram poller error: ${err}`);
       });

@@ -320,6 +320,45 @@ ${lastSentCtx}Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
   }
 
   /**
+   * Format a Telegram poll_answer for injection into the agent's PTY.
+   *
+   * Telegram emits this update when a user casts (or retracts) a vote in a
+   * non-anonymous poll the bot started. Anonymous polls do NOT generate it.
+   *
+   * `option_ids` is empty when the user retracted their vote. We surface
+   * both the raw indices and the resolved option strings (when caller has
+   * the question + options on hand from the original poll) so the agent
+   * can react to a poll it created via `siriusos bus send-poll`.
+   *
+   * Format chosen to be visually consistent with `=== TELEGRAM …` blocks
+   * already emitted for messages, callbacks and reactions, so an agent
+   * sees a single coherent stream of user-driven events.
+   */
+  static formatTelegramPollAnswer(
+    from: string,
+    chatId: string | number,
+    pollId: string,
+    optionIds: number[],
+    options?: string[],
+  ): string {
+    const retracted = optionIds.length === 0;
+    // Only attach a human-readable parenthetical when the caller supplied
+    // the option strings. Without them, the raw option_ids array is enough
+    // signal and the parenthetical would be a noisy duplicate.
+    const labels = options && options.length > 0
+      ? optionIds
+          .map((i) => (typeof options[i] === 'string' ? options[i] : `[option ${i}]`))
+          .join(', ')
+      : '';
+    const body = retracted
+      ? 'retracted vote'
+      : `voted option_ids=[${optionIds.join(',')}]${labels ? ` (${labels})` : ''}`;
+    return `=== POLL ANSWER from [USER: ${from}] (chat_id:${chatId}) poll_id=${pollId}: ${body} ===
+
+`;
+  }
+
+  /**
    * Format a Telegram photo message for injection.
    * Matches bash fast-checker.sh format.
    */

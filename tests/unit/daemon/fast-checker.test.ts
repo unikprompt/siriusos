@@ -723,6 +723,61 @@ describe('FastChecker', () => {
     });
   });
 
+  describe('formatTelegramPollAnswer', () => {
+    it('formats a vote with single option index', () => {
+      const result = FastChecker.formatTelegramPollAnswer(
+        'Alice',
+        '123456789',
+        'poll-abc',
+        [1],
+      );
+      expect(result).toContain('=== POLL ANSWER from [USER: Alice] (chat_id:123456789) poll_id=poll-abc: voted option_ids=[1] ===');
+    });
+
+    it('formats a vote with multiple option indices', () => {
+      const result = FastChecker.formatTelegramPollAnswer(
+        'Alice',
+        '1',
+        'poll-multi',
+        [0, 2, 3],
+      );
+      expect(result).toContain('poll_id=poll-multi: voted option_ids=[0,2,3] ===');
+    });
+
+    it('resolves option labels when callers provide the option strings', () => {
+      const result = FastChecker.formatTelegramPollAnswer(
+        'Alice',
+        '1',
+        'poll-labels',
+        [0, 2],
+        ['Sí', 'No', 'Tal vez'],
+      );
+      expect(result).toContain('voted option_ids=[0,2] (Sí, Tal vez) ===');
+    });
+
+    it('marks an empty option_ids array as a vote retraction', () => {
+      const result = FastChecker.formatTelegramPollAnswer(
+        'Alice',
+        '1',
+        'poll-retract',
+        [],
+      );
+      expect(result).toContain('poll_id=poll-retract: retracted vote ===');
+    });
+
+    it('falls back to [option N] when caller provides too few labels', () => {
+      const result = FastChecker.formatTelegramPollAnswer(
+        'Alice',
+        '1',
+        'poll-partial',
+        [0, 5],
+        ['Sí'],
+      );
+      // index 0 → 'Sí'; index 5 has no matching string → '[option 5]'
+      expect(result).toContain('voted option_ids=[0,5] (Sí, [option 5]) ===');
+    });
+  });
+
   describe('formatTelegramPhotoMessage', () => {
     it('formats photo message with caption and local_file', () => {
       const result = FastChecker.formatTelegramPhotoMessage(

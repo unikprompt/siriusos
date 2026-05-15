@@ -222,4 +222,77 @@ describe('TelegramPoller — offset-after-handler', () => {
       expect(persisted).toBe('0');
     }
   });
+
+  it('routes poll_answer updates to registered handlers and advances offset', async () => {
+    const pollAnswerUpdate: TelegramUpdate = {
+      update_id: 700,
+      poll_answer: {
+        poll_id: 'poll-abc-123',
+        user: { id: 7, first_name: 'alice' },
+        option_ids: [0, 2],
+      },
+    };
+    const { api } = makeStubApi([pollAnswerUpdate]);
+    const poller = new TelegramPoller(api, stateDir);
+
+    const received: Array<{ pollId: string; userId: number; options: number[] }> = [];
+    poller.onPollAnswer((a) => {
+      received.push({
+        pollId: a.poll_id,
+        userId: a.user?.id ?? -1,
+        options: a.option_ids,
+      });
+    });
+
+    await poller.pollOnce();
+
+    expect(received).toEqual([{ pollId: 'poll-abc-123', userId: 7, options: [0, 2] }]);
+    const persisted = readFileSync(join(stateDir, '.telegram-offset'), 'utf-8').trim();
+    expect(persisted).toBe('701');
+  });
+
+  it('treats empty option_ids in poll_answer as a vote retraction', async () => {
+    const pollAnswerUpdate: TelegramUpdate = {
+      update_id: 750,
+      poll_answer: {
+        poll_id: 'poll-xyz',
+        user: { id: 7, first_name: 'alice' },
+        option_ids: [],
+      },
+    };
+    const { api } = makeStubApi([pollAnswerUpdate]);
+    const poller = new TelegramPoller(api, stateDir);
+
+    const received: Array<{ retracted: boolean }> = [];
+    poller.onPollAnswer((a) => {
+      received.push({ retracted: a.option_ids.length === 0 });
+    });
+
+    await poller.pollOnce();
+
+    expect(received).toEqual([{ retracted: true }]);
+  });
+
+  it('does NOT advance offset if a poll_answer handler throws', async () => {
+    const pollAnswerUpdate: TelegramUpdate = {
+      update_id: 800,
+      poll_answer: {
+        poll_id: 'poll-fail',
+        user: { id: 7, first_name: 'alice' },
+        option_ids: [0],
+      },
+    };
+    const { api } = makeStubApi([pollAnswerUpdate]);
+    const poller = new TelegramPoller(api, stateDir);
+
+    poller.onPollAnswer(() => { throw new Error('poll_answer broke'); });
+
+    await poller.pollOnce();
+
+    const offsetFile = join(stateDir, '.telegram-offset');
+    if (existsSync(offsetFile)) {
+      const persisted = readFileSync(offsetFile, 'utf-8').trim();
+      expect(persisted).toBe('0');
+    }
+  });
 });
