@@ -73,9 +73,15 @@ Agent secrets: `orgs/{org}/agents/{agent}/.env`
 | `send-telegram <chat_id> "<msg>"` | **Primary user-facing channel — every Telegram reply goes here** |
 | `send-telegram <chat_id> "<caption>" --image <path>` | Send a photo |
 | `send-telegram <chat_id> "<caption>" --file <path>` | Send any file (PDF, txt, etc.) |
+| `send-poll <chat_id> "<question>" "opt1" "opt2" ...` | Native Telegram poll (--anonymous, --multi) |
+| `send-buttons <chat_id> "<msg>" "Label1:data1" "Label2:data2" ...` | Inline buttons (use "\|" for row separator) |
+| `send-checklist <chat_id> "<title>" "item1" "item2" ...` | Interactive checklist with toggle buttons |
+| `send-priority <chat_id> "<question>" "item1" "item2" ...` | Priority ranking (tap items in order of importance) |
 | `edit-message <chat_id> <msg_id> "<text>"` | Edit an existing message |
 | `answer-callback <query_id> [toast]` | Dismiss button loading state |
 | `post-activity "<msg>"` | Post to org activity channel |
+
+**Interactive Telegram norm:** For decisions, prioritization, checklists, and approvals, ALWAYS prefer send-poll/send-buttons/send-checklist/send-priority over plain text messages. The user should tap, not type.
 
 ### Events & Heartbeat — full docs: `plugins/siriusos-agent-skills/skills/heartbeat/SKILL.md`
 | Command | What it does |
