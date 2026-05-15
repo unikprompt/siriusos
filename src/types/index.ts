@@ -477,6 +477,27 @@ export interface TelegramUpdate {
   message?: TelegramMessage;
   callback_query?: TelegramCallbackQuery;
   message_reaction?: TelegramMessageReaction;
+  poll_answer?: TelegramPollAnswer;
+}
+
+/**
+ * A `poll_answer` update fires when a user casts (or retracts) a vote in
+ * a non-anonymous poll the bot started. Anonymous-poll votes do NOT
+ * generate this update — only non-anonymous polls created with
+ * `is_anonymous: false` (which is what `siriusos bus send-poll` sets when
+ * the operator wants per-voter attribution). Requires
+ * `allowed_updates: ['poll_answer']` in the getUpdates call.
+ *
+ * `option_ids` is empty when the user retracts their vote.
+ *
+ * Per Telegram Bot API: exactly one of `user` (regular voter) or
+ * `voter_chat` (channel-as-voter) is present.
+ */
+export interface TelegramPollAnswer {
+  poll_id: string;
+  voter_chat?: TelegramChat;
+  user?: TelegramUser;
+  option_ids: number[];
 }
 
 /**
@@ -539,6 +560,10 @@ export interface TelegramUser {
 export interface TelegramChat {
   id: number;
   type: string;
+  // Optional for groups / channels — present only on non-private chats.
+  // Surfaced for poll_answer voter_chat display fallbacks.
+  title?: string;
+  username?: string;
 }
 
 export interface TelegramPhotoSize {

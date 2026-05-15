@@ -1,12 +1,13 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import type { TelegramUpdate, TelegramMessage, TelegramCallbackQuery, TelegramMessageReaction } from '../types/index.js';
+import type { TelegramUpdate, TelegramMessage, TelegramCallbackQuery, TelegramMessageReaction, TelegramPollAnswer } from '../types/index.js';
 import { TelegramAPI } from './api.js';
 import { ensureDir } from '../utils/atomic.js';
 
 export type MessageHandler = (msg: TelegramMessage) => void;
 export type CallbackHandler = (query: TelegramCallbackQuery) => void;
 export type ReactionHandler = (reaction: TelegramMessageReaction) => void;
+export type PollAnswerHandler = (answer: TelegramPollAnswer) => void;
 
 /**
  * Telegram polling loop. Replaces the Telegram portion of fast-checker.sh.
@@ -21,6 +22,7 @@ export class TelegramPoller {
   private messageHandlers: MessageHandler[] = [];
   private callbackHandlers: CallbackHandler[] = [];
   private reactionHandlers: ReactionHandler[] = [];
+  private pollAnswerHandlers: PollAnswerHandler[] = [];
   private pollInterval: number;
 
   /**
@@ -69,6 +71,18 @@ export class TelegramPoller {
    */
   onReaction(handler: ReactionHandler): void {
     this.reactionHandlers.push(handler);
+  }
+
+  /**
+   * Register a handler for poll_answer updates. These fire when a user
+   * casts (or retracts) a vote in a non-anonymous poll the bot started.
+   * Anonymous polls do NOT emit this update. The handler receives the
+   * raw `TelegramPollAnswer` with `poll_id`, `option_ids` (empty when
+   * the user retracts), and either `user` or `voter_chat`. Requires
+   * `allowed_updates: ['poll_answer']` (handled by TelegramAPI.getUpdates).
+   */
+  onPollAnswer(handler: PollAnswerHandler): void {
+    this.pollAnswerHandlers.push(handler);
   }
 
   /**
@@ -142,6 +156,18 @@ export class TelegramPoller {
             handler(update.message_reaction);
           } catch (err) {
             console.error('[telegram-poller] Reaction handler error:', err);
+            handlerFailed = true;
+            break;
+          }
+        }
+      }
+
+      if (!handlerFailed && update.poll_answer) {
+        for (const handler of this.pollAnswerHandlers) {
+          try {
+            handler(update.poll_answer);
+          } catch (err) {
+            console.error('[telegram-poller] Poll answer handler error:', err);
             handlerFailed = true;
             break;
           }
