@@ -799,18 +799,27 @@ export class CodexAppServerPTY {
     if (!tokenUsage) return;
     const total = isRecord(tokenUsage.total) ? tokenUsage.total : null;
     if (!total) return;
-    const totalTokens = typeof total.totalTokens === 'number' ? total.totalTokens : null;
-    if (totalTokens === null) return;
+
+    const inputTokens = typeof total.inputTokens === 'number' ? total.inputTokens : 0;
+    const outputTokens = typeof total.outputTokens === 'number' ? total.outputTokens : 0;
+    const cachedInputTokens = typeof total.cachedInputTokens === 'number' ? total.cachedInputTokens : 0;
+
+    // codex CLI v0.130.x stopped emitting `total.totalTokens` directly. The
+    // previous early-return on missing totalTokens left context_status.json
+    // stale (frozen at the last session that DID emit it), which made the
+    // FastChecker read 77% indefinitely and fire the handoff loop on every
+    // fresh session — even at low real context. Compute the sum from the
+    // sub-counters we still receive (input + output; cache_read is a subset
+    // of input, so excluded to avoid double-counting). Incident: 2026-05-15.
+    const explicitTotal = typeof total.totalTokens === 'number' ? total.totalTokens : null;
+    const totalTokens = explicitTotal ?? (inputTokens + outputTokens);
+    if (totalTokens === 0) return; // truly empty turn — nothing to record
 
     const modelContextWindow = typeof tokenUsage.modelContextWindow === 'number'
       ? tokenUsage.modelContextWindow
       : null;
     const cap = modelContextWindow ?? this._config.codex_context_cap ?? 256000;
     const usedPct = cap > 0 ? Math.min(100, (totalTokens / cap) * 100) : null;
-
-    const inputTokens = typeof total.inputTokens === 'number' ? total.inputTokens : 0;
-    const outputTokens = typeof total.outputTokens === 'number' ? total.outputTokens : 0;
-    const cachedInputTokens = typeof total.cachedInputTokens === 'number' ? total.cachedInputTokens : 0;
 
     const payload = JSON.stringify({
       used_percentage: usedPct,
@@ -828,8 +837,14 @@ export class CodexAppServerPTY {
 
     try {
       atomicWriteSync(join(this._stateDir, 'context_status.json'), payload);
-    } catch {
-      // Non-fatal: FastChecker will skip stale/missing files gracefully.
+    } catch (err) {
+      // Non-fatal but log so we can spot persistent failures. A repeated
+      // failure here is what caused the 2026-05-15 handoff loop to be hard
+      // to diagnose: stale file looked normal, but FastChecker read 77%
+      // forever because new sessions never overwrote it.
+      this._outputBuffer.push(
+        `[codex-app-server] writeContextStatus failed (non-fatal): ${err instanceof Error ? err.message : String(err)}\n`
+      );
     }
   }
 

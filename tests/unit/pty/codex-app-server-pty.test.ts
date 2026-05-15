@@ -988,12 +988,33 @@ describe('CodexAppServerPTY thread/tokenUsage/updated → context_status.json', 
     expect(atomicWriteSyncMock).not.toHaveBeenCalled();
   });
 
-  it('skips the write when total.totalTokens is missing', () => {
+  it('falls back to inputTokens+outputTokens when total.totalTokens is missing (incident 2026-05-15)', () => {
+    // codex CLI v0.130.x stopped emitting total.totalTokens, leaving
+    // context_status.json frozen at the last session that emitted it.
+    // Fix: writeContextStatus now derives the total from input + output
+    // so the file always reflects the current session.
     const pty = new CodexAppServerPTY(mockEnv, {});
     (pty as unknown as { _threadId: string })._threadId = 'thread-9';
     feedTokenUsage(pty, {
       last: { cachedInputTokens: 0, inputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
-      total: { cachedInputTokens: 0, inputTokens: 100, outputTokens: 0, reasoningOutputTokens: 0 },
+      total: { cachedInputTokens: 0, inputTokens: 100, outputTokens: 50, reasoningOutputTokens: 0 },
+      modelContextWindow: 200000,
+    });
+    expect(atomicWriteSyncMock).toHaveBeenCalledTimes(1);
+    const [, payload] = atomicWriteSyncMock.mock.calls[0];
+    const parsed = JSON.parse(payload as string);
+    // 150 tokens / 200000 cap = 0.075% — verifies we used the fallback total.
+    expect(parsed.used_percentage).toBeCloseTo(0.075, 3);
+    expect(parsed.current_usage.input_tokens).toBe(100);
+    expect(parsed.current_usage.output_tokens).toBe(50);
+  });
+
+  it('skips the write when total counters are all zero (no real turn data)', () => {
+    const pty = new CodexAppServerPTY(mockEnv, {});
+    (pty as unknown as { _threadId: string })._threadId = 'thread-9';
+    feedTokenUsage(pty, {
+      last: { cachedInputTokens: 0, inputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0, totalTokens: 0 },
+      total: { cachedInputTokens: 0, inputTokens: 0, outputTokens: 0, reasoningOutputTokens: 0 },
       modelContextWindow: 200000,
     });
     expect(atomicWriteSyncMock).not.toHaveBeenCalled();
