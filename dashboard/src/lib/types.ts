@@ -23,7 +23,7 @@ export interface Agent {
   lastHeartbeat?: string; // ISO timestamp
 }
 
-export type AgentRuntime = 'claude-code' | 'codex-app-server' | 'hermes';
+export type AgentRuntime = 'claude-code' | 'codex' | 'codex-app-server' | 'hermes';
 
 export interface AgentSummary {
   name: string;
