@@ -46,18 +46,26 @@ describe('CodexPTY typing-indicator wiring (issue #330)', () => {
   function makeStubApi() {
     return { sendChatAction: vi.fn().mockResolvedValue(undefined) };
   }
+  function makeTelegramTurnPty(api: ReturnType<typeof makeStubApi>) {
+    const pty = new CodexPTY(mockEnv, {});
+    pty.setTelegramHandle(api as unknown as Parameters<typeof pty.setTelegramHandle>[0], '12345');
+    // Simulate a Telegram-initiated turn (set by write() when the message
+    // arrives with the "=== TELEGRAM from " header).
+    (pty as unknown as { _currentTurnFromTelegram: boolean })._currentTurnFromTelegram = true;
+    return pty;
+  }
 
   it('does not fire sendChatAction when no Telegram handle is set', () => {
     const pty = new CodexPTY(mockEnv, {});
+    (pty as unknown as { _currentTurnFromTelegram: boolean })._currentTurnFromTelegram = true;
     // No setTelegramHandle call → maybeFireTyping must be a no-op
     (pty as unknown as { maybeFireTyping(): void }).maybeFireTyping();
     expect(true).toBe(true); // no throw, no API call possible
   });
 
   it('fires sendChatAction once on a non-completion JSONL event', () => {
-    const pty = new CodexPTY(mockEnv, {});
     const api = makeStubApi();
-    pty.setTelegramHandle(api as unknown as Parameters<typeof pty.setTelegramHandle>[0], '12345');
+    const pty = makeTelegramTurnPty(api);
 
     (pty as unknown as { maybeFireTyping(): void }).maybeFireTyping();
 
@@ -66,9 +74,8 @@ describe('CodexPTY typing-indicator wiring (issue #330)', () => {
   });
 
   it('rate-limits sendChatAction to one call per 4s', () => {
-    const pty = new CodexPTY(mockEnv, {});
     const api = makeStubApi();
-    pty.setTelegramHandle(api as unknown as Parameters<typeof pty.setTelegramHandle>[0], '12345');
+    const pty = makeTelegramTurnPty(api);
 
     // Three rapid back-to-back fires inside the 4s window
     (pty as unknown as { maybeFireTyping(): void }).maybeFireTyping();
@@ -79,9 +86,8 @@ describe('CodexPTY typing-indicator wiring (issue #330)', () => {
   });
 
   it('fires again after the 4s window elapses', () => {
-    const pty = new CodexPTY(mockEnv, {});
     const api = makeStubApi();
-    pty.setTelegramHandle(api as unknown as Parameters<typeof pty.setTelegramHandle>[0], '12345');
+    const pty = makeTelegramTurnPty(api);
 
     // Force first fire's timestamp into the past by reaching into the field.
     (pty as unknown as { maybeFireTyping(): void }).maybeFireTyping();
@@ -97,12 +103,59 @@ describe('CodexPTY typing-indicator wiring (issue #330)', () => {
     const pty = new CodexPTY(mockEnv, {});
     const api = { sendChatAction: vi.fn().mockRejectedValue(new Error('429 Too Many Requests')) };
     pty.setTelegramHandle(api as unknown as Parameters<typeof pty.setTelegramHandle>[0], '12345');
+    (pty as unknown as { _currentTurnFromTelegram: boolean })._currentTurnFromTelegram = true;
 
     // Must not throw
     expect(() => (pty as unknown as { maybeFireTyping(): void }).maybeFireTyping()).not.toThrow();
     // Allow the rejected promise to settle so vitest doesn't flag an unhandled rejection
     await new Promise((r) => setTimeout(r, 0));
     expect(api.sendChatAction).toHaveBeenCalled();
+  });
+
+  it('does NOT fire when the current turn was not initiated by a Telegram message', () => {
+    const pty = new CodexPTY(mockEnv, {});
+    const api = makeStubApi();
+    pty.setTelegramHandle(api as unknown as Parameters<typeof pty.setTelegramHandle>[0], '12345');
+    // _currentTurnFromTelegram defaults to false — represents a cron / agent-
+    // message-initiated turn.
+
+    (pty as unknown as { maybeFireTyping(): void }).maybeFireTyping();
+    (pty as unknown as { maybeFireTyping(): void }).maybeFireTyping();
+
+    expect(api.sendChatAction).not.toHaveBeenCalled();
+  });
+
+  it('write() marks the turn as Telegram when the buffer starts with "=== TELEGRAM from "', () => {
+    const pty = new CodexPTY(mockEnv, {});
+    (pty as unknown as { _alive: boolean })._alive = true;
+    (pty as unknown as { queueExec(content: string): void }).queueExec = vi.fn();
+
+    pty.write('=== TELEGRAM from Mario (chat_id:12345) ===\nHola\nReply using: ...');
+    pty.write('\r');
+
+    expect((pty as unknown as { _currentTurnFromTelegram: boolean })._currentTurnFromTelegram).toBe(true);
+  });
+
+  it('write() leaves the flag false for AGENT MESSAGE injections', () => {
+    const pty = new CodexPTY(mockEnv, {});
+    (pty as unknown as { _alive: boolean })._alive = true;
+    (pty as unknown as { queueExec(content: string): void }).queueExec = vi.fn();
+
+    pty.write('=== AGENT MESSAGE from orquestador [msg_id: abc] ===\nNueva tarea...');
+    pty.write('\r');
+
+    expect((pty as unknown as { _currentTurnFromTelegram: boolean })._currentTurnFromTelegram).toBe(false);
+  });
+
+  it('write() leaves the flag false for [CRON FIRED ...] injections', () => {
+    const pty = new CodexPTY(mockEnv, {});
+    (pty as unknown as { _alive: boolean })._alive = true;
+    (pty as unknown as { queueExec(content: string): void }).queueExec = vi.fn();
+
+    pty.write('[CRON FIRED 2026-05-15T22:44:00Z] heartbeat: Read HEARTBEAT.md ...');
+    pty.write('\r');
+
+    expect((pty as unknown as { _currentTurnFromTelegram: boolean })._currentTurnFromTelegram).toBe(false);
   });
 });
 

@@ -60,6 +60,13 @@ export class CodexPTY {
   private _telegramApi: TelegramAPI | null = null;
   private _chatId: string | null = null;
   private _typingLastSent = 0;
+  // 2026-05-15: only fire the per-turn typing indicator when the turn was
+  // initiated by a Telegram message from the user. Inbox-driven turns
+  // (cron, agent-to-agent) were also firing typing on every JSONL event,
+  // showing the user "typing..." while codex was actually replying to a
+  // peer agent — confusing UX. fast-checker already gates its own typing
+  // path on Telegram-only; this brings CodexPTY's direct path in line.
+  private _currentTurnFromTelegram = false;
 
   constructor(env: CtxEnv, config: AgentConfig, logPath?: string) {
     this._env = env;
@@ -111,6 +118,13 @@ export class CodexPTY {
         .trim();
       this._writeBuffer = '';
       if (content) {
+        // 2026-05-15: detect whether this turn was initiated by a user
+        // Telegram message vs an inbox/cron injection. fast-checker wraps
+        // Telegram messages with the literal "=== TELEGRAM from " header;
+        // agent and cron injections use "=== AGENT MESSAGE from " or
+        // "[CRON FIRED" instead. Only the Telegram path should surface
+        // a "typing..." indicator in the user's chat.
+        this._currentTurnFromTelegram = content.startsWith('=== TELEGRAM from ');
         this.queueExec(content);
       }
     } else {
@@ -234,6 +248,7 @@ export class CodexPTY {
         // Detect turn.completed in JSONL output → write last_idle.flag
         if (data.includes('"turn.completed"') || data.includes('"type":"turn.completed"')) {
           this.writeIdleFlag();
+          this._currentTurnFromTelegram = false;
         } else if (data.includes('"type":"')) {
           // Issue #330: any other JSONL event during the turn → fire typing
           this.maybeFireTyping();
@@ -246,6 +261,7 @@ export class CodexPTY {
         }
         // Write idle flag on process exit as fallback (catches turn.completed race)
         this.writeIdleFlag();
+        this._currentTurnFromTelegram = false;
         resolve();
       });
     });
@@ -270,6 +286,7 @@ export class CodexPTY {
    * No-op when the Telegram handle hasn't been wired in.
    */
   private maybeFireTyping(): void {
+    if (!this._currentTurnFromTelegram) return;
     if (!this._telegramApi || !this._chatId) return;
     const now = Date.now();
     if (now - this._typingLastSent < 4000) return;
