@@ -1,5 +1,30 @@
 # CHANGELOG
 
+## [0.1.11] — 2026-05-17 — Codex stability, Telegram polls, dual runtime
+
+Hardens the Codex agent against the hard-restart loop observed on 2026-05-15, lands the Telegram poll-answer wire so `siriusos bus send-poll` round-trips work end-to-end, and re-introduces the lightweight `codex` exec-mode runtime as an opt-in alternative to the heavier `codex-app-server` runtime.
+
+### Codex runtime hardening
+
+- **`fix(codex-pty): resume persisted thread regardless of start mode` (#4)** — `CodexAppServerPTY.startOrResumeThread` now consults `codex-app-server-thread.json` on every boot, not just `mode === 'continue'`. The daemon classifies every Codex boot as `mode === 'fresh'` (Codex agents have no Claude `.jsonl` history), so under the old logic each restart started a brand-new thread and re-loaded the persisted handoff doc — the source of the 2026-05-15 hard-restart loop.
+- **`fix(codex-pty): bloat guard skips resume of saturated threads` (#5)** — adds `THREAD_BLOAT_GUARD_PCT = 90`. On boot, `CodexAppServerPTY` reads the prior `context_status.json`; if usage for the persisted thread is ≥ 90 %, the thread state file is unlinked so the next session starts truly fresh. Defends against the secondary failure mode where `excludeTurns:true` does not actually evict accumulated turns and a thread grows unbounded across restarts.
+- **`feat(codex): dual runtime — restore legacy 'codex' exec-mode` (#6)** — restores `src/pty/codex-pty.ts` deleted in PR 13 of #369 (commit `f813284`) as a secondary, opt-in runtime called `codex`. `codex-app-server` stays the default. Users can switch from the dashboard Settings → Runtime selector. Exec-mode spawns `codex exec` per turn with no persistent thread, no bootstrap injection, and no skills RPC — best fit for ChatGPT Plus tier and standalone research; the full app-server is the right fit for ChatGPT Pro with full siriusos integration.
+- **`fix(codex-pty): only fire typing indicator for Telegram-initiated turns` (#7)** — `CodexPTY` now tracks per-turn whether the trigger arrived as `=== TELEGRAM from ...` (vs `=== AGENT MESSAGE from ...` or `[CRON FIRED ...]`), and only emits `sendChatAction(typing)` for the Telegram path. `fast-checker` already gated its typing path on Telegram-only; this brings the direct PTY path in line so peer-agent and cron-driven turns no longer surface phantom "typing..." dots in the user's chat.
+
+### Telegram poll-answer wire
+
+- **`feat(telegram): poll_answer handler in poller + fast-checker injection` (#2)** — `TelegramPoller.onPollAnswer` registers handlers that fire when a user casts or retracts a vote on a non-anonymous poll the agent started via `siriusos bus send-poll`. `agent-manager` wires the handler to format the answer as `=== POLL ANSWER from [USER] (chat_id) poll_id=X: voted option_ids=[…] ===` and queue it through `FastChecker.queueTelegramMessage` so it lands in the agent's PTY alongside ordinary Telegram messages. `getUpdates` allowed_updates expanded to include `'poll_answer'`. Honors the `ALLOWED_USER` gate.
+
+### Templates and documentation
+
+- **`docs(templates): add interactive Telegram commands to all template TOOLS.md` (#3)** — the 5 agent templates (agent, agent-codex, analyst, hermes, orchestrator) gained the `send-poll` / `send-buttons` / `send-checklist` / `send-priority` rows + the "Interactive Telegram norm" paragraph that already lived in the runtime-active TOOLS.md. Without this, new agents spawned from a template were unaware of the interactive commands and defaulted to plain-text Telegram.
+
+### Upgrade notes
+
+- `pm2 restart siriusos-daemon` is required to load the new dist into memory. Without the restart, the daemon keeps running its previous in-memory snapshot (this is what caused the 2026-05-17 morning report of "send-poll roto" — the daemon had been alive since before #2 landed).
+- Codex agents in existing fleets stay on `codex-app-server`; flip to `codex` exec-mode from the dashboard if you prefer the lighter footprint.
+- The default reasoning effort for codex-app-server runtimes can now be set per-agent via the `reasoning_effort` field in `config.json` (separate change from #07eb3f5, included in this release).
+
 ## [0.2.0] — 2026-05-04 — External Persistent Crons
 
 Crons move from session-local (`/loop`, `CronCreate`) to daemon-managed `crons.json` files under `${CTX_ROOT}/state/{agent}/`. Auto-migrates from existing `config.json` on first daemon boot. Fully backward-compatible additive feature.
