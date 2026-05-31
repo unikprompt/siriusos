@@ -374,6 +374,7 @@ caption:
 ${caption}
 \`\`\`
 local_file: ${imagePath}
+ACTION: open local_file with the Read tool BEFORE replying — the image is part of the message, not optional context.
 Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
 
 `;

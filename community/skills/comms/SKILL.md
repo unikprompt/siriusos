@@ -32,7 +32,7 @@ Reply using: siriusos bus send-message <agent> normal '<your reply>' <msg_id>
 
 - `urgent` priority inbox messages: handle immediately, save current work state first
 - Callback queries (inline button presses): process the callback_data and acknowledge via `send-telegram`
-- Photos: local file path is provided, use it directly
+- Photos: ALWAYS open the local_file with the Read tool BEFORE replying. The image is part of the message, not optional context. Skip this step only if the caption explicitly says "ignore the image".
 
 ## Waiting for a Response
 
