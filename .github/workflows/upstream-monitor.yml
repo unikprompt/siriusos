@@ -54,10 +54,18 @@ jobs:
       - name: Render digest body
         id: render
         if: steps.diff.outputs.count != '0'
+        env:
+          # Pasamos las salidas del step anterior como variables de entorno
+          # para que bash las lea en runtime. Si las dejamos como ${{ ... }}
+          # inline, GitHub Actions interpola los commit subjects crudos en el
+          # script (paréntesis, comillas, $, etc.) y rompe la sintaxis del
+          # shell antes de ejecutarlo.
+          MISSING: ${{ steps.diff.outputs.missing }}
+          COUNT: ${{ steps.diff.outputs.count }}
         run: |
           {
             echo "body<<EOF"
-            echo "## ${{ steps.diff.outputs.count }} new upstream commits to consider"
+            echo "## $COUNT new upstream commits to consider"
             echo ""
             echo "Generated $(date -u +%Y-%m-%dT%H:%M:%SZ) by upstream-monitor workflow."
             echo "Already-cherry-picked commits are excluded automatically."
@@ -79,7 +87,7 @@ jobs:
                 tipo="❓ MIXED"
               fi
               echo "| $tipo | \`$sha\` | $date | $author | $subject |"
-            done <<< "${{ steps.diff.outputs.missing }}"
+            done <<< "$MISSING"
             echo ""
             echo "### How to apply"
             echo ""
