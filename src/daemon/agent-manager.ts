@@ -15,7 +15,15 @@ import { recordInboundTelegram, cacheLastSent, logOutboundMessage, buildRecentHi
 import { collectTelegramCommands, registerTelegramCommands } from '../bus/metrics.js';
 import { stripControlChars } from '../utils/validate.js';
 import { processMediaMessage } from '../telegram/media.js';
+import { cleanupOldMedia } from '../utils/media-cleanup.js';
 import { handleSlashCommand } from './slash-commands.js';
+
+// telegram-images/ se llena con fotos y voice notes recibidas. El .ogg con
+// transcripción exitosa se borra inline en media.ts; el resto (fotos que el
+// agente leyó con Read y voice notes sin transcript) queda. Cleanup periódico
+// barre todo lo que tenga más de 24h.
+const MEDIA_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const MEDIA_CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
 type LogFn = (msg: string) => void;
 
@@ -23,7 +31,7 @@ type LogFn = (msg: string) => void;
  * Manages all agents in a SiriusOS instance.
  */
 export class AgentManager {
-  private agents: Map<string, { process: AgentProcess; checker: FastChecker; poller?: TelegramPoller; activityPoller?: TelegramPoller }> = new Map();
+  private agents: Map<string, { process: AgentProcess; checker: FastChecker; poller?: TelegramPoller; activityPoller?: TelegramPoller; mediaCleanupTimer?: NodeJS.Timeout }> = new Map();
   private workers: Map<string, WorkerProcess> = new Map();
   /** Daemon-level cron scheduler registry: one CronScheduler per enabled agent. */
   private cronSchedulers: Map<string, CronScheduler> = new Map();
@@ -257,6 +265,15 @@ export class AgentManager {
       allowedUserId: allowedUserId ? parseInt(allowedUserId, 10) : undefined,
     });
 
+    // Sweep al arranque + interval. unref() para no bloquear el shutdown del
+    // daemon si está pendiente cuando el agente para.
+    const mediaDir = join(agentDir, 'telegram-images');
+    cleanupOldMedia(mediaDir, MEDIA_MAX_AGE_MS, log);
+    const mediaCleanupTimer = setInterval(() => {
+      cleanupOldMedia(mediaDir, MEDIA_MAX_AGE_MS, log);
+    }, MEDIA_CLEANUP_INTERVAL_MS);
+    mediaCleanupTimer.unref();
+
     // Send Telegram notification on crashes and session refreshes
     if (telegramApi && chatId) {
       const tgApi = telegramApi;
@@ -275,7 +292,7 @@ export class AgentManager {
       });
     }
 
-    this.agents.set(name, { process: agentProcess, checker });
+    this.agents.set(name, { process: agentProcess, checker, mediaCleanupTimer });
 
     // Start agent
     await agentProcess.start();
@@ -645,6 +662,7 @@ export class AgentManager {
 
     if (entry.poller) entry.poller.stop();
     if (entry.activityPoller) entry.activityPoller.stop();
+    if (entry.mediaCleanupTimer) clearInterval(entry.mediaCleanupTimer);
     entry.checker.stop();
     await entry.process.stop();
     this.agents.delete(name);

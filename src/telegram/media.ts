@@ -153,13 +153,22 @@ export async function processMediaMessage(
 
     const transcript = await transcribeVoice(localFile);
 
+    // Cuando hay transcript, el agente recibe el texto inline y nunca abre el
+    // .ogg; conservarlo solo acumula basura en telegram-images/. Si la
+    // transcripción falló o está deshabilitada, dejamos el archivo para que
+    // el agente lo pueda abrir vía local_file en el mensaje formateado.
+    if (transcript) {
+      try { fs.unlinkSync(localFile); } catch { /* ignore — cleanup periódico cubre el caso */ }
+    }
+
     return {
       type: 'voice',
       chat_id: chatId,
       from,
       text: '',
       date,
-      file_path: localFile,
+      // Si borramos el .ogg ya no tiene sentido exponerlo como file_path.
+      file_path: transcript ? '' : localFile,
       duration: msg.voice.duration,
       transcript: transcript || undefined,
     };
