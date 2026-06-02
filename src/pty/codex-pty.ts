@@ -309,6 +309,13 @@ export class CodexPTY {
     for (const f of this.getEnabledFeatures()) {
       args.push('--enable', f);
     }
+    // Codex CLI 0.130.0 sirve por defecto la herramienta `image_generation`
+    // apuntando a un modelo inexistente (`gpt-image-2`), lo que rompe TODOS
+    // los turns con `image_generation_user_error` (status 400) cuando el
+    // agente corre bajo una cuenta ChatGPT (no API key). El error es
+    // upstream del CLI, no de nuestro modelo. La desactivamos de oficio
+    // — los agentes daemonizados no la usan y no se pierde funcionalidad.
+    args.push('-c', 'features.image_generation=false');
     return args;
   }
 
