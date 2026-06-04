@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "updated": "2026-06-04",
+  "language": "es",
+  "patterns": [
+    {
+      "id": "no-es-x-es-y",
+      "pattern": "(?:La|El)\\s+pregunta\\s+no\\s+es[^.!?]*?[,.]\\s*(?:la|el)?\\s*pregunta\\s+es",
+      "flags": "iu",
+      "reason": "Estructura formulaica 'La pregunta no es X, la pregunta es Y' — marcador clásico de texto IA.",
+      "suggestion": null,
+      "severity": "high",
+      "examples_bad": [
+        "La pregunta no es si Costa Rica adoptará IA, la pregunta es cómo.",
+        "La pregunta no es si vamos a regular IA, la pregunta es con qué urgencia."
+      ]
+    },
+    {
+      "id": "no-se-trata-de-x-se-trata-de-y",
+      "pattern": "No\\s+se\\s+trata\\s+de[^.!?]{1,80}[,.]\\s*se\\s+trata\\s+de",
+      "flags": "iu",
+      "reason": "Estructura formulaica 'No se trata de X, se trata de Y' — antítesis genérica típica de IA.",
+      "suggestion": null,
+      "severity": "high",
+      "examples_bad": [
+        "No se trata de reemplazar humanos, se trata de potenciarlos.",
+        "No se trata de la tecnología, se trata de las personas."
+      ]
+    },
+    {
+      "id": "en-un-mundo-donde",
+      "pattern": "En\\s+un\\s+mundo\\s+donde",
+      "flags": "iu",
+      "reason": "Apertura genérica 'En un mundo donde…' — opener formulaico que IA usa para escribir cualquier intro.",
+      "suggestion": null,
+      "severity": "high",
+      "examples_bad": [
+        "En un mundo donde la IA avanza cada día...",
+        "En un mundo donde la tecnología transforma todo..."
+      ]
+    },
+    {
+      "id": "la-verdadera-pregunta-es",
+      "pattern": "(?:La|El)\\s+verdadera?\\s+pregunta\\s+es",
+      "flags": "iu",
+      "reason": "Frase enfática vacía 'La verdadera pregunta es…' — pseudo-profundidad típica de IA.",
+      "suggestion": null,
+      "severity": "high",
+      "examples_bad": [
+        "La verdadera pregunta es qué hacemos ahora.",
+        "El verdadero problema es la falta de visión."
+      ]
+    },
+    {
+      "id": "mas-que-x-es-y",
+      "pattern": "Más\\s+que\\s+[^.!?,]{1,60}[,.]\\s*es",
+      "flags": "iu",
+      "reason": "Estructura 'Más que X, es Y' — variante de la antítesis formulaica.",
+      "suggestion": null,
+      "severity": "medium",
+      "examples_bad": [
+        "Más que una herramienta, es un cambio cultural.",
+        "Más que IA, es transformación organizacional."
+      ]
+    }
+  ],
+  "notes": {
+    "extending": "Agregar entradas al array `patterns` siguiendo el shape: id (kebab-case único), pattern (regex JavaScript-flavor en string), flags (combinación de 'i'/'u'/'m'/'s'), reason (1 línea explicando), suggestion (string o null), severity ('high' | 'medium' | 'low'), examples_bad (≥1 ejemplo). El skill recarga este JSON en cada invocación.",
+    "false_positive_safety": "Si un patrón está disparando en contexto legítimo (cita, parodia consciente, análisis crítico de la frase), agregalo como excepción al texto del draft con un comment block <!-- HUMANIZE-IGNORE --> ... <!-- /HUMANIZE-IGNORE --> que el script respeta.",
+    "suggestion_field": "Dejar suggestion=null fuerza al pipeline a tratar el match como marcador inline para reescritura posterior (Codex). Solo poner suggestion con texto fijo cuando la reescritura sea trivial y siempre la misma (ej. saludo formulaico → saludo directo)."
+  }
+}
