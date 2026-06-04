@@ -17,6 +17,10 @@
     }
   ],
   "ecosystem": {
-    "local_version_control": { "enabled": true }
-  }
+    "local_version_control": {
+      "enabled": true
+    }
+  },
+  "ctx_warning_threshold": 60,
+  "ctx_handoff_threshold": 75
 }
