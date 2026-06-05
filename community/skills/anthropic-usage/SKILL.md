@@ -158,18 +158,42 @@ El campo `weekly_pct_opus` viene aparte porque Anthropic trackea un bucket dedic
 
 ---
 
-## Cron en Sentinel
+## Cron: launchd (macOS) — recomendado
 
-Agregar al `crons` array del `config.json` de sentinel:
+**NO lo ejecutes como cron de un agente Claude Code**. Disparar el fetch desde un cron del agente Sentinel cada 10 min suma ~144 turns/día a su chat history, lo que infla el contexto y provoca autocompacts frecuentes (caso real 2026-06-05: Sentinel reportó dos compacts en pocas horas estando "idle"). El script es un fetch HTTP puro: no necesita un agente que lo invoque, lo corre el sistema y Sentinel solo lee el JSON resultante en su rate-limit-check.
 
-```json
-{
-  "name": "anthropic-usage-fetch",
-  "type": "recurring",
-  "interval": "10m",
-  "prompt": "Run: tsx ~/siriusos/community/skills/anthropic-usage/usage-fetch.ts --once"
-}
+### Setup launchd (Mac)
+
+1. Wrapper que resuelve PATH + `.env` (incluido en este skill como `run-cron.sh`):
+   ```bash
+   ls ~/siriusos/community/skills/anthropic-usage/run-cron.sh
+   ```
+
+2. Plist en `~/Library/LaunchAgents/com.example.anthropic-usage-fetch.plist`:
+   - `StartInterval: 600` (10 min)
+   - `RunAtLoad: true` (corre al cargar el plist o al login)
+   - `StdOut/StdErr` separados en `~/.siriusos/default/logs/anthropic-usage-fetch.*.log`
+   - `ThrottleInterval: 30` para evitar loops de fail
+
+3. Cargar:
+   ```bash
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.example.anthropic-usage-fetch.plist
+   launchctl list | grep anthropic-usage    # verificar
+   ```
+
+4. Para descargar (deshabilitar):
+   ```bash
+   launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.example.anthropic-usage-fetch.plist
+   ```
+
+### Cron tradicional (Linux / fallback)
+
+Si no estás en macOS, agregar a crontab:
 ```
+*/10 * * * * /path/to/community/skills/anthropic-usage/run-cron.sh >> /tmp/anthropic-usage.log 2>&1
+```
+
+### Frecuencia
 
 > No bajar de `10m`. Anthropic NO publica rate limits del endpoint interno pero la convención de la comunidad OSS (3 proyectos auditados) es ≥5min. 10min da margen.
 
