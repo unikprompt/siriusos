@@ -106,10 +106,16 @@ function defaultOutputPath(): string {
 
 // ---------- HTTP ----------
 
+interface UsageBucket {
+  utilization?: number;
+  resets_at?: string;
+}
+
 interface ClaudeApiResponse {
-  five_hour?: { utilization_pct?: number; reset_at?: string };
-  seven_day?: { utilization_pct?: number; reset_at?: string };
-  seven_day_opus?: { utilization_pct?: number; reset_at?: string };
+  five_hour?: UsageBucket | null;
+  seven_day?: UsageBucket | null;
+  seven_day_opus?: UsageBucket | null;
+  seven_day_sonnet?: UsageBucket | null;
 }
 
 interface Organization {
@@ -179,6 +185,7 @@ interface OutputJson {
   session_pct: number | null;
   weekly_pct: number | null;
   weekly_pct_opus: number | null;
+  weekly_pct_sonnet: number | null;
   session_resets_in_min: number | null;
   session_resets_at_utc: string | null;
   weekly_resets_day: string | null;
@@ -188,11 +195,18 @@ interface OutputJson {
 }
 
 function parseResponse(json: ClaudeApiResponse, fetchedAt: string): OutputJson {
-  const sessionPct = json.five_hour?.utilization_pct ?? null;
-  const weeklyPct = json.seven_day?.utilization_pct ?? null;
-  const weeklyPctOpus = json.seven_day_opus?.utilization_pct ?? null;
-  const sessionResetAt = json.five_hour?.reset_at ?? null;
-  const weeklyResetAt = json.seven_day?.reset_at ?? null;
+  // Shape real del endpoint claude.ai/api/organizations/{id}/usage (confirmado
+  // 2026-06-04 via --debug-raw): los buckets se llaman `utilization` y
+  // `resets_at` (no `utilization_pct` / `reset_at` que era la asunción
+  // inicial basada en docs OSS). seven_day_opus puede venir null en planes
+  // que no tienen bucket dedicado; seven_day_sonnet también está disponible
+  // para tracking por-modelo.
+  const sessionPct = json.five_hour?.utilization ?? null;
+  const weeklyPct = json.seven_day?.utilization ?? null;
+  const weeklyPctOpus = json.seven_day_opus?.utilization ?? null;
+  const weeklyPctSonnet = json.seven_day_sonnet?.utilization ?? null;
+  const sessionResetAt = json.five_hour?.resets_at ?? null;
+  const weeklyResetAt = json.seven_day?.resets_at ?? null;
 
   const sessionResetsInMin = sessionResetAt
     ? Math.max(0, Math.round((Date.parse(sessionResetAt) - Date.parse(fetchedAt)) / 60_000))
@@ -207,6 +221,7 @@ function parseResponse(json: ClaudeApiResponse, fetchedAt: string): OutputJson {
     session_pct: sessionPct,
     weekly_pct: weeklyPct,
     weekly_pct_opus: weeklyPctOpus,
+    weekly_pct_sonnet: weeklyPctSonnet,
     session_resets_in_min: sessionResetsInMin,
     session_resets_at_utc: sessionResetAt,
     weekly_resets_day: weeklyResetsDay,
@@ -293,6 +308,7 @@ async function modeOnce(args: Args, sessionKey: string): Promise<void> {
       session_pct: null,
       weekly_pct: null,
       weekly_pct_opus: null,
+      weekly_pct_sonnet: null,
       session_resets_in_min: null,
       session_resets_at_utc: null,
       weekly_resets_day: null,
@@ -321,6 +337,7 @@ async function modeOnce(args: Args, sessionKey: string): Promise<void> {
       session_pct: null,
       weekly_pct: null,
       weekly_pct_opus: null,
+      weekly_pct_sonnet: null,
       session_resets_in_min: null,
       session_resets_at_utc: null,
       weekly_resets_day: null,
@@ -340,6 +357,7 @@ async function modeOnce(args: Args, sessionKey: string): Promise<void> {
       session_pct: null,
       weekly_pct: null,
       weekly_pct_opus: null,
+      weekly_pct_sonnet: null,
       session_resets_in_min: null,
       session_resets_at_utc: null,
       weekly_resets_day: null,
@@ -358,6 +376,7 @@ async function modeOnce(args: Args, sessionKey: string): Promise<void> {
       session_pct: null,
       weekly_pct: null,
       weekly_pct_opus: null,
+      weekly_pct_sonnet: null,
       session_resets_in_min: null,
       session_resets_at_utc: null,
       weekly_resets_day: null,
@@ -376,6 +395,7 @@ async function modeOnce(args: Args, sessionKey: string): Promise<void> {
       session_pct: null,
       weekly_pct: null,
       weekly_pct_opus: null,
+      weekly_pct_sonnet: null,
       session_resets_in_min: null,
       session_resets_at_utc: null,
       weekly_resets_day: null,

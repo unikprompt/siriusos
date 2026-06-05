@@ -130,16 +130,23 @@ Shape:
 ```json
 {
   "status": "ok",
-  "session_pct": 17,
-  "weekly_pct": 7,
-  "weekly_pct_opus": 12,
+  "session_pct": 7,
+  "weekly_pct": 9,
+  "weekly_pct_opus": null,
+  "weekly_pct_sonnet": 6,
   "session_resets_in_min": 151,
-  "session_resets_at_utc": "2026-06-04T18:30:00Z",
+  "session_resets_at_utc": "2026-06-04T18:30:00.038758+00:00",
   "weekly_resets_day": "jueves",
-  "weekly_resets_at_utc": "2026-06-09T00:00:00Z",
+  "weekly_resets_at_utc": "2026-06-09T00:00:00.038776+00:00",
   "fetched_at": "2026-06-04T15:59:12Z"
 }
 ```
+
+> Mapeo confirmado vía `--debug-raw` (2026-06-04). El endpoint usa
+> `utilization` y `resets_at` (no `utilization_pct` / `reset_at` que la
+> docs OSS sugería). `weekly_pct_opus` puede venir `null` en planes sin
+> bucket dedicado para Opus; en ese caso usar `weekly_pct` como métrica
+> agregada. `weekly_pct_sonnet` agregado para tracking por-modelo.
 
 Campo `status`:
 - `"ok"` — fetch exitoso, datos frescos.
