@@ -43,17 +43,19 @@ interface Args {
   mode: 'once' | 'discover-org';
   outputPath?: string;
   noTelegram: boolean;
+  debugRaw: boolean;
   help: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { mode: 'once', noTelegram: false, help: false };
+  const args: Args = { mode: 'once', noTelegram: false, debugRaw: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--once') args.mode = 'once';
     else if (a === '--discover-org') args.mode = 'discover-org';
     else if (a === '--output') args.outputPath = argv[++i];
     else if (a === '--no-telegram') args.noTelegram = true;
+    else if (a === '--debug-raw') args.debugRaw = true;
     else if (a === '-h' || a === '--help') args.help = true;
   }
   return args;
@@ -74,6 +76,9 @@ Opciones:
                     \${CTX_ROOT}/state/\${CTX_AGENT_NAME}/anthropic_usage.json
                     o ~/.siriusos/default/state/sentinel/anthropic_usage.json.
   --no-telegram     no manda alerta en 401/403. Para debug.
+  --debug-raw       imprime el body crudo del response a stderr antes de
+                    parsear. Útil cuando los campos vienen null para ver
+                    el shape real del JSON que devuelve la API.
 
 Env requerido: ANTHROPIC_USAGE_SESSION_KEY, ANTHROPIC_USAGE_ORG_ID
               (ANTHROPIC_USAGE_CHAT_ID + BOT_TOKEN si querés alertas).
@@ -301,6 +306,14 @@ async function modeOnce(args: Args, sessionKey: string): Promise<void> {
   }
 
   const { status, bodyText, bodyJson } = httpResult;
+
+  if (args.debugRaw) {
+    process.stderr.write(`--- DEBUG-RAW ---\n`);
+    process.stderr.write(`HTTP ${status}\n`);
+    process.stderr.write(`url: ${ENDPOINT_BASE}/organizations/${orgId}/usage\n`);
+    process.stderr.write(`body (raw):\n${bodyText}\n`);
+    process.stderr.write(`--- END DEBUG-RAW ---\n`);
+  }
 
   if (status === 401 || status === 403) {
     const out: OutputJson = {
