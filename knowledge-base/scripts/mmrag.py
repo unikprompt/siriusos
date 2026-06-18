@@ -504,6 +504,31 @@ def already_exists(collection, doc_id):
     return bool(existing and existing["ids"])
 
 
+# Optional metadata plugin. A consumer may point MMRAG_METADATA_PLUGIN at a
+# Python file exposing `derive_metadata(file_path) -> dict`; the engine calls it
+# once per ingested file and merges the returned fields into the chunk metadata.
+# This keeps the engine domain-agnostic: any corpus-specific id scheme (e.g. a
+# document_id or tenant id derived from the layout) lives in the consumer's
+# plugin, not here.
+def _load_metadata_plugin():
+    path = os.environ.get("MMRAG_METADATA_PLUGIN")
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mmrag_metadata_plugin", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        fn = getattr(mod, "derive_metadata", None)
+        return fn if callable(fn) else None
+    except Exception as e:
+        print(f"  WARN: could not load MMRAG_METADATA_PLUGIN ({path}): {e}")
+        return None
+
+
+_METADATA_PLUGIN = _load_metadata_plugin()
+
+
 def ingest_text_file(client, config, collection, file_path):
     """Ingest a text-based file."""
     file_path = Path(file_path)
@@ -511,6 +536,16 @@ def ingest_text_file(client, config, collection, file_path):
     if not text.strip():
         print(f"  SKIP (empty): {file_path}")
         return 0
+
+    # Consumer-provided metadata (e.g. a document_id scheme). Computed once per
+    # file via the optional plugin; the engine itself infers nothing from the
+    # path or layout.
+    extra_meta = {}
+    if _METADATA_PLUGIN:
+        try:
+            extra_meta = _METADATA_PLUGIN(file_path) or {}
+        except Exception as e:
+            print(f"  WARN: metadata plugin failed for {file_path}: {e}")
 
     chunks = chunk_text(
         text,
@@ -525,19 +560,23 @@ def ingest_text_file(client, config, collection, file_path):
             continue
 
         embedding = embed_content(client, config, chunk)
+        meta = {
+            "source": str(file_path.resolve()),
+            "type": "text",
+            "chunk_index": i,
+            "total_chunks": len(chunks),
+            "filename": file_path.name,
+            "file_ext": file_path.suffix.lower(),
+            "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        for key, value in extra_meta.items():
+            if value is not None:
+                meta[key] = value
         collection.upsert(
             ids=[doc_id],
             embeddings=[embedding],
             documents=[chunk],
-            metadatas=[{
-                "source": str(file_path.resolve()),
-                "type": "text",
-                "chunk_index": i,
-                "total_chunks": len(chunks),
-                "filename": file_path.name,
-                "file_ext": file_path.suffix.lower(),
-                "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            }],
+            metadatas=[meta],
         )
         count += 1
 
@@ -1189,6 +1228,20 @@ def cmd_query(args):
             # Direct type match
             where_filter = {"type": type_filter}
 
+    # Optional generic metadata filter passed as JSON (e.g. {"document_id": "doc-123"}).
+    # Combined with the type filter via $and when both are present.
+    extra_where = getattr(args, "where_json", None)
+    if extra_where:
+        try:
+            parsed_where = json.loads(extra_where)
+        except (ValueError, TypeError) as e:
+            print(f"ERROR: --where-json is not valid JSON: {e}")
+            sys.exit(1)
+        if where_filter:
+            where_filter = {"$and": [where_filter, parsed_where]}
+        else:
+            where_filter = parsed_where
+
     query_kwargs = {
         "query_embeddings": [query_embedding],
         "n_results": min(fetch_k, collection.count()),
@@ -1528,6 +1581,8 @@ def main():
                          help="Max total tokens in results (0=unlimited)")
     p_query.add_argument("--collection", "-c", help="Collection name")
     p_query.add_argument("--type", help="Filter by content type: image, video, text, pdf, audio")
+    p_query.add_argument("--where-json", dest="where_json", default=None,
+                         help='Extra ChromaDB metadata filter as JSON, e.g. \'{"document_id": "doc-123"}\'')
     p_query.add_argument("--json", "-j", action="store_true", help="Output as JSON (for agent consumption)")
     p_query.add_argument("--full", "-f", action="store_true", help="Show full content (not truncated)")
 

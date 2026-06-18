@@ -11,6 +11,8 @@
 #   --collection NAME  Override collection name directly
 #   --top-k N          Number of results to return (default: 5)
 #   --threshold F      Minimum similarity score 0.0-1.0 (default: 0.5)
+#   --document-id ID   Scope query to one document at query-time (e.g. doc-123)
+#   --where-json JSON  Raw ChromaDB metadata filter as JSON (overrides --document-id)
 #   --json             Output JSON instead of plain text
 #   --instance ID      Instance ID (default: default)
 #
@@ -35,6 +37,8 @@ THRESHOLD=0.5
 JSON_FLAG=""
 INSTANCE_ID="${CTX_INSTANCE_ID:-default}"
 QUESTION=""
+DOCUMENT_ID=""
+WHERE_JSON=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -44,12 +48,19 @@ while [[ $# -gt 0 ]]; do
     --collection) COLLECTION="$2"; shift 2 ;;
     --top-k) TOP_K="$2"; shift 2 ;;
     --threshold) THRESHOLD="$2"; shift 2 ;;
+    --document-id) DOCUMENT_ID="$2"; shift 2 ;;
+    --where-json) WHERE_JSON="$2"; shift 2 ;;
     --json) JSON_FLAG="--json"; shift ;;
     --instance) INSTANCE_ID="$2"; shift 2 ;;
     -*) echo "Unknown flag: $1"; exit 1 ;;
     *) QUESTION="$1"; shift ;;
   esac
 done
+
+# --document-id is sugar for a document_id metadata filter; --where-json wins if both given.
+if [[ -z "$WHERE_JSON" && -n "$DOCUMENT_ID" ]]; then
+  WHERE_JSON="{\"document_id\": \"${DOCUMENT_ID}\"}"
+fi
 
 if [[ -z "$ORG" ]]; then
   echo "ERROR: --org or CTX_ORG required"
@@ -111,11 +122,20 @@ export GEMINI_API_KEY
 
 run_query() {
   local col="$1"
-  "$VENV_DIR/bin/python3" "$MMRAG_PY" query "$QUESTION" \
-    --collection "$col" \
-    --top-k "$TOP_K" \
-    --threshold "$THRESHOLD" \
-    ${JSON_FLAG}
+  if [[ -n "$WHERE_JSON" ]]; then
+    "$VENV_DIR/bin/python3" "$MMRAG_PY" query "$QUESTION" \
+      --collection "$col" \
+      --top-k "$TOP_K" \
+      --threshold "$THRESHOLD" \
+      --where-json "$WHERE_JSON" \
+      ${JSON_FLAG}
+  else
+    "$VENV_DIR/bin/python3" "$MMRAG_PY" query "$QUESTION" \
+      --collection "$col" \
+      --top-k "$TOP_K" \
+      --threshold "$THRESHOLD" \
+      ${JSON_FLAG}
+  fi
 }
 
 if [[ -n "$COLLECTION" ]]; then
