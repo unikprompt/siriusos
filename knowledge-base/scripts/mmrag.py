@@ -21,6 +21,7 @@ import hashlib
 import json
 import mimetypes
 import os
+import re
 import subprocess
 import sys
 import time
@@ -533,6 +534,13 @@ def ingest_text_file(client, config, collection, file_path):
     """Ingest a text-based file."""
     file_path = Path(file_path)
     text = file_path.read_text(errors="replace")
+    # Strip a leading YAML frontmatter block (--- ... ---) from the embedded text:
+    # it is metadata, not content, and dilutes the embedding while leaking local
+    # paths/hashes into the retrieval context. Structured metadata is surfaced via
+    # the optional plugin (MMRAG_METADATA_PLUGIN), which reads the file on disk with
+    # the frontmatter intact.
+    if text.startswith("---\n") or text.startswith("---\r\n"):
+        text = re.sub(r"^---\r?\n.*?\r?\n---\r?\n", "", text, count=1, flags=re.DOTALL)
     if not text.strip():
         print(f"  SKIP (empty): {file_path}")
         return 0
@@ -1057,8 +1065,12 @@ def ingest_file(client, config, collection, file_path):
 
     # Skip common non-content files
     skip_names = {".ds_store", "thumbs.db", ".gitignore", ".gitkeep", "package-lock.json",
-                  "yarn.lock", "pnpm-lock.yaml", ".eslintcache"}
+                  "yarn.lock", "pnpm-lock.yaml", ".eslintcache", "metadata.json"}
     if file_path.name.lower() in skip_names:
+        return 0
+    # Internal pipeline manifests/metadata: underscore-prefixed JSON (e.g.
+    # _meta.json, _run-summary.json). Not ingestable content.
+    if file_path.name.startswith("_") and ext == ".json":
         return 0
 
     # Skip junk directories
