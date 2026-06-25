@@ -505,13 +505,22 @@ def already_exists(collection, doc_id):
     return bool(existing and existing["ids"])
 
 
-# Optional metadata plugin. A consumer may point MMRAG_METADATA_PLUGIN at a
-# Python file exposing `derive_metadata(file_path) -> dict`; the engine calls it
-# once per ingested file and merges the returned fields into the chunk metadata.
-# This keeps the engine domain-agnostic: any corpus-specific id scheme (e.g. a
-# document_id or tenant id derived from the layout) lives in the consumer's
-# plugin, not here.
-def _load_metadata_plugin():
+# Optional consumer plugin. A consumer may point MMRAG_METADATA_PLUGIN at a Python
+# file exposing any subset of these optional hooks; the engine calls each one when
+# present and otherwise falls back to its built-in behaviour. This keeps the engine
+# domain-agnostic: corpus-specific logic (id schemes, boilerplate stripping,
+# structure-aware chunking) lives in the consumer's plugin, not here.
+#
+#   derive_metadata(file_path) -> dict
+#       Extra metadata merged into every chunk of the file (e.g. a document_id or
+#       tenant id derived from the layout).
+#   preprocess_text(text, file_path) -> str
+#       Transforms the text after frontmatter stripping and before chunking
+#       (e.g. removing scraper boilerplate/footers). Non-str returns are ignored.
+#   chunk_text(text, chunk_size, overlap, file_path) -> list[str]
+#       Replaces the built-in size-based chunker with a structure-aware one (e.g.
+#       splitting on clause boundaries). A falsy return falls back to the built-in.
+def _load_plugin_module():
     path = os.environ.get("MMRAG_METADATA_PLUGIN")
     if not path or not os.path.exists(path):
         return None
@@ -520,14 +529,23 @@ def _load_metadata_plugin():
         spec = importlib.util.spec_from_file_location("mmrag_metadata_plugin", path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
-        fn = getattr(mod, "derive_metadata", None)
-        return fn if callable(fn) else None
+        return mod
     except Exception as e:
         print(f"  WARN: could not load MMRAG_METADATA_PLUGIN ({path}): {e}")
         return None
 
 
-_METADATA_PLUGIN = _load_metadata_plugin()
+def _plugin_hook(mod, name):
+    if mod is None:
+        return None
+    fn = getattr(mod, name, None)
+    return fn if callable(fn) else None
+
+
+_PLUGIN_MODULE = _load_plugin_module()
+_METADATA_PLUGIN = _plugin_hook(_PLUGIN_MODULE, "derive_metadata")
+_TEXT_PREPROCESSOR = _plugin_hook(_PLUGIN_MODULE, "preprocess_text")
+_CHUNKER = _plugin_hook(_PLUGIN_MODULE, "chunk_text")
 
 
 def ingest_text_file(client, config, collection, file_path):
@@ -541,6 +559,18 @@ def ingest_text_file(client, config, collection, file_path):
     # the frontmatter intact.
     if text.startswith("---\n") or text.startswith("---\r\n"):
         text = re.sub(r"^---\r?\n.*?\r?\n---\r?\n", "", text, count=1, flags=re.DOTALL)
+
+    # Optional consumer text preprocessing (e.g. stripping scraper boilerplate)
+    # before the content is chunked and embedded. Runs after frontmatter removal
+    # so a file that was nothing but boilerplate can become empty and be skipped.
+    if _TEXT_PREPROCESSOR:
+        try:
+            result = _TEXT_PREPROCESSOR(text, file_path)
+            if isinstance(result, str):
+                text = result
+        except Exception as e:
+            print(f"  WARN: text preprocessor failed for {file_path}: {e}")
+
     if not text.strip():
         print(f"  SKIP (empty): {file_path}")
         return 0
@@ -555,11 +585,26 @@ def ingest_text_file(client, config, collection, file_path):
         except Exception as e:
             print(f"  WARN: metadata plugin failed for {file_path}: {e}")
 
-    chunks = chunk_text(
-        text,
-        chunk_size=config.get("text_chunk_size", DEFAULT_TEXT_CHUNK_SIZE),
-        overlap=config.get("text_chunk_overlap", DEFAULT_TEXT_CHUNK_OVERLAP),
-    )
+    # Optional consumer chunker (e.g. structure-aware splitting). Falls back to the
+    # built-in size-based chunker if absent, failing, or returning nothing.
+    chunks = None
+    if _CHUNKER:
+        try:
+            chunks = _CHUNKER(
+                text,
+                config.get("text_chunk_size", DEFAULT_TEXT_CHUNK_SIZE),
+                config.get("text_chunk_overlap", DEFAULT_TEXT_CHUNK_OVERLAP),
+                file_path,
+            )
+        except Exception as e:
+            print(f"  WARN: chunker plugin failed for {file_path}: {e}")
+            chunks = None
+    if not chunks:
+        chunks = chunk_text(
+            text,
+            chunk_size=config.get("text_chunk_size", DEFAULT_TEXT_CHUNK_SIZE),
+            overlap=config.get("text_chunk_overlap", DEFAULT_TEXT_CHUNK_OVERLAP),
+        )
 
     count = 0
     for i, chunk in enumerate(chunks):
