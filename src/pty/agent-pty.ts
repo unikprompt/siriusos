@@ -39,6 +39,15 @@ export class AgentPTY {
   private config: AgentConfig;
   private onExitHandler: ((exitCode: number, signal?: number) => void) | null = null;
   private spawnFn: SpawnFn | null = null;
+  // BUG-PTY-LEAK fix: node-pty's onData/onExit return IDisposable handles that
+  // must be dispose()'d to release the internal libuv resources tied to the
+  // pty master fd. Without disposal, restarting agents accumulates orphan
+  // masters (observed: 483 PTYs open for daemon with only 2 live agents,
+  // hitting the 511 system cap after weeks of restarts, breaking spawn with
+  // posix_spawnp failed). We capture the handles here and dispose them in
+  // kill() and after the exit handler fires.
+  private dataDisposable: { dispose(): void } | null = null;
+  private exitDisposable: { dispose(): void } | null = null;
 
   constructor(env: CtxEnv, config: AgentConfig, logPath?: string, bootstrapPattern?: string) {
     this.env = env;
@@ -179,18 +188,21 @@ export class AgentPTY {
 
     this._alive = true;
 
-    // Set up output capture
-    this.pty.onData((data: string) => {
+    // Set up output capture (capture disposable for cleanup — BUG-PTY-LEAK)
+    this.dataDisposable = this.pty.onData((data: string) => {
       this.outputBuffer.push(data);
     });
 
-    // Set up exit handler
-    this.pty.onExit(({ exitCode, signal }) => {
+    // Set up exit handler (capture disposable for cleanup — BUG-PTY-LEAK)
+    this.exitDisposable = this.pty.onExit(({ exitCode, signal }) => {
       this._alive = false;
       this.pty = null;
       if (this.onExitHandler) {
         this.onExitHandler(exitCode, signal);
       }
+      // Dispose our own listeners after they fire so the underlying pty
+      // master fd is fully released.
+      this.disposeListeners();
     });
 
     // Claude Code shows a "trust this folder?" prompt on first run in a new directory.
@@ -233,6 +245,24 @@ export class AgentPTY {
       this._alive = false;
       this.pty = null;
       pty.kill();
+    }
+    // BUG-PTY-LEAK: also dispose any lingering listeners even if pty was already
+    // nulled elsewhere (e.g. handleExit ran first). Safe to call multiple times.
+    this.disposeListeners();
+  }
+
+  /**
+   * Dispose the onData/onExit subscription handles returned by node-pty.
+   * Idempotent — safe to call multiple times. See BUG-PTY-LEAK.
+   */
+  private disposeListeners(): void {
+    if (this.dataDisposable) {
+      try { this.dataDisposable.dispose(); } catch { /* ignore */ }
+      this.dataDisposable = null;
+    }
+    if (this.exitDisposable) {
+      try { this.exitDisposable.dispose(); } catch { /* ignore */ }
+      this.exitDisposable = null;
     }
   }
 

@@ -197,6 +197,16 @@ export class CodexAppServerPTY {
       this._rpc = null;
     }
     if (this._appServerPty) {
+      // BUG-PTY-LEAK: dispose listeners before killing so the pty master fd
+      // is fully released back to the system. Otherwise clean stops still
+      // leak fds and accumulate orphans across daemon restarts.
+      const disposables = (this._appServerPty as unknown as { _siriusosDisposables?: Array<{ dispose(): void }> })
+        ._siriusosDisposables;
+      if (disposables) {
+        for (const d of disposables) {
+          try { d.dispose(); } catch { /* ignore */ }
+        }
+      }
       try {
         this._appServerPty.kill();
       } catch {
@@ -445,19 +455,29 @@ export class CodexAppServerPTY {
       });
 
       this._appServerPty = pty;
-      pty.onData((data) => {
+      // BUG-PTY-LEAK: capture IDisposable handles and store them on the pty
+      // object so cleanupSpawnAttempt() / kill() can dispose them. Without
+      // disposal the pty master fd stays open, accumulating orphans across
+      // restarts and hitting the system cap (511) after weeks.
+      const dataDisposable = pty.onData((data) => {
         this._outputBuffer.push(data);
         if (data.includes('Error:')) {
           reject(new Error(data.trim()));
         }
       });
-      pty.onExit(({ exitCode, signal }) => {
+      const exitDisposable = pty.onExit(({ exitCode, signal }) => {
         if (this._appServerPty !== pty) return;
         this._appServerPty = null;
         this._alive = false;
         this.rejectTurnCompletion(new Error('Codex app-server exited'));
         this._onExitHandler?.(exitCode, signal);
+        try { dataDisposable.dispose(); } catch { /* ignore */ }
+        try { exitDisposable.dispose(); } catch { /* ignore */ }
       });
+      // Attach disposables to pty object so cleanupSpawnAttempt / kill can
+      // release them on the retry / stop path.
+      (pty as unknown as { _siriusosDisposables?: Array<{ dispose(): void }> })
+        ._siriusosDisposables = [dataDisposable, exitDisposable];
 
       this.waitForSocket().then(resolve, reject);
     });
@@ -987,6 +1007,16 @@ export class CodexAppServerPTY {
     const pty = this._appServerPty;
     this._appServerPty = null;
     if (pty) {
+      // BUG-PTY-LEAK: dispose listeners before killing so the master fd is
+      // fully released. Otherwise a failed spawn attempt leaks one pty per
+      // retry (up to 3 per start()), and every daemon restart adds more.
+      const disposables = (pty as unknown as { _siriusosDisposables?: Array<{ dispose(): void }> })
+        ._siriusosDisposables;
+      if (disposables) {
+        for (const d of disposables) {
+          try { d.dispose(); } catch { /* ignore */ }
+        }
+      }
       try {
         pty.kill();
       } catch {

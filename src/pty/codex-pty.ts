@@ -243,7 +243,11 @@ export class CodexPTY {
 
       this._currentPty = pty;
 
-      pty.onData((data: string) => {
+      // BUG-PTY-LEAK: capture IDisposable so we can release the internal
+      // libuv resources tied to the master fd once the exec exits. Without
+      // disposal, each turn leaks one pty master, hitting the system cap
+      // (511) after weeks of use and breaking spawn with posix_spawnp failed.
+      const dataDisposable = pty.onData((data: string) => {
         this._outputBuffer.push(data);
         // Detect turn.completed in JSONL output → write last_idle.flag
         if (data.includes('"turn.completed"') || data.includes('"type":"turn.completed"')) {
@@ -255,13 +259,17 @@ export class CodexPTY {
         }
       });
 
-      pty.onExit(({ exitCode }) => {
+      const exitDisposable = pty.onExit(({ exitCode }) => {
         if (this._currentPty === pty) {
           this._currentPty = null;
         }
         // Write idle flag on process exit as fallback (catches turn.completed race)
         this.writeIdleFlag();
         this._currentTurnFromTelegram = false;
+        // BUG-PTY-LEAK: dispose the subscriptions so the pty master fd is
+        // released. Do exit last since it's this very handler.
+        try { dataDisposable.dispose(); } catch { /* ignore */ }
+        try { exitDisposable.dispose(); } catch { /* ignore */ }
         resolve();
       });
     });
