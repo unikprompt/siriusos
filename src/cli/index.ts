@@ -31,6 +31,7 @@ import { costBudgetCommand } from './cost-budget.js';
 import { anomalyDetectionCommand } from './anomaly-detection.js';
 import { browserCommand } from './browser.js';
 import { routineRunsCommand } from './routine-runs.js';
+import { mailCommand } from './mail.js';
 import { migratePathsCommand } from './migrate-paths.js';
 import { importAgentCommand } from './import-agent.js';
 
@@ -71,6 +72,7 @@ program.addCommand(purgeCommand);
 program.addCommand(obsidianCommand);
 program.addCommand(migratePathsCommand);
 program.addCommand(importAgentCommand);
+program.addCommand(mailCommand);
 busCommand.addCommand(obsidianCommand);
 busCommand.addCommand(skillSuggestionsCommand);
 busCommand.addCommand(costBudgetCommand);
