@@ -389,9 +389,45 @@ describe('createApproval — agent-bot Telegram ping (closes 50h+ Repo-B-style s
     expect(text).toContain('bob');
     expect(text).toContain(id);
     expect(text).toContain('detailed context paragraph');
-    // The ping must point operators at the action surface — they cannot
-    // act from the per-agent bot, so the body tells them where to go.
+    // The buttons live on this 1:1 message now, but the body still names the
+    // orchestrator chat and dashboard as alternative action surfaces.
     expect(text).toMatch(/orchestrator|dashboard/i);
+  });
+
+  it('attaches the Approve/Deny inline keyboard to the per-agent 1:1 ping (live buttons)', async () => {
+    // The operator on a per-agent bot must be able to act from the 1:1 chat,
+    // not just see the approval. FastChecker.handleCallback (agent's own bot)
+    // resolves the appr_(allow|deny)_ callback via routeApprovalCallback, so
+    // this keyboard is live — the same one the activity channel receives.
+    const agentDir = join(testDir, 'agent-keyboard');
+    writeAgentEnv(agentDir, { BOT_TOKEN: 'test-token-123', CHAT_ID: '987654321' });
+
+    const id = await createApproval(
+      paths,
+      'alice',
+      'TestOrg',
+      'Keyboard on 1:1 ping',
+      'deployment',
+      'ctx',
+      frameworkRoot,
+      undefined,
+      agentDir,
+    );
+
+    expect(telegramSendMessageSpy).toHaveBeenCalledTimes(1);
+    // 3rd positional arg of sendMessage is the replyMarkup (was undefined before).
+    const [, , replyMarkup] = telegramSendMessageSpy.mock.calls[0] as [string, string, any, unknown];
+    expect(replyMarkup).toBeDefined();
+    const rows = replyMarkup.inline_keyboard;
+    expect(Array.isArray(rows)).toBe(true);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveLength(2);
+    // callback_data keyed on THIS approval id, matching the prefixes
+    // FastChecker resolves (appr_allow_ / appr_deny_).
+    expect(rows[0][0].callback_data).toBe(`appr_allow_${id}`);
+    expect(rows[0][1].callback_data).toBe(`appr_deny_${id}`);
+    expect(String(rows[0][0].text)).toMatch(/Approve/);
+    expect(String(rows[0][1].text)).toMatch(/Deny/);
   });
 });
 

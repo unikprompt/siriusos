@@ -162,11 +162,18 @@ function pingAgentChatId(
     lines.push('', context);
   }
   lines.push('', `id: ${approvalId}`);
-  lines.push('', 'Approve via the orchestrator chat (Approve/Deny buttons) or the dashboard.');
+  lines.push('', 'Approve or Deny with the buttons below — or via the orchestrator chat or the dashboard.');
   const message = lines.join('\n');
 
+  // Attach the same Approve/Deny inline keyboard the activity channel gets, so
+  // the operator can act directly from the per-agent 1:1 chat. The agent's own
+  // bot poller resolves the appr_(allow|deny)_ callback via FastChecker's
+  // handleCallback → routeApprovalCallback (using the agent's own TelegramAPI),
+  // so these buttons are live — not decorative. Without this, operators on a
+  // per-agent bot could only see the approval, not act on it (the source of the
+  // observed 50h+ stalls).
   const api = new TelegramAPI(botToken);
-  return api.sendMessage(chatId, message, undefined, { parseMode: null })
+  return api.sendMessage(chatId, message, buildApprovalKeyboard(approvalId), { parseMode: null })
     .then(() => undefined)
     .catch(() => undefined); // Telegram outage must not fail approval creation.
 }
