@@ -535,7 +535,7 @@ Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
       return;
     }
 
-    await this.routeApprovalCallback(apprMatch[1] as 'allow' | 'deny', apprMatch[2], query, activityApi);
+    await this.routeApprovalCallback(apprMatch[1] as 'allow' | 'deny', apprMatch[2], query, activityApi, 'activity-channel');
   }
 
   /**
@@ -555,6 +555,7 @@ Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
     approvalId: string,
     query: TelegramCallbackQuery,
     api: TelegramAPI | undefined,
+    source: 'activity-channel' | 'agent-bot',
   ): Promise<void> {
     const chatId = query.message?.chat?.id;
     const messageId = query.message?.message_id;
@@ -569,7 +570,11 @@ Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
     const auditWho = firstName && username
       ? `${firstName} (@${username})`
       : firstName ?? (username ? `@${username}` : `user ${query.from?.id ?? 'unknown'}`);
-    const auditNote = `via Telegram activity channel by ${auditWho}`;
+    // The audit trail must name the surface the operator actually acted from —
+    // the org activity channel and the agent's own 1:1 bot are different bots,
+    // so a resolution from the 1:1 ping must NOT be recorded as "activity channel".
+    const channelLabel = source === 'activity-channel' ? 'activity channel' : 'agent 1:1 bot';
+    const auditNote = `via Telegram ${channelLabel} by ${auditWho}`;
 
     try {
       updateApproval(this.paths, approvalId, status, auditNote);
@@ -618,7 +623,7 @@ Reply using: siriusos bus send-telegram ${chatId} '<your reply>'
     // prefix check is cheap and routing-agnostic.
     const apprMatch = data.match(/^appr_(allow|deny)_(approval_\d+_[a-zA-Z0-9]+)$/);
     if (apprMatch) {
-      await this.routeApprovalCallback(apprMatch[1] as 'allow' | 'deny', apprMatch[2], query, this.telegramApi);
+      await this.routeApprovalCallback(apprMatch[1] as 'allow' | 'deny', apprMatch[2], query, this.telegramApi, 'agent-bot');
       return;
     }
 

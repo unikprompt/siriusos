@@ -122,6 +122,8 @@ describe('FastChecker', () => {
       expect(approval.status).toBe('approved');
       expect(approval.resolved_by).toContain('Alice');
       expect(approval.resolved_by).toContain('@alice');
+      // Audit trail records the surface acted from: the activity channel here.
+      expect(approval.resolved_by).toContain('activity channel');
 
       // Telegram side effects: answerCallbackQuery + editMessageText called.
       expect(activityApi.answerCallbackQuery).toHaveBeenCalledWith('cb-123', 'Approved');
@@ -222,6 +224,81 @@ describe('FastChecker', () => {
 
       expect(activityApi.answerCallbackQuery).toHaveBeenCalledWith('cb-123', 'Unknown button');
       expect(activityApi.editMessageText).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleCallback — agent 1:1 bot approval path (audit source distinction)', () => {
+    function writeTestApproval(id: string): void {
+      const pendingDir = join(paths.approvalDir, 'pending');
+      mkdirSync(pendingDir, { recursive: true });
+      writeFileSync(join(pendingDir, `${id}.json`), JSON.stringify({
+        id,
+        title: 'Test approval',
+        requesting_agent: 'alice',
+        org: 'TestOrg',
+        category: 'deployment',
+        status: 'pending',
+        description: '',
+        created_at: '2026-04-13T00:00:00Z',
+        updated_at: '2026-04-13T00:00:00Z',
+        resolved_at: null,
+        resolved_by: null,
+      }));
+    }
+
+    it('resolves via the agent own bot and records the audit source as "agent 1:1 bot", not "activity channel"', async () => {
+      const approvalId = 'approval_1234567890_bot11';
+      writeTestApproval(approvalId);
+
+      const agent = createMockAgent();
+      const agentBotApi = createMockTelegramApi();
+      const checker = new FastChecker(agent, paths, '/tmp/framework', {
+        telegramApi: agentBotApi,
+        allowedUserId: 42,
+      });
+
+      // Same appr_allow_ callback, but arriving on the agent's OWN 1:1 bot
+      // (handleCallback), not the activity channel (handleActivityCallback).
+      const query = createCallbackQuery(`appr_allow_${approvalId}`, {
+        from: { id: 42, first_name: 'Alice', username: 'alice' },
+      });
+      await checker.handleCallback(query);
+
+      const resolvedFile = join(paths.approvalDir, 'resolved', `${approvalId}.json`);
+      expect(existsSync(resolvedFile)).toBe(true);
+      const approval = JSON.parse(readFileSync(resolvedFile, 'utf-8'));
+      expect(approval.status).toBe('approved');
+      // The distinction under test: the 1:1 path must NOT be recorded as
+      // "activity channel" — it names the agent's own bot.
+      expect(approval.resolved_by).toContain('agent 1:1 bot');
+      expect(approval.resolved_by).not.toContain('activity channel');
+      expect(approval.resolved_by).toContain('Alice');
+      // Answered on the same bot the button lives on (the agent's own API).
+      expect(agentBotApi.answerCallbackQuery).toHaveBeenCalledWith('cb-123', 'Approved');
+    });
+
+    it('denies via the agent own bot with the 1:1-bot audit source', async () => {
+      const approvalId = 'approval_1234567890_bot22';
+      writeTestApproval(approvalId);
+
+      const agent = createMockAgent();
+      const agentBotApi = createMockTelegramApi();
+      const checker = new FastChecker(agent, paths, '/tmp/framework', {
+        telegramApi: agentBotApi,
+        allowedUserId: 42,
+      });
+
+      const query = createCallbackQuery(`appr_deny_${approvalId}`, {
+        from: { id: 42, first_name: 'Alice', username: 'alice' },
+      });
+      await checker.handleCallback(query);
+
+      const resolvedFile = join(paths.approvalDir, 'resolved', `${approvalId}.json`);
+      const approval = JSON.parse(readFileSync(resolvedFile, 'utf-8'));
+      expect(approval.status).toBe('rejected');
+      expect(approval.resolved_by).toContain('agent 1:1 bot');
+      expect(approval.resolved_by).not.toContain('activity channel');
+      expect(agentBotApi.answerCallbackQuery).toHaveBeenCalledWith('cb-123', 'Denied');
     });
   });
 
