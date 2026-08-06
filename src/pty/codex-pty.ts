@@ -47,6 +47,10 @@ export class CodexPTY {
   private _execQueue: string[] = []; // pending messages awaiting exec
   private _spawnFn: SpawnFn | null = null;
   private _currentPty: IPty | null = null;
+  // BUG-PTY-LEAK: the in-flight turn's cleanup closure, so both the normal
+  // onExit and a mid-turn class-level kill() release the same pty master fd
+  // exactly once. Null between turns.
+  private _currentCleanup: (() => void) | null = null;
   private _onExitHandler: ((exitCode: number, signal?: number) => void) | null = null;
   private _outputBuffer: OutputBuffer;
   private _env: CtxEnv;
@@ -139,12 +143,12 @@ export class CodexPTY {
   kill(): void {
     this._alive = false;
     this._execQueue = [];
-    if (this._currentPty) {
-      try {
-        this._currentPty.kill();
-      } catch { /* ignore */ }
-      this._currentPty = null;
-    }
+    // BUG-PTY-LEAK: run the in-flight turn's cleanup (dispose + pty.kill()) so a
+    // mid-turn stop releases the exec pty master fd. The closure's `cleaned`
+    // guard keeps it idempotent, so a later normal onExit becomes a no-op.
+    this._currentCleanup?.();
+    this._currentCleanup = null;
+    this._currentPty = null;
     this._onExitHandler?.(0, undefined);
     this._onExitHandler = null;
   }
@@ -243,11 +247,33 @@ export class CodexPTY {
 
       this._currentPty = pty;
 
-      // BUG-PTY-LEAK: capture IDisposable so we can release the internal
-      // libuv resources tied to the master fd once the exec exits. Without
-      // disposal, each turn leaks one pty master, hitting the system cap
-      // (511) after weeks of use and breaking spawn with posix_spawnp failed.
-      const dataDisposable = pty.onData((data: string) => {
+      // BUG-PTY-LEAK: each codex exec turn spawns a pty whose master fd must be
+      // released when the turn ends. Disposing the onData/onExit subscriptions
+      // is NOT enough — empirically the master fd survives disposal; only
+      // pty.kill() frees it. Left un-killed, each turn leaks one master and the
+      // daemon eventually hits the system cap (kern.tty.ptmx_max=511), breaking
+      // spawn with posix_spawnp failed. cleanup() disposes AND kills, runs
+      // exactly once (guarded by `cleaned`), and is reachable both from the
+      // normal onExit and from the class-level kill() via this._currentCleanup,
+      // so a mid-turn stop also releases the fd.
+      let cleaned = false;
+      let dataDisposable: { dispose(): void } | undefined;
+      let exitDisposable: { dispose(): void } | undefined;
+      const cleanup = (): void => {
+        if (cleaned) return;
+        cleaned = true;
+        try { dataDisposable?.dispose(); } catch { /* ignore */ }
+        try { exitDisposable?.dispose(); } catch { /* ignore */ }
+        try { pty.kill(); } catch { /* ignore */ }
+        if (this._currentPty === pty) this._currentPty = null;
+        if (this._currentCleanup === cleanup) this._currentCleanup = null;
+        // resolve() lives inside cleanup so that a mid-turn class kill() — which
+        // disposes the exit listener before the exit event can fire — still
+        // settles the runExec promise and drainQueue doesn't hang.
+        resolve();
+      };
+
+      dataDisposable = pty.onData((data: string) => {
         this._outputBuffer.push(data);
         // Detect turn.completed in JSONL output → write last_idle.flag
         if (data.includes('"turn.completed"') || data.includes('"type":"turn.completed"')) {
@@ -259,19 +285,14 @@ export class CodexPTY {
         }
       });
 
-      const exitDisposable = pty.onExit(({ exitCode }) => {
-        if (this._currentPty === pty) {
-          this._currentPty = null;
-        }
+      exitDisposable = pty.onExit(() => {
         // Write idle flag on process exit as fallback (catches turn.completed race)
         this.writeIdleFlag();
         this._currentTurnFromTelegram = false;
-        // BUG-PTY-LEAK: dispose the subscriptions so the pty master fd is
-        // released. Do exit last since it's this very handler.
-        try { dataDisposable.dispose(); } catch { /* ignore */ }
-        try { exitDisposable.dispose(); } catch { /* ignore */ }
-        resolve();
+        cleanup();
       });
+
+      this._currentCleanup = cleanup;
     });
   }
 

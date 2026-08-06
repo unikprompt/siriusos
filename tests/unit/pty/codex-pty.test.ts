@@ -266,3 +266,93 @@ describe('CodexPTY model arg', () => {
     expect(args[args.length - 1]).toBe('hi');
   });
 });
+
+describe('CodexPTY per-turn pty cleanup (BUG-PTY-LEAK)', () => {
+  // A controllable mock pty: captures the onExit callback CodexPTY registers
+  // and exposes spies for kill()/dispose() so we can assert the master fd is
+  // released exactly once per turn. Disposing the subscriptions is not enough
+  // to free the master fd — only pty.kill() does — so kill() must run exactly
+  // once on every exit path (normal, error, mid-turn cancel) and never twice.
+  function makeControllablePty() {
+    let onExitCb: ((e: { exitCode: number; signal?: number }) => void) | undefined;
+    const kill = vi.fn();
+    const dataDispose = vi.fn();
+    const exitDispose = vi.fn();
+    const pty = {
+      pid: 4321,
+      write: vi.fn(),
+      onData: vi.fn(() => ({ dispose: dataDispose })),
+      onExit: vi.fn((cb: (e: { exitCode: number; signal?: number }) => void) => {
+        onExitCb = cb;
+        return { dispose: exitDispose };
+      }),
+      kill,
+    };
+    return {
+      pty,
+      kill,
+      dataDispose,
+      exitDispose,
+      fireExit: (exitCode = 0) => onExitCb?.({ exitCode }),
+    };
+  }
+
+  function startTurn(mock: ReturnType<typeof makeControllablePty>) {
+    const pty = new CodexPTY(mockEnv, {});
+    // Inject the controllable pty as the spawn result so runExec never touches
+    // a native addon.
+    (pty as unknown as { _spawnFn: () => unknown })._spawnFn = () => mock.pty;
+    const done = (pty as unknown as { runExec(args: string[]): Promise<void> }).runExec(['exec', 'hi']);
+    return { pty, done };
+  }
+
+  it('disposes and kills the pty exactly once on a normal turn exit', async () => {
+    const mock = makeControllablePty();
+    const { done } = startTurn(mock);
+
+    mock.fireExit(0);
+    await done;
+
+    expect(mock.kill).toHaveBeenCalledTimes(1);
+    expect(mock.dataDispose).toHaveBeenCalledTimes(1);
+    expect(mock.exitDispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('releases the pty exactly once on a non-zero (error) turn exit', async () => {
+    const mock = makeControllablePty();
+    const { done } = startTurn(mock);
+
+    mock.fireExit(1);
+    await done;
+
+    expect(mock.kill).toHaveBeenCalledTimes(1);
+    expect(mock.dataDispose).toHaveBeenCalledTimes(1);
+    expect(mock.exitDispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('is idempotent when kill() cancels mid-turn and onExit fires late', async () => {
+    const mock = makeControllablePty();
+    const { pty, done } = startTurn(mock);
+
+    // Class-level kill() mid-turn runs the cleanup (dispose + kill) and settles
+    // the promise; a late onExit event must be a no-op, not a second kill.
+    pty.kill();
+    mock.fireExit(0);
+    await done;
+
+    expect(mock.kill).toHaveBeenCalledTimes(1);
+    expect(mock.exitDispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not double-kill when kill() is called after a normal exit', async () => {
+    const mock = makeControllablePty();
+    const { pty, done } = startTurn(mock);
+
+    mock.fireExit(0);
+    await done;
+    // Redundant stop after the turn already cleaned up.
+    pty.kill();
+
+    expect(mock.kill).toHaveBeenCalledTimes(1);
+  });
+});
