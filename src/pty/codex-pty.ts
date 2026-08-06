@@ -1,10 +1,54 @@
 import { join } from 'path';
-import { existsSync, writeFileSync } from 'fs';
+import { existsSync, writeFileSync, readdirSync, closeSync } from 'fs';
+import { isatty } from 'tty';
 import { homedir } from 'os';
 import type { AgentConfig, CtxEnv } from '../types/index.js';
 import { AgentPTY } from './agent-pty.js';
 import { OutputBuffer } from './output-buffer.js';
 import type { TelegramAPI } from '../telegram/api.js';
+
+/**
+ * Snapshot the parent process's currently-open tty (pty) file descriptors.
+ * Reads /dev/fd and keeps the entries that are ttys. Used to bracket a
+ * node-pty spawn() and detect the orphan fd it leaks. Best-effort: if /dev/fd
+ * is unreadable the fix degrades to a no-op.
+ */
+export function ptmxTtyFds(): Set<number> {
+  const fds = new Set<number>();
+  try {
+    for (const entry of readdirSync('/dev/fd')) {
+      const fd = Number(entry);
+      if (Number.isInteger(fd) && isatty(fd)) fds.add(fd);
+    }
+  } catch { /* /dev/fd unavailable — skip */ }
+  return fds;
+}
+
+/**
+ * BUG-PTY-LEAK root cause + fix. node-pty 1.1.0 leaks exactly one orphan pty
+ * (tty) fd in the PARENT process on every spawn() — NOT the master (pty._fd,
+ * which node-pty does close), but a second /dev/ptmx fd it opens natively and
+ * never tracks or closes. pty.kill()/destroy()/dispose() act on the master or
+ * child and never free it, so each turn leaks one fd until the daemon hits
+ * kern.tty.ptmx_max (511 on macOS) and spawn fails with posix_spawnp failed.
+ *
+ * spawn() is synchronous, so we can bracket it race-free: `ttyBefore` is the
+ * tty-fd set captured immediately before the spawn; any tty fd that is new
+ * since then and is not the master is this pty's orphan, and is closed here.
+ * The master is preserved, so turn I/O is unaffected. Returns fds closed.
+ */
+export function closeSpawnOrphanTtyFds(ttyBefore: Set<number>, pty: unknown): number {
+  let closed = 0;
+  try {
+    const master = (pty as { _fd?: number })._fd;
+    for (const fd of ptmxTtyFds()) {
+      if (!ttyBefore.has(fd) && fd !== master) {
+        try { if (isatty(fd)) { closeSync(fd); closed++; } } catch { /* ignore */ }
+      }
+    }
+  } catch { /* ignore */ }
+  return closed;
+}
 
 // node-pty types (same as agent-pty.ts)
 interface IPty {
@@ -237,6 +281,11 @@ export class CodexPTY {
 
       const ptyEnv = this.buildEnv();
 
+      // BUG-PTY-LEAK: snapshot the parent's tty fds immediately before the
+      // synchronous spawn so we can identify and close the orphan pty fd that
+      // node-pty 1.1.0 leaks per spawn (see closeSpawnOrphanTtyFds).
+      const ttyBefore = ptmxTtyFds();
+
       const pty = this._spawnFn('codex', args, {
         name: 'xterm-256color',
         cols: 200,
@@ -247,15 +296,14 @@ export class CodexPTY {
 
       this._currentPty = pty;
 
-      // BUG-PTY-LEAK: each codex exec turn spawns a pty whose master fd must be
-      // released when the turn ends. Disposing the onData/onExit subscriptions
-      // is NOT enough — empirically the master fd survives disposal; only
-      // pty.kill() frees it. Left un-killed, each turn leaks one master and the
-      // daemon eventually hits the system cap (kern.tty.ptmx_max=511), breaking
-      // spawn with posix_spawnp failed. cleanup() disposes AND kills, runs
-      // exactly once (guarded by `cleaned`), and is reachable both from the
-      // normal onExit and from the class-level kill() via this._currentCleanup,
-      // so a mid-turn stop also releases the fd.
+      // Release the leaked orphan pty fd right after spawn (master preserved).
+      closeSpawnOrphanTtyFds(ttyBefore, pty);
+
+      // cleanup() disposes the subscriptions and kills the child. pty.kill()
+      // does NOT free the orphan fd (that is handled above) — it terminates the
+      // codex exec child, which matters on a mid-turn cancel. cleanup runs
+      // exactly once (guarded by `cleaned`) and is reachable from the normal
+      // onExit and from the class-level kill() via this._currentCleanup.
       let cleaned = false;
       let dataDisposable: { dispose(): void } | undefined;
       let exitDisposable: { dispose(): void } | undefined;
