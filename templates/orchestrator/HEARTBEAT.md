@@ -118,7 +118,7 @@ Full reference: `.claude/skills/goal-management/SKILL.md`
 cat $CTX_FRAMEWORK_ROOT/orgs/$CTX_ORG/goals.json
 ```
 
-- If `daily_focus_set_at` is not today AND it is before 10 AM: trigger morning review now — read `.claude/skills/morning-review/SKILL.md`
+- If `daily_focus_set_at` is not today AND the local time is in the morning daytime window (at or after 6 AM and before 10 AM, never overnight): trigger morning review now (read `.claude/skills/morning-review/SKILL.md`)
 - If `north_star` is empty: message user via Telegram to set it
 - If any agent has an empty `goals.json` (focus and goals both empty): write their goals and regenerate GOALS.md
 
