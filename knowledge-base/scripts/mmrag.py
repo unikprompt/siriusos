@@ -319,7 +319,7 @@ def describe_media(client, config, file_path, media_type="video"):
     }
 
     response = client.models.generate_content(
-        model=config.get("gemini_model", "gemini-2.5-flash"),
+        model=config.get("gemini_model", "gemini-3.6-flash"),
         contents=[
             types.Part.from_bytes(data=data, mime_type=mime),
             prompts.get(media_type, prompts["video"]),
@@ -909,7 +909,7 @@ def ingest_pdf(client, config, collection, file_path):
     )
     response = _retry_generate_content(
         client,
-        model=config.get("gemini_model", "gemini-2.5-flash"),
+        model=config.get("gemini_model", "gemini-3.6-flash"),
         contents=[
             types.Part.from_bytes(data=data, mime_type="application/pdf"),
             extraction_prompt,
