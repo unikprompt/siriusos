@@ -316,12 +316,35 @@ export function ingestKnowledgeBase(
       : KB_INGEST_TIMEOUT_DEFAULT_MS,
   );
 
-  execFileSync(pythonPath, args, {
-    encoding: 'utf-8',
-    timeout: ingestTimeoutMs,
-    env,
-    stdio: 'inherit',
-  });
+  try {
+    execFileSync(pythonPath, args, {
+      encoding: 'utf-8',
+      timeout: ingestTimeoutMs,
+      env,
+      stdio: 'inherit',
+    });
+  } catch (err) {
+    // mmrag.py exits non-zero when any file failed to ingest (e.g. a Gemini
+    // 429 that exhausted embedding credits). execFileSync throws on that
+    // non-zero exit. Do NOT fall through to the "Ingest complete" line below:
+    // that unconditional success message is exactly what let the fleet trust
+    // an empty index. Re-raise as a clean, actionable error — the child's own
+    // error output was already streamed via stdio:'inherit'.
+    const e = err as { status?: number | null; signal?: string | null };
+    const reason = e.signal
+      ? `killed by signal ${e.signal}`
+      : typeof e.status === 'number'
+        ? `mmrag ingest exited with code ${e.status}`
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    throw new Error(
+      `Knowledge base ingest failed for collection "${collection}" (${reason}). ` +
+        `The collection is NOT up to date — see the ingest errors above. ` +
+        `A common cause is an exhausted Gemini embedding quota (HTTP 429); ` +
+        `re-run once credits are restored.`,
+    );
+  }
 
   console.log(`\nIngest complete → collection: ${collection}`);
 }

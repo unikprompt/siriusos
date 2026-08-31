@@ -1213,12 +1213,24 @@ def cmd_ingest(args):
     finally:
         _tracker.persist()
 
-    print(f"\nDone! Ingested {total} new chunk(s) into '{collection_name}'")
+    print(f"\nIngested {total} new chunk(s) into '{collection_name}'")
     if skipped:
         print(f"  Skipped: {skipped} (already existed or empty)")
     if errors:
         print(f"  Errors: {errors}")
     print(_tracker.summary_line())
+    # Any file error fails the whole command: the caller (e.g. a heartbeat
+    # re-index) cannot tell WHICH file was lost, so a partial ingest is not a
+    # success. Exit non-zero so wrappers and automation stop trusting a run
+    # that did not fully index. (Previously this always exited 0, letting the
+    # fleet believe memory was indexed when embedding had failed entirely.)
+    if errors:
+        print(
+            f"FAILED: {errors} file(s) errored during ingest; only {total} "
+            f"chunk(s) indexed. The collection is NOT fully up to date.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
 
 def deduplicate_results(results, similarity_ratio=0.85):

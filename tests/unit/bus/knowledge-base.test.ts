@@ -141,6 +141,32 @@ describe('ingestKnowledgeBase — graceful missing-config', () => {
     // Happy path emits no [kb] warning.
     expect(warnLog.filter((m) => m.includes('[kb]'))).toHaveLength(0);
   });
+
+  it('ingest failure: mmrag exits non-zero → re-throw a clean error, never log "Ingest complete"', () => {
+    mockConfiguredKb();
+    // Simulate mmrag.py exiting non-zero (e.g. a Gemini 429 that exhausted
+    // embedding credits): execFileSync throws an error carrying the exit code.
+    const childErr = Object.assign(new Error('Command failed'), { status: 1 });
+    execFileSyncMock.mockImplementation(() => {
+      throw childErr;
+    });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    try {
+      // Must throw an actionable error, not swallow the failure — the previous
+      // bug let this path fall through to an unconditional success log.
+      expect(() => ingestKnowledgeBase(['/some/file.md'], baseOptions)).toThrow(
+        /ingest failed for collection .* NOT up to date/i,
+      );
+      // The success line must NOT be printed when the child failed.
+      const loggedComplete = logSpy.mock.calls
+        .flat()
+        .some((m) => String(m).includes('Ingest complete'));
+      expect(loggedComplete).toBe(false);
+    } finally {
+      logSpy.mockRestore();
+    }
+  });
 });
 
 describe('queryKnowledgeBase — graceful missing-config', () => {

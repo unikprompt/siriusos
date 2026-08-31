@@ -1747,14 +1747,22 @@ busCommand
 
     ensureKBDirs(env.instanceId, env.frameworkRoot, org);
 
-    ingestKnowledgeBase(paths, {
-      org,
-      agent: opts.agent || env.agentName,
-      scope: (opts.scope as 'shared' | 'private') || 'shared',
-      force: opts.force,
-      frameworkRoot: env.frameworkRoot || process.cwd(),
-      instanceId: env.instanceId,
-    });
+    try {
+      ingestKnowledgeBase(paths, {
+        org,
+        agent: opts.agent || env.agentName,
+        scope: (opts.scope as 'shared' | 'private') || 'shared',
+        force: opts.force,
+        frameworkRoot: env.frameworkRoot || process.cwd(),
+        instanceId: env.instanceId,
+      });
+    } catch (err) {
+      // Ingest failed (e.g. a file errored, or Gemini 429 exhausted quota).
+      // Print the actionable message, not a bare stack, and exit non-zero so
+      // callers and heartbeat automation stop treating a failed run as done.
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
   });
 
 busCommand
