@@ -11,6 +11,7 @@ If you're running an unattended single-operator deployment — or just want Tele
 | `watchdog.sh` | Daemon-level. Detects accumulated Telegram poller errors in PM2's daemon error log; restarts the daemon if a threshold of errors accumulates inside a 5-min window. | every 5 min |
 | `agent-recover.sh` | Per-agent. Detects agents whose process is alive but stdout has been idle ≥6 min while the daemon is still injecting messages — i.e., a hung PTY. Restarts JUST that agent (no daemon-wide restart) with a 20-min cooldown. | every 5 min |
 | `usage-monitor.sh` | Cost. Calls `ccusage blocks --json`, computes USD/hr for the active 5-hour Claude Code session window, sends Telegram alerts on tier transitions (default GREEN <$15, YELLOW $15–$30, RED >$30). | every 30 min |
+| `orq-silence-watchdog.sh` | Liveness escalation. Alerts the operator directly by Telegram when a target agent (default `orquestador`) stops updating its heartbeat for longer than a threshold. The escalation path that does NOT pass through the fleet — because during a real outage the thing that's down is often the orchestrator the fleet escalates to. Signal is `state/<agent>/heartbeat.json:last_heartbeat` staleness. Stays quiet on `.user-stop` (intentional stop). | every 30 min |
 
 Each script is matched by a launchd plist template you customize once.
 
@@ -28,7 +29,7 @@ Steps:
 ```bash
 # 1. Copy scripts into your local SiriusOS state dir (so they live with your instance, not the repo)
 mkdir -p ~/.siriusos/default/scripts ~/.siriusos/default/logs
-cp scripts/self-healing/{watchdog,agent-recover,usage-monitor}.sh ~/.siriusos/default/scripts/
+cp scripts/self-healing/{watchdog,agent-recover,usage-monitor,orq-silence-watchdog}.sh ~/.siriusos/default/scripts/
 chmod +x ~/.siriusos/default/scripts/*.sh
 
 # 2. Render plist templates (substitute {USER}, {HOME}, {INSTANCE} for your values, then drop into ~/Library/LaunchAgents)
@@ -39,7 +40,7 @@ for f in scripts/self-healing/*.plist.template; do
 done
 
 # 3. Load the launchd jobs
-for f in ~/Library/LaunchAgents/com.siriusos.{watchdog,agent-recover,usage-monitor}.plist; do
+for f in ~/Library/LaunchAgents/com.siriusos.{watchdog,agent-recover,usage-monitor,orq-silence-watchdog}.plist; do
   launchctl load "$f"
 done
 
@@ -52,7 +53,7 @@ Each script writes to `~/.siriusos/<instance>/logs/<scriptname>.log`. Tail those
 ## Uninstall
 
 ```bash
-for f in ~/Library/LaunchAgents/com.siriusos.{watchdog,agent-recover,usage-monitor}.plist; do
+for f in ~/Library/LaunchAgents/com.siriusos.{watchdog,agent-recover,usage-monitor,orq-silence-watchdog}.plist; do
   launchctl unload "$f"
   rm "$f"
 done
@@ -71,6 +72,16 @@ All thresholds live at the top of each script as shell variables — open the sc
 
 ### `usage-monitor.sh`
 - `YELLOW_THRESHOLD` (default `15`) and `RED_THRESHOLD` (default `30`) — USD/hr tier boundaries
+
+### `orq-silence-watchdog.sh`
+- `ORQ_WATCHDOG_TARGET` (default `orquestador`) — which agent's heartbeat to watch.
+- `ORQ_WATCHDOG_STALE_HOURS` (default `9`) — alert if the heartbeat is older than this. Rationale: the target's heartbeat cron is every 4h, so one legitimately-missed cycle can be up to ~8h; 9h tolerates that one miss (plus ~1h jitter) without a false positive, while still catching a real outage the same day rather than after the ~2-day one that motivated this script.
+- `ORQ_WATCHDOG_REALERT_HOURS` (default `4`) — while still stale, don't re-alert more often than this (so a multi-hour outage reminds the operator without spamming every 30-min tick).
+- `ORQ_WATCHDOG_USERSTOP_CEILING_HOURS` (default `24`) — see the `.user-stop` handling below.
+- `ORQ_WATCHDOG_ALERT_ENV` (default: the target agent's own `.env`) — the `.env` whose `BOT_TOKEN`/`CHAT_ID` are used to reach the operator. Defaulting to the target's own bot means the alert lands in the chat where the operator already expects that agent's messages, and the token stays valid even while the agent process is dead.
+- `ORQ_WATCHDOG_DRY_RUN` (`1` = print the alert instead of sending it). Use it to preview before activating.
+- `.user-stop` handling: if `state/<agent>/.user-stop` exists the operator stopped the agent on purpose, so the watchdog stays quiet — **up to** `ORQ_WATCHDOG_USERSTOP_CEILING_HOURS` (default 24h). Past that ceiling it does NOT stay silent: it sends a *question* ("stopped Nh with `.user-stop` present — intentional, or an orphaned marker?"), not a false alarm. This matters because `.user-stop` can be *orphaned* (it persists across some restarts, a documented behavior of this system); without the ceiling, an orphaned marker during a real outage would silence the watchdog in exactly the case it exists for. A full day stopped on purpose deserves a confirmation anyway.
+- It depends only on `bash`, `date`, `sed`, `curl` (and `jq` or `python3` for the send). It does NOT depend on the siriusos daemon or the agent — that's the whole point.
 
 ## Caveats
 
