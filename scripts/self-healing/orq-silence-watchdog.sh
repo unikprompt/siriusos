@@ -10,11 +10,20 @@
 # independent of the siriusos daemon AND of the agent process, so it survives
 # both being dead.
 #
-# SIGNAL: heartbeat staleness. The heartbeat is written on EVERY heartbeat cycle
-# (src/bus/heartbeat.ts -> state/<agent>/heartbeat.json:last_heartbeat),
-# unconditionally. Outbound messages are NOT a good signal: there are
-# legitimately-silent cycles (e.g. check-approvals with 0 approvals sends
-# nothing, correctly). So "last heartbeat age" is the true liveness signal.
+# TWO SIGNALS, two failure modes:
+#  1. DEAD — last_heartbeat age. The heartbeat is written on every cycle
+#     (src/bus/heartbeat.ts). Outbound messages are NOT a good signal (some
+#     cycles are legitimately silent). If NOTHING writes the heartbeat for N
+#     hours — not even the daemon's 50-min filler — the process/daemon is down.
+#  2. WEDGED (alive but stuck) — session-status age. heartbeat.json:status is
+#     written by two sources: the daemon fast-checker ("[watchdog] <agent> alive
+#     …", every 50 min) and the agent's own session. A wedged session (emitting
+#     tool-calls as text, not advancing) keeps a LIVE process, so the daemon
+#     keeps last_heartbeat fresh and the DEAD signal never fires — but the
+#     session stops writing its own status. Tracking "how long since a
+#     session-written status" catches it. For the operator, a wedge costs the
+#     same as a crash, and the two need DIFFERENT fixes (start vs restart --fresh),
+#     which the alert messages spell out.
 #
 # Runs every ~30 min via launchd. See README.md for install.
 #
@@ -53,10 +62,27 @@ REALERT_SECONDS=$(( REALERT_HOURS * 3600 ))
 USERSTOP_CEIL_HOURS="${ORQ_WATCHDOG_USERSTOP_CEILING_HOURS:-24}"
 USERSTOP_CEIL_SECONDS=$(( USERSTOP_CEIL_HOURS * 3600 ))
 
+# WEDGE threshold (alive-but-stuck). heartbeat.json:status is written by TWO
+# sources: the daemon's fast-checker (status="[watchdog] <agent> alive — idle
+# session <ts>", every 50 min) and the agent's own session (any other text, on
+# its heartbeat cycle). If the process is alive but the session is wedged
+# (emitting tool-calls as text and not advancing — documented in
+# reference_wedged_toolcall_loop_fresh_restart), the daemon keeps last_heartbeat
+# fresh so the death signal never fires, but the session never writes its own
+# status. So "how long since a SESSION-written status" is the wedge signal. Same
+# 9h default/reasoning as the death threshold: the session writes at least every
+# 4h (and every manual update-heartbeat), so a 9h gap of only daemon fillers is
+# unambiguous. For Mario a wedge costs the same as a crash.
+WEDGE_HOURS="${ORQ_WATCHDOG_WEDGE_HOURS:-$STALE_HOURS}"
+WEDGE_SECONDS=$(( WEDGE_HOURS * 3600 ))
+
 # Paths (all overridable for tests).
 HB_FILE="${ORQ_WATCHDOG_HEARTBEAT_FILE:-$ROOT/state/$TARGET/heartbeat.json}"
 USER_STOP_FILE="${ORQ_WATCHDOG_USER_STOP_FILE:-$ROOT/state/$TARGET/.user-stop}"
 STATE_FILE="${ORQ_WATCHDOG_STATE_FILE:-$ROOT/silence-watchdog-$TARGET.state}"
+# Remembers, across runs, the epoch of the last SESSION-written status — the
+# history a single heartbeat.json snapshot cannot give us.
+SESSION_SEEN_FILE="${ORQ_WATCHDOG_SESSION_SEEN_FILE:-$ROOT/silence-watchdog-$TARGET.session-seen}"
 LOG_FILE="${ORQ_WATCHDOG_LOG_FILE:-$ROOT/logs/silence-watchdog.log}"
 ALERT_ENV="${ORQ_WATCHDOG_ALERT_ENV:-$FRAMEWORK_ROOT/orgs/unikprompt/agents/$TARGET/.env}"
 DRY_RUN="${ORQ_WATCHDOG_DRY_RUN:-0}"
@@ -96,6 +122,33 @@ fi
 STALE=$(( NOW - HB_EPOCH ))
 STALE_H=$(( STALE / 3600 ))
 
+# --- Wedge signal: was the last status written by the daemon or the session? ---
+STATUS=$(sed -n 's/.*"status"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$HB_FILE" | head -1)
+case "$STATUS" in
+  '[watchdog]'*) SESSION_WROTE=0 ;;   # daemon filler
+  *)             SESSION_WROTE=1 ;;   # the session itself (a real cycle)
+esac
+
+SESSION_SEEN=$(cat "$SESSION_SEEN_FILE" 2>/dev/null || echo "")
+case "$SESSION_SEEN" in ''|*[!0-9]*) SESSION_SEEN="" ;; esac
+if [ "$SESSION_WROTE" -eq 1 ]; then
+  # The session just wrote its own status -> it is running its cycles. Record it.
+  SESSION_SEEN="$HB_EPOCH"
+  echo "$SESSION_SEEN" > "$SESSION_SEEN_FILE" 2>/dev/null || true
+elif [ -z "$SESSION_SEEN" ]; then
+  # First run and the status is daemon-written: a single snapshot cannot tell us
+  # how long the session has been quiet. Bootstrap to now and START tracking.
+  # If the session is ALREADY wedged at this moment, this makes it look healthy
+  # and the first wedge window is lost — hence the VISIBLE log line so it is
+  # diagnosable from the log rather than guessed.
+  SESSION_SEEN="$HB_EPOCH"
+  echo "$SESSION_SEEN" > "$SESSION_SEEN_FILE" 2>/dev/null || true
+  eff=$(date -u -r "$(( HB_EPOCH + WEDGE_SECONDS ))" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "+${WEDGE_HOURS}h")
+  log "BOOTSTRAP: first run, no session-seen history for $TARGET. Assuming session alive as of $LAST_HB; wedge detection effective from $eff. (If it is already wedged now, this first window is lost.)"
+fi
+WEDGE_STALE=$(( NOW - SESSION_SEEN ))
+WEDGE_STALE_H=$(( WEDGE_STALE / 3600 ))
+
 # --- Decide: alarm or not, and with which message. ---
 MSG=""
 if [ -f "$USER_STOP_FILE" ]; then
@@ -110,9 +163,15 @@ if [ -f "$USER_STOP_FILE" ]; then
     exit 0
   fi
 elif [ "$STALE" -gt "$STALE_SECONDS" ]; then
-  MSG="⚠️ Watchdog: el agente $TARGET lleva ${STALE_H}h sin actualizar su heartbeat (umbral ${STALE_HOURS}h). Última señal: $LAST_HB. Puede estar caído o mudo. Revisá y levantalo: siriusos start $TARGET"
+  # DEAD: nothing writes the heartbeat, not even the daemon's 50-min filler.
+  MSG="⚠️ Watchdog: el agente $TARGET lleva ${STALE_H}h sin actualizar su heartbeat (umbral ${STALE_HOURS}h). Última señal: $LAST_HB. El proceso o el daemon están caídos. Acción: siriusos start $TARGET (restart NO sirve en un agente caído, hay que ARRANCARLO)."
+elif [ "$WEDGE_STALE" -gt "$WEDGE_SECONDS" ]; then
+  # WEDGED: the daemon keeps the heartbeat fresh, but the session has not run a
+  # cycle in a long time (only [watchdog] fillers). Alive but stuck.
+  SESSION_SEEN_ISO=$(date -u -r "$SESSION_SEEN" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "?")
+  MSG="⚠️ Watchdog: el agente $TARGET está VIVO (el daemon actualiza su heartbeat) pero su SESIÓN no corre un ciclo hace ${WEDGE_STALE_H}h (umbral ${WEDGE_HOURS}h; último ciclo propio: $SESSION_SEEN_ISO). Probable traba (emite tool-calls como texto sin avanzar); el costo es igual a una caída. Acción: siriusos restart $TARGET --fresh (el proceso está VIVO, hay que reiniciarlo con sesión limpia; 'start' no alcanza acá)."
 else
-  log "OK: $TARGET heartbeat ${STALE_H}h old (<= ${STALE_HOURS}h). last=$LAST_HB"
+  log "OK: $TARGET heartbeat ${STALE_H}h old, session cycle ${WEDGE_STALE_H}h old (umbrales ${STALE_HOURS}h / ${WEDGE_HOURS}h). last=$LAST_HB"
   rm -f "$STATE_FILE" 2>/dev/null || true   # healthy/recovered -> clear alert state
   exit 0
 fi
@@ -122,7 +181,7 @@ LAST_ALERT=$(cat "$STATE_FILE" 2>/dev/null || echo 0)
 case "$LAST_ALERT" in ''|*[!0-9]*) LAST_ALERT=0 ;; esac
 SINCE_ALERT=$(( NOW - LAST_ALERT ))
 if [ "$LAST_ALERT" -gt 0 ] && [ "$SINCE_ALERT" -lt "$REALERT_SECONDS" ]; then
-  log "ALARM ${STALE_H}h but within re-alert cooldown (${REALERT_HOURS}h) — not re-sending."
+  log "ALARM for $TARGET but within re-alert cooldown (${REALERT_HOURS}h) — not re-sending."
   exit 0
 fi
 
@@ -149,7 +208,7 @@ send_alert() {
     -H "Content-Type: application/json" -d "$payload" >> "$LOG_FILE" 2>&1
 }
 
-log "ALARM: $TARGET heartbeat ${STALE_H}h stale. last=$LAST_HB. Alerting Mario (dry_run=$DRY_RUN)."
+log "ALARM: $TARGET (heartbeat ${STALE_H}h / session cycle ${WEDGE_STALE_H}h). Alerting Mario (dry_run=$DRY_RUN)."
 if send_alert; then
   echo "$NOW" > "$STATE_FILE" 2>/dev/null || true
 fi

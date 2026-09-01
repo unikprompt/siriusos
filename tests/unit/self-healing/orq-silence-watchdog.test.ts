@@ -18,6 +18,7 @@ let hbFile: string;
 let stateFile: string;
 let logFile: string;
 let userStopFile: string;
+let sessionSeenFile: string;
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'orq-wd-'));
@@ -25,8 +26,15 @@ beforeEach(() => {
   stateFile = join(dir, 'state');
   logFile = join(dir, 'wd.log');
   userStopFile = join(dir, '.user-stop'); // created only in the legit-silence test
+  sessionSeenFile = join(dir, 'session-seen'); // wedge history; pre-seeded per wedge test
   writeFileSync(hbFile, JSON.stringify({ agent: 'orquestador', last_heartbeat: HB_ISO }));
 });
+
+// Write heartbeat.json with an explicit status (daemon-written = "[watchdog] …",
+// or a session-written string) and last_heartbeat.
+function writeHb(status: string, iso = HB_ISO): void {
+  writeFileSync(hbFile, JSON.stringify({ agent: 'orquestador', status, last_heartbeat: iso }));
+}
 
 afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
@@ -41,10 +49,12 @@ function run(nowEpoch: number, extra: Record<string, string> = {}): string {
       ORQ_WATCHDOG_STALE_HOURS: '9',
       ORQ_WATCHDOG_REALERT_HOURS: '4',
       ORQ_WATCHDOG_USERSTOP_CEILING_HOURS: '24',
+      ORQ_WATCHDOG_WEDGE_HOURS: '9',
       ORQ_WATCHDOG_HEARTBEAT_FILE: hbFile,
       ORQ_WATCHDOG_STATE_FILE: stateFile,
       ORQ_WATCHDOG_LOG_FILE: logFile,
       ORQ_WATCHDOG_USER_STOP_FILE: userStopFile,
+      ORQ_WATCHDOG_SESSION_SEEN_FILE: sessionSeenFile,
       ORQ_WATCHDOG_NOW_EPOCH: String(nowEpoch),
       ...extra,
     },
@@ -101,5 +111,60 @@ describe('orq-silence-watchdog', () => {
     const second = run(HB_EPOCH + 11 * H);
     expect(second).toMatch(/within re-alert cooldown/);
     expect(second).not.toMatch(/DRY-RUN: would send/);
+  });
+
+  // ----- Wedge signal: alive but stuck -----
+
+  it('wedged: heartbeat fresh (daemon filler) but session status stale -> ALARM, restart --fresh', () => {
+    writeHb('[watchdog] orquestador alive — idle session 2026-01-01T00:00:00Z'); // daemon-written
+    writeFileSync(sessionSeenFile, String(HB_EPOCH - 10 * H)); // session last wrote 10h before HB
+    const out = run(HB_EPOCH + 1 * H); // heartbeat only 1h old (not dead); session ~11h stale
+    expect(out).toMatch(/ALARM/);
+    expect(out).toMatch(/DRY-RUN: would send/);
+    expect(out).toMatch(/VIVO/);
+    expect(out).toMatch(/restart orquestador --fresh/);
+  });
+
+  it('session wrote its own status: not wedged, history refreshed even if the file was stale', () => {
+    writeHb('online — standby'); // session-written, fresh
+    writeFileSync(sessionSeenFile, String(HB_EPOCH - 20 * H)); // stale history...
+    const out = run(HB_EPOCH + 1 * H); // ...but the session just wrote, so no wedge
+    expect(out).toMatch(/\bOK:/);
+    expect(out).not.toMatch(/ALARM/);
+  });
+
+  it('daemon status but session seen recently (under 9h): not wedged, OK', () => {
+    writeHb('[watchdog] orquestador alive — idle session 2026-01-01T00:00:00Z');
+    writeFileSync(sessionSeenFile, String(HB_EPOCH - 2 * H)); // session ~3h stale at run time
+    const out = run(HB_EPOCH + 1 * H);
+    expect(out).toMatch(/\bOK:/);
+    expect(out).not.toMatch(/ALARM/);
+  });
+
+  it('bootstrap: first run, daemon status, no history -> visible BOOTSTRAP line, no alarm', () => {
+    writeHb('[watchdog] orquestador alive — idle session 2026-01-01T00:00:00Z');
+    // no session-seen file exists
+    const out = run(HB_EPOCH + 1 * H);
+    expect(out).toMatch(/BOOTSTRAP/);
+    expect(out).not.toMatch(/ALARM/);
+    expect(existsSync(sessionSeenFile)).toBe(true);
+  });
+
+  it('.user-stop silences the wedge alarm too (an intentional stop is not a wedge)', () => {
+    writeHb('[watchdog] orquestador alive — idle session 2026-01-01T00:00:00Z');
+    writeFileSync(sessionSeenFile, String(HB_EPOCH - 20 * H)); // would be wedged...
+    writeFileSync(userStopFile, 'stopped via siriusos stop'); // ...but intentionally stopped
+    const out = run(HB_EPOCH + 1 * H); // heartbeat fresh (1h), under 24h ceiling
+    expect(out).toMatch(/SKIP:.*user-stop/);
+    expect(out).not.toMatch(/ALARM/);
+  });
+
+  it('dead takes precedence over wedged: stale heartbeat -> start (not restart --fresh)', () => {
+    writeHb('[watchdog] orquestador alive — idle session 2026-01-01T00:00:00Z');
+    writeFileSync(sessionSeenFile, String(HB_EPOCH - 20 * H));
+    const out = run(HB_EPOCH + 12 * H); // heartbeat 12h stale -> DEAD wins over wedge
+    expect(out).toMatch(/ALARM/);
+    expect(out).toMatch(/start orquestador \(restart NO/);
+    expect(out).not.toMatch(/--fresh/);
   });
 });
