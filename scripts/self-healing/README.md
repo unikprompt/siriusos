@@ -26,6 +26,8 @@ Prerequisites:
 
 Steps:
 
+> ⚠️ **These steps install and activate ALL FOUR scripts at once.** The `cp` brace-list, step 2's `*.plist.template` glob, and the `launchctl load` brace-list each cover every script. To adopt only some, replace the brace-list `{watchdog,agent-recover,usage-monitor,orq-silence-watchdog}` (in steps 1 and 3, and the Uninstall) and narrow step 2's glob to just the script(s) you want — e.g. `{orq-silence-watchdog}` — then confirm what actually loaded with `launchctl list | grep siriusos`. Note `usage-monitor` needs `ccusage` and sends cost alerts, so activating it unintentionally is not free.
+
 ```bash
 # 1. Copy scripts into your local SiriusOS state dir (so they live with your instance, not the repo)
 mkdir -p ~/.siriusos/default/scripts ~/.siriusos/default/logs
