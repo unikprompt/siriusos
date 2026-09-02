@@ -196,6 +196,10 @@ busCommand
     if (opts.assignee && opts.assignee !== env.agentName) {
       const assigneePaths = resolvePaths(opts.assignee, env.instanceId, env.org);
       const desc = opts.desc ? ` — ${opts.desc.slice(0, 120)}` : '';
+      // Safe by construction: the literal "Task assigned: [" prefix keeps this
+      // text non-empty, so it never hits sendMessage's empty-text throw. Keep a
+      // non-empty literal prefix if you edit this template — the task is already
+      // created above, so a throw here would report failure on a created task.
       sendMessage(assigneePaths, env.agentName, opts.assignee, 'normal',
         `Task assigned: [${opts.priority}] ${title}${desc} (id: ${taskId})`);
     }
