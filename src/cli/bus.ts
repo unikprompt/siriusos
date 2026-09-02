@@ -115,7 +115,16 @@ busCommand
       console.error(`Warning: agent '${to}' not found in project. Message will be queued but may never be read.`);
     }
 
-    const msgId = sendMessage(paths, env.agentName, to, priority as Priority, text, effectiveReplyTo);
+    let msgId: string;
+    try {
+      msgId = sendMessage(paths, env.agentName, to, priority as Priority, text, effectiveReplyTo);
+    } catch (err) {
+      // Empty/blank text (the pipe footgun) and any other send failure surface
+      // here as a clean error + non-zero exit, instead of a silent "success"
+      // that prints an id for a message that was never really sent.
+      console.error(`send-message failed: ${err instanceof Error ? err.message : String(err)}`);
+      process.exit(1);
+    }
     try {
       logEvent(paths, env.agentName, env.org, 'message', 'agent_message_sent', 'info', JSON.stringify({ to, priority, msg_id: msgId, reply_to: effectiveReplyTo ?? null }));
     } catch { /* non-fatal */ }
@@ -137,7 +146,22 @@ busCommand
   .action((id: string) => {
     const env = resolveEnv();
     const paths = resolvePaths(env.agentName, env.instanceId, env.org);
-    ackInbox(paths, id);
+    const result = ackInbox(paths, id);
+    if (result.status === 'read_error') {
+      // A corrupt/unreadable inflight entry: a real failure worth breaking on.
+      // Name the file and say WHY, because '${id}' may be INSIDE it — the
+      // operator needs to know what to inspect, not just that it failed.
+      console.error(`ack-inbox failed: could not read inflight entry '${result.file}'; message '${id}' may be inside it — inspect that file in the inflight dir.`);
+      process.exit(1);
+    }
+    if (result.status === 'not_found') {
+      // Benign and frequent (e.g. already acked, or the fast-checker consumed
+      // it): tell the truth in the text, but exit 0 so a defensive ack loop
+      // does not cry wolf. Don't log inbox_ack for a message we never moved.
+      console.log(`Nothing to ack: no inflight message with id '${id}' (already acked, or never delivered).`);
+      return;
+    }
+    // result.status === 'acked'
     try {
       logEvent(paths, env.agentName, env.org, 'message', 'inbox_ack', 'info', JSON.stringify({ msg_id: id }));
     } catch { /* non-fatal */ }

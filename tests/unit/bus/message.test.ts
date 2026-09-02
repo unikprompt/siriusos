@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, readdirSync, readFileSync } from 'fs';
+import { mkdtempSync, rmSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { sendMessage, checkInbox, ackInbox } from '../../../src/bus/message';
@@ -93,6 +93,33 @@ describe('Message Bus', () => {
         sendMessage(senderPaths, '../bad', 'good', 'normal', 'test')
       ).toThrow();
     });
+
+    it('rejects empty text (the pipe footgun) and writes nothing', () => {
+      expect(() =>
+        sendMessage(senderPaths, 'sender', 'receiver', 'normal', '')
+      ).toThrow(/empty/i);
+
+      // No message file leaked into the receiver inbox.
+      const receiverInbox = join(testDir, 'inbox', 'receiver');
+      let files: string[] = [];
+      try { files = readdirSync(receiverInbox).filter(f => f.endsWith('.json')); } catch { /* dir may not exist */ }
+      expect(files.length).toBe(0);
+    });
+
+    it('rejects whitespace-only text', () => {
+      expect(() =>
+        sendMessage(senderPaths, 'sender', 'receiver', 'normal', '   \n\t ')
+      ).toThrow(/empty/i);
+    });
+
+    it('preserves leading/trailing whitespace on non-empty text (only the emptiness check trims)', () => {
+      sendMessage(senderPaths, 'sender', 'receiver', 'normal', '  hi there  ');
+
+      const receiverInbox = join(testDir, 'inbox', 'receiver');
+      const files = readdirSync(receiverInbox).filter(f => f.endsWith('.json'));
+      const content = JSON.parse(readFileSync(join(receiverInbox, files[0]), 'utf-8'));
+      expect(content.text).toBe('  hi there  ');
+    });
   });
 
   describe('checkInbox', () => {
@@ -126,17 +153,55 @@ describe('Message Bus', () => {
   });
 
   describe('ackInbox', () => {
-    it('moves message from inflight to processed', () => {
+    it('acks a real inflight message: moves it to processed and returns status "acked"', () => {
       const msgId = sendMessage(senderPaths, 'sender', 'receiver', 'normal', 'test');
       checkInbox(receiverPaths); // moves to inflight
 
-      ackInbox(receiverPaths, msgId);
+      const result = ackInbox(receiverPaths, msgId);
+      expect(result.status).toBe('acked');
 
       const inflightFiles = readdirSync(receiverPaths.inflight).filter(f => f.endsWith('.json'));
       const processedFiles = readdirSync(receiverPaths.processed).filter(f => f.endsWith('.json'));
 
       expect(inflightFiles.length).toBe(0);
       expect(processedFiles.length).toBe(1);
+    });
+
+    it('returns "not_found" (no false success) and moves nothing when the id is not in inflight', () => {
+      // A real inflight message exists, but we ack a DIFFERENT id.
+      sendMessage(senderPaths, 'sender', 'receiver', 'normal', 'test');
+      checkInbox(receiverPaths); // moves the real message to inflight
+
+      const result = ackInbox(receiverPaths, 'nonexistent-id-12345');
+      expect(result.status).toBe('not_found');
+
+      // The real message is untouched (still inflight, nothing processed).
+      const inflightFiles = readdirSync(receiverPaths.inflight).filter(f => f.endsWith('.json'));
+      const processedFiles = readdirSync(receiverPaths.processed).filter(f => f.endsWith('.json'));
+      expect(inflightFiles.length).toBe(1);
+      expect(processedFiles.length).toBe(0);
+    });
+
+    it('returns "not_found" when there is no inflight dir at all (benign no-op)', () => {
+      const result = ackInbox(receiverPaths, 'anything');
+      expect(result.status).toBe('not_found');
+    });
+
+    it('returns "read_error" naming the corrupt file when an inflight entry is unreadable', () => {
+      // A readable message plus a corrupt one in inflight.
+      sendMessage(senderPaths, 'sender', 'receiver', 'normal', 'test');
+      checkInbox(receiverPaths); // moves the real message to inflight
+      const corruptName = '2-9999999999999-from-sender-zzzzz.json';
+      writeFileSync(join(receiverPaths.inflight, corruptName), '{ this is not valid json');
+
+      // Ack an id that is not the readable message: since the target could be
+      // INSIDE the corrupt file, the result must be read_error (not not_found),
+      // and it must name the file the operator should inspect.
+      const result = ackInbox(receiverPaths, 'some-other-id');
+      expect(result.status).toBe('read_error');
+      if (result.status === 'read_error') {
+        expect(result.file).toBe(corruptName);
+      }
     });
   });
 });

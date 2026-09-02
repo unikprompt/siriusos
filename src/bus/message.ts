@@ -60,6 +60,16 @@ export function sendMessage(
   validateAgentName(to);
   validatePriority(priority);
 
+  // A blank agent message is never meaningful: it would silently produce a real
+  // msgId that looks like a successful send while delivering nothing. This is
+  // the classic pipe footgun — piping empty/whitespace stdin into send-message
+  // still "succeeds" and returns an id. Reject it so the caller learns the send
+  // did not happen. Only the emptiness CHECK trims; the stored text below is
+  // preserved verbatim (leading/trailing whitespace kept).
+  if (typeof text !== 'string' || text.trim().length === 0) {
+    throw new Error('sendMessage: refusing to send an empty message (text is blank)');
+  }
+
   const pnum = PRIORITY_MAP[priority];
   const epochMs = Date.now();
   const rand = randomString(5);
@@ -164,10 +174,35 @@ export function checkInbox(paths: BusPaths): InboxMessage[] {
 }
 
 /**
- * Acknowledge a message by moving it from inflight to processed.
- * Identical to bash ack-inbox.sh behavior.
+ * Outcome of an ackInbox call. The three states mirror the kb-ingest pattern
+ * (success / failure / don't-know): the third state exists because there is a
+ * situation where the result honestly cannot be determined, and folding it into
+ * either of the other two would lie.
+ *  - `acked`      — a matching inflight message was found and moved to processed.
+ *  - `not_found`  — no inflight message with this id (or no inflight dir at all).
+ *                   A clean no-op; nothing was acked, but nothing is wrong. This
+ *                   is benign and frequent (e.g. acking a backlog id the
+ *                   fast-checker already consumed).
+ *  - `read_error` — an inflight entry was corrupt/unreadable; `file` names it.
+ *                   This is NOT "not found": the message being acked may be
+ *                   INSIDE that unreadable file, so the result is genuinely
+ *                   unknown and the operator needs to know which file to inspect.
  */
-export function ackInbox(paths: BusPaths, messageId: string): void {
+export type AckResult =
+  | { status: 'acked' }
+  | { status: 'not_found' }
+  | { status: 'read_error'; file: string };
+
+/**
+ * Acknowledge a message by moving it from inflight to processed.
+ *
+ * NEVER throws — it returns an {@link AckResult} instead, so callers that ignore
+ * the value (e.g. the daemon fast-checker) keep their previous behavior, while
+ * callers that care can avoid reporting a false success: a no-op ack that
+ * silently "succeeds" makes the caller believe it attended a message it never
+ * did.
+ */
+export function ackInbox(paths: BusPaths, messageId: string): AckResult {
   const { inflight, processed } = paths;
   ensureDir(processed);
 
@@ -175,10 +210,14 @@ export function ackInbox(paths: BusPaths, messageId: string): void {
   let files: string[];
   try {
     files = readdirSync(inflight).filter(f => f.endsWith('.json'));
-  } catch {
-    return;
+  } catch (err) {
+    // A missing inflight dir just means there is nothing to ack (benign). Any
+    // other listing failure (e.g. permissions) is a real error worth surfacing.
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return { status: 'not_found' };
+    return { status: 'read_error', file: inflight };
   }
 
+  let unreadableFile: string | null = null;
   for (const file of files) {
     const filePath = join(inflight, file);
     try {
@@ -186,12 +225,18 @@ export function ackInbox(paths: BusPaths, messageId: string): void {
       const msg = JSON.parse(content);
       if (msg.id === messageId) {
         renameSync(filePath, join(processed, file));
-        return;
+        return { status: 'acked' }; // found and acked
       }
     } catch {
-      // Skip corrupt files
+      // Corrupt/unreadable inflight file. The message we were asked to ack may
+      // be INSIDE it, so we can't honestly call this a clean "not found".
+      // Remember the first such file to point the operator at what to inspect.
+      if (unreadableFile === null) unreadableFile = file;
     }
   }
+  return unreadableFile !== null
+    ? { status: 'read_error', file: unreadableFile }
+    : { status: 'not_found' };
 }
 
 /**
