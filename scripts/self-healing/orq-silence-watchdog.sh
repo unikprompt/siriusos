@@ -171,7 +171,7 @@ elif [ "$WEDGE_STALE" -gt "$WEDGE_SECONDS" ]; then
   SESSION_SEEN_ISO=$(date -u -r "$SESSION_SEEN" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "?")
   MSG="⚠️ Watchdog: el agente $TARGET está VIVO (el daemon actualiza su heartbeat) pero su SESIÓN no corre un ciclo hace ${WEDGE_STALE_H}h (umbral ${WEDGE_HOURS}h; último ciclo propio: $SESSION_SEEN_ISO). Probable traba (emite tool-calls como texto sin avanzar); el costo es igual a una caída. Acción: siriusos restart $TARGET --fresh (el proceso está VIVO, hay que reiniciarlo con sesión limpia; 'start' no alcanza acá)."
 else
-  log "OK: $TARGET heartbeat ${STALE_H}h old, session cycle ${WEDGE_STALE_H}h old (umbrales ${STALE_HOURS}h / ${WEDGE_HOURS}h). last=$LAST_HB"
+  log "OK: $TARGET heartbeat ${STALE_H}h old, last self-written status ${WEDGE_STALE_H}h old (umbrales ${STALE_HOURS}h / ${WEDGE_HOURS}h). last=$LAST_HB"
   rm -f "$STATE_FILE" 2>/dev/null || true   # healthy/recovered -> clear alert state
   exit 0
 fi
@@ -208,7 +208,7 @@ send_alert() {
     -H "Content-Type: application/json" -d "$payload" >> "$LOG_FILE" 2>&1
 }
 
-log "ALARM: $TARGET (heartbeat ${STALE_H}h / session cycle ${WEDGE_STALE_H}h). Alerting Mario (dry_run=$DRY_RUN)."
+log "ALARM: $TARGET (heartbeat ${STALE_H}h / last self-written status ${WEDGE_STALE_H}h). Alerting Mario (dry_run=$DRY_RUN)."
 if send_alert; then
   echo "$NOW" > "$STATE_FILE" 2>/dev/null || true
 fi
