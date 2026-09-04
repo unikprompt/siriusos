@@ -248,20 +248,67 @@ def _retry_generate_content(client, *, model, contents, backoffs=(5, 15, 45)):
     raise last_err if last_err else RuntimeError("retry loop completed without response or error")
 
 
+# Embedding rate-limit handling. The Gemini key is shared across several of
+# Mario's projects, so the ceiling is per-MINUTE (rate), not quota — a burst of
+# chunk embeds can hit 429 RESOURCE_EXHAUSTED mid-file. embed_content is the
+# single chokepoint every ingest path goes through, so we handle it here once:
+#   PREVENT: a proactive minimum gap between embed calls, to avoid bursting.
+#   CURE:    exponential backoff on transient errors (incl. 429) whose cumulative
+#            sleep spans a full per-minute window, so an ingest recovers instead
+#            of failing. Backoff is what survives the shared key being spent by
+#            another of Mario's projects; spacing only lowers the odds of hitting
+#            it. Both knobs are config-overridable.
+# This mirrors _retry_generate_content, which already did exactly this for the
+# Flash calls — the bug was that the embedding path was left without it.
+DEFAULT_EMBEDDING_BACKOFFS = (10, 30, 60, 120)
+DEFAULT_EMBEDDING_MIN_INTERVAL_S = 0.5
+_last_embed_monotonic = 0.0
+
+
 def embed_content(client, config, content, task_type="RETRIEVAL_DOCUMENT"):
-    """Embed content using Gemini Embedding 2. Content can be text string or list of Parts."""
+    """Embed content using Gemini Embedding 2. Content can be text string or list of Parts.
+
+    Paces and retries the call (see DEFAULT_EMBEDDING_* above): the shared Gemini
+    key rate-limits per minute, so a burst of chunk embeds hits 429 mid-file.
+    """
     from google.genai import types
-    result = client.models.embed_content(
-        model=config.get("embedding_model", "gemini-embedding-2-preview"),
-        contents=content,
-        config=types.EmbedContentConfig(
-            output_dimensionality=config.get("embedding_dimensions", DEFAULT_EMBEDDING_DIMENSIONS),
-            task_type=task_type,
-        ),
+    from google.genai import errors as _genai_errors
+
+    # PREVENT: keep a minimum interval between embedding API calls.
+    global _last_embed_monotonic
+    min_interval = config.get("embedding_min_interval_s", DEFAULT_EMBEDDING_MIN_INTERVAL_S)
+    if min_interval > 0:
+        wait = min_interval - (time.monotonic() - _last_embed_monotonic)
+        if wait > 0:
+            time.sleep(wait)
+
+    embed_cfg = types.EmbedContentConfig(
+        output_dimensionality=config.get("embedding_dimensions", DEFAULT_EMBEDDING_DIMENSIONS),
+        task_type=task_type,
     )
-    if _tracker:
-        _tracker.track_embedding(content)
-    return result.embeddings[0].values
+    model = config.get("embedding_model", "gemini-embedding-2-preview")
+    backoffs = config.get("embedding_backoffs", DEFAULT_EMBEDDING_BACKOFFS)
+
+    # CURE: bounded retries with exponential backoff on transient errors.
+    last_err = None
+    for attempt, backoff in enumerate(backoffs, start=1):
+        try:
+            result = client.models.embed_content(model=model, contents=content, config=embed_cfg)
+            _last_embed_monotonic = time.monotonic()
+            if _tracker:
+                _tracker.track_embedding(content)
+            return result.embeddings[0].values
+        except _genai_errors.APIError as e:
+            last_err = e
+            is_transient = (e.code in TRANSIENT_HTTP_CODES) or (e.status in TRANSIENT_STATUS_NAMES)
+            if not is_transient:
+                raise
+            if attempt < len(backoffs):
+                print(f"    Embedding transient error (HTTP {e.code} {e.status or ''}); retrying in {backoff}s (attempt {attempt}/{len(backoffs)})")
+                time.sleep(backoff)
+            else:
+                print(f"    Exhausted retries embedding transient error: HTTP {e.code} {e.status or ''}")
+    raise last_err if last_err else RuntimeError("embed retry loop completed without response or error")
 
 
 def embed_multimodal(client, config, description_text, media_bytes, mime_type):

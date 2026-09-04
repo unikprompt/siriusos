@@ -56,10 +56,26 @@ class _StubResponse:
         self.usage_metadata = None
 
 
+class _StubEmbedding:
+    def __init__(self, values):
+        self.values = values
+
+
+class _StubEmbedResponse:
+    """Shape mmrag.embed_content reads: result.embeddings[0].values."""
+    def __init__(self, values):
+        self.embeddings = [_StubEmbedding(values)]
+
+
 class _StubModels:
-    def __init__(self, script):
+    def __init__(self, script, embed_script=None):
         self._script = list(script)
         self._index = 0
+        # embed_content is scripted independently of generate_content so a test
+        # can drive the embedding retry path (429 -> 200) without touching the
+        # Flash path. Each entry is a (code, message) like the generate script.
+        self._embed_script = list(embed_script) if embed_script is not None else []
+        self._embed_index = 0
 
     def generate_content(self, model=None, contents=None, **kwargs):
         if self._index >= len(self._script):
@@ -74,16 +90,23 @@ class _StubModels:
         status = _STATUS_FOR_CODE.get(code, "UNKNOWN")
         raise _InjectedAPIError(code, status, message or f"injected {code} {status}")
 
-    def embed_content(self, *a, **kw):
-        raise RuntimeError(
-            "fault_injection: embed_content is not scripted. Tests should target "
-            "_retry_generate_content directly, not the full ingest_pdf pipeline."
-        )
+    def embed_content(self, model=None, contents=None, **kwargs):
+        if self._embed_index >= len(self._embed_script):
+            raise RuntimeError(
+                f"fault_injection: embed script exhausted at attempt "
+                f"{self._embed_index + 1} (scripted {len(self._embed_script)} responses)"
+            )
+        code, message = self._embed_script[self._embed_index]
+        self._embed_index += 1
+        if code == 200:
+            return _StubEmbedResponse([0.1, 0.2, 0.3])
+        status = _STATUS_FOR_CODE.get(code, "UNKNOWN")
+        raise _InjectedAPIError(code, status, message or f"injected {code} {status}")
 
 
 class FaultInjectionClient:
-    def __init__(self, script):
-        self.models = _StubModels(script)
+    def __init__(self, script, embed_script=None):
+        self.models = _StubModels(script, embed_script=embed_script)
 
 
 def _parse_script(spec):
