@@ -99,6 +99,20 @@ log() {
   echo "$*"
 }
 
+# Portable date conversions. macOS ships BSD date (date -j -u -f / date -r);
+# Linux and the CI runner ship GNU date (date -u -d). Try the BSD form first,
+# fall back to GNU, so the same script — and its test suite — runs on both.
+# Only the SCHEDULING of this watchdog is macOS-only (launchd); its logic is
+# not, and the CI that guards that logic runs on Linux.
+iso_to_epoch() {  # ISO-8601 UTC (2026-01-01T00:00:00Z) -> epoch seconds
+  date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$1" +%s 2>/dev/null \
+    || date -u -d "$1" +%s 2>/dev/null
+}
+epoch_to_iso() {  # epoch seconds -> ISO-8601 UTC
+  date -u -r "$1" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null \
+    || date -u -d "@$1" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null
+}
+
 # --- Guard: no heartbeat file. Ambiguous (never started / fresh) -> quiet. ---
 if [ ! -f "$HB_FILE" ]; then
   log "SKIP: heartbeat file missing ($HB_FILE) — cannot assess, not alarming."
@@ -112,8 +126,8 @@ if [ -z "$LAST_HB" ]; then
   exit 0
 fi
 
-# ISO UTC -> epoch (macOS date -j -u -f). BSD date only; documented in README.
-HB_EPOCH=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$LAST_HB" +%s 2>/dev/null || true)
+# ISO UTC -> epoch. Portable across BSD (macOS) and GNU (Linux/CI) date.
+HB_EPOCH=$(iso_to_epoch "$LAST_HB" || true)
 if [ -z "$HB_EPOCH" ]; then
   log "SKIP: could not convert last_heartbeat '$LAST_HB' to epoch — not alarming."
   exit 0
@@ -143,7 +157,7 @@ elif [ -z "$SESSION_SEEN" ]; then
   # diagnosable from the log rather than guessed.
   SESSION_SEEN="$HB_EPOCH"
   echo "$SESSION_SEEN" > "$SESSION_SEEN_FILE" 2>/dev/null || true
-  eff=$(date -u -r "$(( HB_EPOCH + WEDGE_SECONDS ))" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "+${WEDGE_HOURS}h")
+  eff=$(epoch_to_iso "$(( HB_EPOCH + WEDGE_SECONDS ))" || echo "+${WEDGE_HOURS}h")
   log "BOOTSTRAP: first run, no session-seen history for $TARGET. Assuming session alive as of $LAST_HB; wedge detection effective from $eff. (If it is already wedged now, this first window is lost.)"
 fi
 WEDGE_STALE=$(( NOW - SESSION_SEEN ))
@@ -168,7 +182,7 @@ elif [ "$STALE" -gt "$STALE_SECONDS" ]; then
 elif [ "$WEDGE_STALE" -gt "$WEDGE_SECONDS" ]; then
   # WEDGED: the daemon keeps the heartbeat fresh, but the session has not run a
   # cycle in a long time (only [watchdog] fillers). Alive but stuck.
-  SESSION_SEEN_ISO=$(date -u -r "$SESSION_SEEN" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "?")
+  SESSION_SEEN_ISO=$(epoch_to_iso "$SESSION_SEEN" || echo "?")
   MSG="⚠️ Watchdog: el agente $TARGET está VIVO (el daemon actualiza su heartbeat) pero su SESIÓN no corre un ciclo hace ${WEDGE_STALE_H}h (umbral ${WEDGE_HOURS}h; último ciclo propio: $SESSION_SEEN_ISO). Probable traba (emite tool-calls como texto sin avanzar); el costo es igual a una caída. Acción: siriusos restart $TARGET --fresh (el proceso está VIVO, hay que reiniciarlo con sesión limpia; 'start' no alcanza acá)."
 else
   log "OK: $TARGET heartbeat ${STALE_H}h old, last self-written status ${WEDGE_STALE_H}h old (umbrales ${STALE_HOURS}h / ${WEDGE_HOURS}h). last=$LAST_HB"
