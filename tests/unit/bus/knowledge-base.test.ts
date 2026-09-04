@@ -207,6 +207,52 @@ describe('queryKnowledgeBase — graceful missing-config', () => {
   });
 });
 
+describe('queryKnowledgeBase — cross-collection merge by score', () => {
+  // Return a distinct mmrag --json blob per collection, keyed off the
+  // `--collection <name>` argv pair. Lets us simulate scope=all querying both
+  // shared-${org} and agent-${agent} with different scores.
+  function mockPerCollection(
+    byCollection: Record<string, Array<{ content: string; similarity: number; source: string }>>,
+  ): void {
+    execFileSyncMock.mockImplementation((...args: unknown[]) => {
+      const argv = (args[1] as string[]) || [];
+      const ci = argv.indexOf('--collection');
+      const col = ci >= 0 ? argv[ci + 1] : '';
+      return JSON.stringify({ results: byCollection[col] || [] });
+    });
+  }
+
+  it('scope=all: a higher-scored AGENT result outranks a lower-scored shared result (was buried at [6])', () => {
+    mockConfiguredKb();
+    mockPerCollection({
+      'shared-TestOrg': [{ content: 'shared/trading hit', similarity: 0.63, source: 'shared-doc.md' }],
+      'agent-tester': [{ content: 'my own memory', similarity: 0.674, source: 'agent-memory.md' }],
+    });
+
+    const result = queryKnowledgeBase(dummyPaths, 'q', { ...baseOptions, scope: 'all' });
+
+    // Both collections queried, then merged by score (NOT concatenated shared-first).
+    expect(execFileSyncMock).toHaveBeenCalledTimes(2);
+    expect(result.results.map((r) => r.score)).toEqual([0.674, 0.63]);
+    expect(result.results[0].source_file).toBe('agent-memory.md');
+  });
+
+  it('score-based, not collection-based: a higher-scored SHARED result still ranks first', () => {
+    // Negative marker: the fix is a score merge, not "always put the agent first".
+    // When the shared corpus genuinely scores higher, it must stay on top.
+    mockConfiguredKb();
+    mockPerCollection({
+      'shared-TestOrg': [{ content: 'strong shared hit', similarity: 0.72, source: 'shared-doc.md' }],
+      'agent-tester': [{ content: 'weak memory', similarity: 0.50, source: 'agent-memory.md' }],
+    });
+
+    const result = queryKnowledgeBase(dummyPaths, 'q', { ...baseOptions, scope: 'all' });
+
+    expect(result.results.map((r) => r.score)).toEqual([0.72, 0.50]);
+    expect(result.results[0].source_file).toBe('shared-doc.md');
+  });
+});
+
 describe('kb warn messages — UX invariants', () => {
   it('both warn messages name the org and suggest "run setup"', () => {
     // Drive ingest path

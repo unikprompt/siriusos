@@ -223,6 +223,18 @@ export function queryKnowledgeBase(
       lastCollection = col;
     }
 
+    // Merge results ACROSS collections by score. The loop above concatenates
+    // each collection's block in collection order (shared first, then the
+    // agent's private collection), so previously an agent's own memory always
+    // landed AFTER the shared/org block — buried at positions [6-10] even when
+    // it scored HIGHER than every shared result (a 0.674 memory chunk ranked
+    // below 0.63 shared chunks). Sort the combined list by score descending so
+    // the most relevant result wins, whichever collection it came from. This
+    // fixes ORDER only: it does not change how any single collection scores a
+    // document, so a query where the shared corpus genuinely scores higher
+    // still ranks the shared result first.
+    allResults.sort((a, b) => b.score - a.score);
+
     if (allResults.length > 0) {
       return {
         results: allResults,
