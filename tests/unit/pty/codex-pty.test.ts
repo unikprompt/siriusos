@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const fsMocks = {
   existsSync: vi.fn().mockReturnValue(false),
@@ -11,10 +11,12 @@ const atomicMocks = {
 
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs');
+  // Delegating wrappers forward to the current fsMocks fn so per-test
+  // mockReturnValue()/mockReset() take effect and every call is recorded.
   return {
     ...actual,
-    get existsSync() { return fsMocks.existsSync; },
-    get writeFileSync() { return fsMocks.writeFileSync; },
+    existsSync: (...args: unknown[]) => fsMocks.existsSync(...args),
+    writeFileSync: (...args: unknown[]) => fsMocks.writeFileSync(...args),
   };
 });
 
@@ -32,6 +34,14 @@ vi.mock('node-pty', () => ({
 vi.mock('../../../src/utils/atomic.js', () => ({
   atomicWriteSync: atomicMocks.atomicWriteSync,
 }));
+
+const cpMocks = {
+  execFileSync: vi.fn(),
+};
+vi.mock('child_process', async () => {
+  const actual = await vi.importActual<typeof import('child_process')>('child_process');
+  return { ...actual, execFileSync: (...args: unknown[]) => cpMocks.execFileSync(...args) };
+});
 
 const { CodexPTY } = await import('../../../src/pty/codex-pty.js');
 
@@ -454,5 +464,37 @@ describe('CodexPTY per-turn pty cleanup (BUG-PTY-LEAK)', () => {
     pty.kill();
 
     expect(mock.kill).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('CodexPTY sqlite hardening', () => {
+  type SqlitePty = { hasExistingSession(): boolean };
+  const asSqlite = (pty: CodexPTY) => pty as unknown as SqlitePty;
+
+  // existsSync is set per-test (the file-level beforeEach resets it to false).
+  afterEach(() => {
+    fsMocks.existsSync.mockReturnValue(false);
+  });
+
+  it('queries sqlite read-only with a busy timeout, not the output-polluting PRAGMA', () => {
+    fsMocks.existsSync.mockReturnValue(true); // state_5.sqlite exists
+    cpMocks.execFileSync.mockReset().mockReturnValue('thread-xyz');
+    const pty = new CodexPTY(mockEnv, {});
+    expect(asSqlite(pty).hasExistingSession()).toBe(true);
+    const args = cpMocks.execFileSync.mock.calls[0][1] as string[];
+    expect(args).toContain('-readonly');
+    expect(args).toContain('.timeout 2000');
+    // PRAGMA busy_timeout prints its value and would corrupt the parsed output.
+    expect(args.join(' ')).not.toContain('PRAGMA busy_timeout');
+  });
+
+  it('leaves a unique greppable trace on a failed read instead of a silent null', () => {
+    fsMocks.existsSync.mockReturnValue(true);
+    cpMocks.execFileSync.mockReset().mockImplementation(() => { throw new Error('database is locked'); });
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const pty = new CodexPTY(mockEnv, {});
+    expect(asSqlite(pty).hasExistingSession()).toBe(false);
+    expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('[codex-pty] session probe failed'));
+    errSpy.mockRestore();
   });
 });

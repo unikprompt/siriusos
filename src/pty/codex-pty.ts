@@ -1,5 +1,6 @@
 import { join } from 'path';
 import { existsSync, writeFileSync, readdirSync, closeSync, readFileSync } from 'fs';
+import { execFileSync } from 'child_process';
 import { isatty } from 'tty';
 import { homedir } from 'os';
 import type { AgentConfig, CtxEnv } from '../types/index.js';
@@ -456,13 +457,15 @@ export class CodexPTY {
     cumulativeCachedInputTokens: number | null;
   } | null {
     try {
-      const { execFileSync } = require('child_process');
       const dbPath = join(homedir(), '.codex', 'state_5.sqlite');
       if (!existsSync(dbPath)) return null;
       const escapedId = threadId.replace(/'/g, "''");
       const rolloutPath = execFileSync(
         'sqlite3',
-        [dbPath, `SELECT rollout_path FROM threads WHERE id = '${escapedId}' LIMIT 1;`],
+        // Open read-only (never competes for a write lock) and set a 2s busy
+        // timeout via the `.timeout` dot-command — NOT `PRAGMA busy_timeout`,
+        // which prints its value and would contaminate the parsed output.
+        ['-readonly', '-cmd', '.timeout 2000', dbPath, `SELECT rollout_path FROM threads WHERE id = '${escapedId}' LIMIT 1;`],
         { encoding: 'utf-8', timeout: 3000 },
       ).trim();
       if (!rolloutPath || !existsSync(rolloutPath)) return null;
@@ -506,7 +509,11 @@ export class CodexPTY {
         };
       }
       return null;
-    } catch {
+    } catch (err) {
+      // Do not swallow silently: a failed rollout read leaves the context gauge
+      // stale for this turn. Leave a unique, greppable trace so the cause can be
+      // found later instead of surfacing only as an agent with old context.
+      console.error(`[codex-pty] rollout read failed: ${(err as Error).message}`);
       return null;
     }
   }
@@ -653,12 +660,14 @@ export class CodexPTY {
     const dbPath = join(homedir(), '.codex', 'state_5.sqlite');
     if (!existsSync(dbPath)) return false;
     try {
-      // Use synchronous sqlite3 via child_process to avoid adding a dependency
-      const { execFileSync } = require('child_process');
+      // Synchronous sqlite3 via child_process avoids adding a dependency.
       const query = `SELECT id FROM threads WHERE cwd = '${this._cwd.replace(/'/g, "''")}' AND archived = 0 ORDER BY updated_at DESC LIMIT 1;`;
-      const result = execFileSync('sqlite3', [dbPath, query], { encoding: 'utf-8', timeout: 3000 }).trim();
+      const result = execFileSync('sqlite3', ['-readonly', '-cmd', '.timeout 2000', dbPath, query], { encoding: 'utf-8', timeout: 3000 }).trim();
       return result.length > 0;
-    } catch {
+    } catch (err) {
+      // A failed probe silently forces a fresh session instead of resuming.
+      // Leave a unique, greppable trace.
+      console.error(`[codex-pty] session probe failed: ${(err as Error).message}`);
       return false;
     }
   }
