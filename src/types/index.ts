@@ -171,6 +171,14 @@ export interface AgentConfig {
    * existing config.json values.
    */
   role?: string;
+  /**
+   * Reasoning effort for the Anthropic `claude-code` runtime. Passed to the
+   * Claude Code CLI via the `--effort <value>` flag at spawn time. Accepts the
+   * five Claude Code effort levels; when absent, Claude Code applies its own
+   * default (currently `xhigh`). Ignored for codex runtimes, which take their
+   * effort from `reasoning_effort` instead.
+   */
+  claude_effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   working_directory?: string;
   enabled?: boolean;
   crons?: CronEntry[];

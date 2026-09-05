@@ -41,6 +41,24 @@ export const anthropicStrategy: ProviderStrategy = {
       args.push('--model', opts.config.model);
     }
 
+    // Claude Code reasoning effort (`--effort`). Only the five levels Claude
+    // Code accepts are forwarded; an out-of-range value from a hand-edited
+    // config.json is skipped so the agent still boots at Claude Code's own
+    // default rather than dying on an unknown flag value. Codex runtimes carry
+    // their effort separately via `reasoning_effort`.
+    const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+    const claudeEffort = opts.config.claude_effort;
+    if (claudeEffort && (CLAUDE_EFFORTS as readonly string[]).includes(claudeEffort)) {
+      args.push('--effort', claudeEffort);
+    } else if (claudeEffort) {
+      // A typo'd value in a hand-edited config.json ("medum") would otherwise
+      // boot silently at Claude Code's own default while the operator believes
+      // the agent is running at the level they set — a silent fallback that only
+      // surfaces in the bill or the behavior. Still boot (skip the bad flag), but
+      // leave a unique, greppable trace so the typo is findable.
+      console.error(`[anthropic] ignoring invalid claude_effort '${claudeEffort}' (expected one of ${CLAUDE_EFFORTS.join('|')})`);
+    }
+
     const localDir = join(opts.agentDir, 'local');
     if (existsSync(localDir)) {
       try {
