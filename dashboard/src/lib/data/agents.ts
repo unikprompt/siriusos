@@ -2,13 +2,11 @@
 // Discovers agents, reads identity/config files, returns typed agent data
 
 import fs from 'fs/promises';
-import fsSync from 'fs';
 import path from 'path';
 import {
   CTX_ROOT,
   getAgentDir,
   getHeartbeatPath,
-  getAgentStateDir,
   getAllAgents,
 } from '@/lib/config';
 import { getHeartbeat, getHealthStatus } from '@/lib/data/heartbeats';
@@ -21,14 +19,14 @@ import type {
   AgentPaths,
   AgentRuntime,
   HealthStatus,
-  Heartbeat,
   MemoryFile,
   LogFile,
 } from '@/lib/types';
+import { normalizeAgentRuntime } from '@/lib/agent-runtime';
 
 /**
- * Read agent config.json and extract runtime ("claude-code" | "codex-app-server"
- * | "hermes"). Defaults to "claude-code" for legacy agents that pre-date the
+ * Read agent config.json and extract its supported runtime. Defaults to
+ * "claude-code" for legacy agents that pre-date the
  * runtime field, matching what the daemon does on agent boot.
  */
 async function getAgentRuntime(name: string, org?: string): Promise<AgentRuntime> {
@@ -36,9 +34,7 @@ async function getAgentRuntime(name: string, org?: string): Promise<AgentRuntime
   try {
     const raw = await fs.readFile(path.join(agentDir, 'config.json'), 'utf-8');
     const cfg = JSON.parse(raw) as { runtime?: string };
-    if (cfg.runtime === 'codex-app-server' || cfg.runtime === 'hermes' || cfg.runtime === 'claude-code') {
-      return cfg.runtime;
-    }
+    return normalizeAgentRuntime(cfg.runtime);
   } catch {
     // missing/malformed config — fall through to default
   }

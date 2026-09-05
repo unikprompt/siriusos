@@ -457,21 +457,37 @@ export class AgentProcess {
   }
 
   private shouldContinue(): boolean {
-    // Hermes: session continuity is determined by whether the SQLite DB exists.
-    // HERMES_HOME env var overrides the default ~/.hermes path.
-    if (this.config.runtime === 'hermes') {
-      const hermesHome = process.env['HERMES_HOME'];
-      return hermesDbExists(hermesHome);
-    }
-
-    // Check for force-fresh marker
+    // Explicit dashboard/CLI mode markers take precedence over runtime-specific
+    // auto-detection.
     const forceFreshPath = join(this.env.ctxRoot, 'state', this.name, '.force-fresh');
     if (existsSync(forceFreshPath)) {
       try {
         const { unlinkSync } = require('fs');
         unlinkSync(forceFreshPath);
+        const staleContinuePath = join(this.env.ctxRoot, 'state', this.name, '.force-continue');
+        if (existsSync(staleContinuePath)) unlinkSync(staleContinuePath);
       } catch { /* ignore */ }
       return false;
+    }
+
+    // Dashboard/CLI Restart (Continue) writes an explicit marker so runtime
+    // selection does not depend on Claude's transcript directory. This is
+    // especially important for `codex`, whose conversation lives in Codex's
+    // SQLite state rather than ~/.claude/projects.
+    const forceContinuePath = join(this.env.ctxRoot, 'state', this.name, '.force-continue');
+    if (existsSync(forceContinuePath)) {
+      try {
+        const { unlinkSync } = require('fs');
+        unlinkSync(forceContinuePath);
+      } catch { /* ignore */ }
+      return true;
+    }
+
+    // Hermes: session continuity is determined by whether the SQLite DB exists.
+    // HERMES_HOME env var overrides the default ~/.hermes path.
+    if (this.config.runtime === 'hermes') {
+      const hermesHome = process.env['HERMES_HOME'];
+      return hermesDbExists(hermesHome);
     }
 
     // Check for existing conversation
@@ -517,18 +533,28 @@ export class AgentProcess {
 
     const nowUtc = new Date().toISOString();
     const reminderBlock = this.buildReminderBlock();
-    // Codex runtime: lightweight bootstrap. Codex has tight 5-hour message quotas
-    // on ChatGPT Plus and a single heavy bootstrap (12+ files, /loop, CronCreate)
-    // can burn 5-10% of the weekly cap per restart. We also skip cron setup here
-    // because Codex does not expose /loop or CronCreate — siriusos manages crons
-    // externally for openai-provider agents.
+    const handoffBlock = this.consumeHandoffBlock();
+    const isHandoffRestart = handoffBlock.length > 0;
+    // Codex runtime: role-aware bootstrap. General, task-driven agents keep the
+    // lightweight boot to protect ChatGPT quota. Persistent specialists and
+    // orchestrators load the compact set that governs identity, strategy,
+    // autonomy and durable memory. Loading all 12+ bootstrap/tool files on every
+    // restart is still intentionally avoided.
+    // Cron setup remains daemon-managed because Codex exposes neither /loop nor
+    // CronCreate.
     if (this.config.provider === 'openai') {
-      return `You are starting a new session. Current UTC time: ${nowUtc}. Read ONLY these three files to orient yourself: IDENTITY.md, CLAUDE.md, AGENTS.md. Do not read the other bootstrap files (SOUL.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md) unless a specific task later requires them — read them lazily on demand. Do NOT try to call /loop, CronCreate, or CronList: this runtime does not expose them; crons in config.json are managed by the siriusos daemon, not by you. Check your inbox with \`siriusos bus check-inbox\` and update your heartbeat with \`siriusos bus update-heartbeat "online"\`.${reminderBlock} Then send one short Telegram message to the user saying you are back online and ready.${onboardingAppend}`;
+      const persistentRole = this.config.role === 'orchestrator' || this.config.role === 'specialist';
+      const coreLabel = this.config.role === 'orchestrator' ? 'orchestration' : 'operational';
+      const orientationInstruction = persistentRole
+        ? `AGENTS.md is already loaded automatically by Codex; do not re-read it. Read these core ${coreLabel} files in order: IDENTITY.md, SOUL.md, USER.md, GOALS.md, GUARDRAILS.md, and MEMORY.md. Then read today's memory/YYYY-MM-DD.md if it exists. Do not bulk-read CLAUDE.md, HEARTBEAT.md, TOOLS.md, SYSTEM.md, plugins, docs, or older daily memory during boot; load those lazily when the current task or cron requires them.`
+        : 'AGENTS.md is already loaded automatically by Codex; do not re-read it. Read ONLY IDENTITY.md to orient yourself. Do not read CLAUDE.md or the other bootstrap files (SOUL.md, GOALS.md, HEARTBEAT.md, MEMORY.md, USER.md, TOOLS.md, SYSTEM.md) unless a specific task later requires them — read them lazily on demand.';
+      const statusInstruction = isHandoffRestart
+        ? ' After reading the handoff, send one brief conversational Telegram pickup message; do not send a cold-boot status report.'
+        : ' Then send one short Telegram message to the user saying you are back online and ready.';
+      return `You are starting a new session. Current UTC time: ${nowUtc}.${handoffBlock} ${orientationInstruction} Do NOT execute the generic bulk-read/discovery checklist in AGENTS.md during this OpenAI boot. Do NOT try to call /loop, CronCreate, or CronList: this runtime does not expose them; crons in config.json are managed by the siriusos daemon, not by you. Check your inbox with \`siriusos bus check-inbox\` and update your heartbeat with \`siriusos bus update-heartbeat "online"\`.${reminderBlock}${statusInstruction}${onboardingAppend}`;
     }
 
     const deliverablesBlock = this.buildDeliverablesBlock();
-    const handoffBlock = this.consumeHandoffBlock();
-    const isHandoffRestart = handoffBlock.length > 0;
     // HANDOFF UX: the pickup message MUST be the first action after reading the handoff doc —
     // before cron restoration, before heartbeat, before anything else. Placing this instruction
     // immediately after the handoffBlock in the prompt ensures it is not buried.
@@ -549,7 +575,12 @@ export class AgentProcess {
     // src/pty/providers/openai.ts for why), so the "history is preserved" line
     // would be a lie. Keep the prompt short and re-orient only with the essentials.
     if (this.config.provider === 'openai') {
-      return `Your CLI process was restarted to reload configs. Current UTC time: ${nowUtc}. Re-read ONLY these three files: IDENTITY.md, CLAUDE.md, AGENTS.md. Do not re-read the other bootstrap files unless a specific task requires them. Do NOT try to call /loop, CronCreate, or CronList — not exposed in this runtime; crons are daemon-managed. Check inbox with \`siriusos bus check-inbox\` and update heartbeat with \`siriusos bus update-heartbeat "online"\`.${reminderBlock} Send one short Telegram message saying you are back online.`;
+      const persistentRole = this.config.role === 'orchestrator' || this.config.role === 'specialist';
+      const coreLabel = this.config.role === 'orchestrator' ? 'orchestration' : 'operational';
+      const orientationInstruction = persistentRole
+        ? `AGENTS.md is already loaded automatically by Codex; do not re-read it. Re-read the compact ${coreLabel} core: IDENTITY.md, SOUL.md, USER.md, GOALS.md, GUARDRAILS.md, MEMORY.md, and today's memory/YYYY-MM-DD.md if it exists. Keep HEARTBEAT.md, TOOLS.md, SYSTEM.md, plugins, docs, and older daily memory lazy until the current task or cron requires them.`
+        : 'AGENTS.md is already loaded automatically by Codex; do not re-read it. Re-read ONLY IDENTITY.md. Do not read CLAUDE.md or the other bootstrap files unless a specific task requires them.';
+      return `Your CLI process was restarted to reload configs. Current UTC time: ${nowUtc}. ${orientationInstruction} Do NOT execute the generic bulk-read/discovery checklist in AGENTS.md during this OpenAI restart. Do NOT try to call /loop, CronCreate, or CronList — not exposed in this runtime; crons are daemon-managed. Check inbox with \`siriusos bus check-inbox\` and update heartbeat with \`siriusos bus update-heartbeat "online"\`.${reminderBlock} Send one short Telegram message saying you are back online.`;
     }
 
     const deliverablesBlock = this.buildDeliverablesBlock();

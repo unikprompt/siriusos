@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "updated_at": "2026-05-08T19:02:11Z",
+  "updated_at": "2026-08-03T19:55:00Z",
   "items": [
     {
       "name": "orchestrator",
@@ -461,6 +461,26 @@
       "dependencies": [],
       "install_path": "community/skills/html-gen",
       "submitted_at": "2026-05-08T19:02:11Z"
+    },
+    {
+      "name": "claude-to-codex-migration",
+      "description": "Migra un agente SiriusOS desde claude-code a un destino Codex separado y deshabilitado por defecto. Detecta y transforma instrucciones, skills, hooks, memoria y crons; admite modelos GPT-5.6 y niveles de razonamiento explícitos.",
+      "author": "siriusos",
+      "type": "skill",
+      "version": "1.1.0-siriusos",
+      "tags": [
+        "migration",
+        "codex",
+        "claude-code",
+        "runtime",
+        "agent",
+        "codex-app-server",
+        "gpt-5.6"
+      ],
+      "review_status": "approved",
+      "dependencies": [],
+      "install_path": "community/skills/claude-to-codex-migration",
+      "submitted_at": "2026-08-03T19:55:00Z"
     }
   ]
 }

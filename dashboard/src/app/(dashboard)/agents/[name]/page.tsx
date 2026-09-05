@@ -15,20 +15,27 @@ export const dynamic = 'force-dynamic';
 
 export default async function AgentDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ name: string }>;
+  searchParams: Promise<{ org?: string | string[] }>;
 }) {
   const { name } = await params;
+  const query = await searchParams;
   const decoded = decodeURIComponent(name);
+  const requestedOrg = typeof query.org === 'string' && /^[a-z0-9_-]+$/.test(query.org)
+    ? query.org
+    : undefined;
 
   // Look up org from enabled-agents.json (case-insensitive to handle legacy URLs)
   const allAgentsList = getAllAgents();
   const agentEntry = allAgentsList.find(
     a => a.name.toLowerCase() === decoded.toLowerCase()
+      && (!requestedOrg || a.org === requestedOrg)
   );
   // Use the canonical system name from config, not the URL param
   const systemName = agentEntry?.name ?? decoded;
-  const org = agentEntry?.org || undefined;
+  const org = requestedOrg || agentEntry?.org || undefined;
 
   const detail = await getAgentDetail(systemName, org);
 
@@ -78,7 +85,7 @@ export default async function AgentDetailPage({
           </div>
         </div>
 
-        <Link href="/agents">
+        <Link href={detail.org ? `/agents?org=${encodeURIComponent(detail.org)}` : '/agents'}>
           <Button variant="outline" size="sm">
             Back to Roster
           </Button>

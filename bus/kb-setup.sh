@@ -85,7 +85,6 @@ if [[ ! -f "$CONFIG_FILE" ]]; then
 {
   "embedding_model": "gemini-embedding-2-preview",
   "embedding_dimensions": 3072,
-  "gemini_model": "gemini-2.5-flash",
   "text_chunk_size": 1000,
   "text_chunk_overlap": 200,
   "similarity_threshold": 0.5,

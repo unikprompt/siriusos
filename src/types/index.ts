@@ -164,6 +164,14 @@ export interface AgentConfig {
   max_crashes_per_day?: number;
   provider?: Provider;
   model?: string;
+  /**
+   * Reasoning effort for the Anthropic `claude-code` runtime. Passed to the
+   * Claude Code CLI via the `--effort <value>` flag at spawn time. Accepts the
+   * five Claude Code effort levels; when absent, Claude Code applies its own
+   * default (currently `xhigh`). Ignored for codex runtimes, which take their
+   * effort from `reasoning_effort` instead.
+   */
+  claude_effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   working_directory?: string;
   enabled?: boolean;
   crons?: CronEntry[];
@@ -183,7 +191,8 @@ export interface AgentConfig {
   /**
    * Fallback context window cap (tokens) for codex-app-server agents when the
    * server's `thread/tokenUsage/updated` event reports `modelContextWindow=null`.
-   * Defaults to 256000 when unset. Only applied to the codex-app-server runtime.
+   * Defaults to 256000 when unset. Standard `codex` reads the effective window
+   * directly from its rollout token-count records instead of this fallback.
    */
   codex_context_cap?: number;
   /**
@@ -202,14 +211,14 @@ export interface AgentConfig {
    */
   telegram_polling?: boolean;
   /**
-   * Reasoning effort hint for OpenAI codex-app-server runtimes. Passed to the
+   * Reasoning effort hint for OpenAI `codex` and `codex-app-server` runtimes. Passed to the
    * codex CLI via `-c model_reasoning_effort=<value>` override at spawn time.
    * Higher effort produces better reasoning but consumes 30-50% more tokens
    * per turn — lower this to `medium` or `low` if you hit context bloat or
    * context_too_large crashes. Ignored for non-codex runtimes. When absent the
-   * codex CLI uses its own default (varies by version, currently `high`).
+   * codex CLI uses the selected model's advertised default (varies by version).
    */
-  reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high';
+  reasoning_effort?: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra';
 }
 
 export interface CronEntry {
