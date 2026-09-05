@@ -115,7 +115,17 @@ purgeCommand
     }
 
     if (!options.keepDefinition) {
-      await stopAgentIfRunning(options.instance, name);
+      try {
+        await stopAgentIfRunning(options.instance, name);
+      } catch (err) {
+        // stopAgentIfRunning throws only when the daemon refuses the stop or
+        // the agent does not leave the registry in time. Abort cleanly WITHOUT
+        // deleting anything (the whole point of waiting), instead of letting the
+        // throw escape the async action as an unhandled rejection.
+        console.error(`  ${(err as Error).message}`);
+        console.error('  Purge aborted; no files were deleted. Retry once the agent has stopped.');
+        process.exit(1);
+      }
     }
 
     for (const t of realTargets) {
@@ -197,7 +207,15 @@ purgeCommand
 
     for (const agent of agents) {
       console.log(`\n  Purging agent: ${agent}`);
-      await stopAgentIfRunning(options.instance, agent);
+      try {
+        await stopAgentIfRunning(options.instance, agent);
+      } catch (err) {
+        // Same guard as the single-agent path: a refused/timed-out stop aborts
+        // cleanly instead of surfacing as an unhandled rejection mid-loop.
+        console.error(`  ${(err as Error).message}`);
+        console.error(`  Org purge aborted at "${agent}"; no further files deleted. Retry once it has stopped.`);
+        process.exit(1);
+      }
       const targets = collectAgentTargets(ctxRoot, projectRoot, name, agent, {});
       for (const t of targets.filter(x => x.exists)) {
         try {

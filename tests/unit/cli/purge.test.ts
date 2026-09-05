@@ -12,6 +12,7 @@ import { mkdirSync, writeFileSync, existsSync, readFileSync, rmSync, mkdtempSync
 import { join } from 'path';
 import { tmpdir, homedir } from 'os';
 import { purgeCommand } from '../../../src/cli/purge';
+import { IPCClient } from '../../../src/daemon/ipc-server';
 
 interface Sandbox {
   projectRoot: string;
@@ -122,6 +123,30 @@ describe('cortextos purge agent', () => {
     expect(enabled.sample).toBeUndefined();
     // Other agents in the registry must remain untouched
     expect(enabled.other).toBeDefined();
+  });
+
+  it('aborts cleanly (exit 1, nothing deleted) when the daemon refuses the stop', async () => {
+    // Regression: a refused/timed-out stop used to escape the async action as an
+    // unhandled rejection. It must now abort with a clean exit and no deletion.
+    vi.spyOn(IPCClient.prototype, 'isDaemonRunning').mockResolvedValue(true);
+    vi.spyOn(IPCClient.prototype, 'send').mockImplementation(async (msg: { type: string }) => {
+      if (msg.type === 'list-agents') return { success: true, data: [] } as never;
+      return { success: false, error: 'simulated refusal' } as never;
+    });
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+      throw new Error(`__EXIT_${code}__`);
+    }) as never);
+
+    await expect(
+      purgeCommand.parseAsync(['node', 'cli', 'agent', 'sample', '--yes']),
+    ).rejects.toThrow(/__EXIT_1__/);
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    // Aborted before touching the filesystem: everything is still present.
+    expect(existsSync(join(s.ctxRoot, 'state', 'sample'))).toBe(true);
+    expect(existsSync(join(s.projectRoot, 'orgs', 'testorg', 'agents', 'sample'))).toBe(true);
+    const enabled = JSON.parse(readFileSync(join(s.ctxRoot, 'config', 'enabled-agents.json'), 'utf-8'));
+    expect(enabled.sample).toBeDefined();
   });
 
   it('--keep-state removes the definition but preserves runtime state', async () => {
