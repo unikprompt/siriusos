@@ -41,6 +41,17 @@ export const anthropicStrategy: ProviderStrategy = {
       args.push('--model', opts.config.model);
     }
 
+    // Claude Code reasoning effort (`--effort`). Only the five levels Claude
+    // Code accepts are forwarded; an out-of-range value from a hand-edited
+    // config.json is skipped so the agent still boots at Claude Code's own
+    // default rather than dying on an unknown flag value. Codex runtimes carry
+    // their effort separately via `reasoning_effort`.
+    const CLAUDE_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+    const claudeEffort = opts.config.claude_effort;
+    if (claudeEffort && (CLAUDE_EFFORTS as readonly string[]).includes(claudeEffort)) {
+      args.push('--effort', claudeEffort);
+    }
+
     const localDir = join(opts.agentDir, 'local');
     if (existsSync(localDir)) {
       try {

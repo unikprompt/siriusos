@@ -48,6 +48,33 @@ describe('anthropicStrategy', () => {
     expect(args[idx + 1]).toBe('claude-opus-4-6');
   });
 
+  it('claude_effort: passed via --effort when set to a valid level', () => {
+    const args = anthropicStrategy.buildArgs(makeOpts({ config: { claude_effort: 'medium' } }));
+    const idx = args.indexOf('--effort');
+    expect(idx).toBeGreaterThan(-1);
+    expect(args[idx + 1]).toBe('medium');
+  });
+
+  it('claude_effort: absent means no --effort flag (Claude Code default applies)', () => {
+    const args = anthropicStrategy.buildArgs(makeOpts());
+    expect(args).not.toContain('--effort');
+  });
+
+  it('claude_effort: an out-of-range value is skipped, not forwarded', () => {
+    const args = anthropicStrategy.buildArgs(makeOpts({
+      // @ts-expect-error — deliberately invalid effort to exercise the runtime guard
+      config: { claude_effort: 'ultra' },
+    }));
+    expect(args).not.toContain('--effort');
+  });
+
+  it('claude_effort + model: prompt still last, both flags present', () => {
+    const args = anthropicStrategy.buildArgs(makeOpts({ config: { model: 'claude-fable-5-1', claude_effort: 'medium' } }));
+    expect(args).toContain('--model');
+    expect(args).toContain('--effort');
+    expect(args[args.length - 1]).toBe('hello');
+  });
+
   it('local/*.md files: concatenated into --append-system-prompt', () => {
     const localDir = join(tmpDir, 'local');
     mkdirSync(localDir);
