@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { HealthDot } from '@/components/shared/health-dot';
@@ -23,6 +22,7 @@ export interface AgentCardData {
   currentTask?: string;
   tasksToday: number;
   runtime?: AgentRuntime;
+  running: boolean;
 }
 
 interface AgentCardProps {
@@ -32,14 +32,26 @@ interface AgentCardProps {
 export function AgentCard({ agent }: AgentCardProps) {
   const t = useT();
   const router = useRouter();
+  const agentHref = `/agents/${encodeURIComponent(agent.systemName)}?org=${encodeURIComponent(agent.org)}`;
 
   const healthLabel =
     agent.health === 'healthy' ? t.pages.agents.health.online :
     agent.health === 'stale' ? t.badges.status.unknown : t.pages.agents.health.offline;
 
   return (
-    <Link href={`/agents/${encodeURIComponent(agent.systemName)}`}>
-      <Card className="group relative h-full cursor-pointer transition-all hover:shadow-md hover:border-primary/20">
+      <Card
+        className="group relative h-full cursor-pointer transition-all hover:shadow-md hover:border-primary/20"
+        role="link"
+        tabIndex={0}
+        aria-label={`Abrir ${agent.name}`}
+        onClick={() => router.push(agentHref)}
+        onKeyDown={(event) => {
+          if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            router.push(agentHref);
+          }
+        }}
+      >
         <CardContent className="space-y-3">
           {/* Header: avatar + name + health */}
           <div className="flex items-start justify-between">
@@ -65,8 +77,10 @@ export function AgentCard({ agent }: AgentCardProps) {
             <AgentActions
               agentName={agent.systemName}
               org={agent.org}
-              health={agent.health}
-              onAction={() => router.refresh()}
+              running={agent.running}
+              onAction={() => {
+                window.setTimeout(() => router.refresh(), 800);
+              }}
             />
           </div>
 
@@ -101,6 +115,5 @@ export function AgentCard({ agent }: AgentCardProps) {
           </div>
         </CardContent>
       </Card>
-    </Link>
   );
 }

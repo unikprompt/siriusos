@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   IconDots,
   IconPlayerPlay,
@@ -25,12 +26,10 @@ import {
   IconTrash,
   IconLoader2,
 } from '@tabler/icons-react';
-import type { HealthStatus } from '@/lib/types';
-
 interface AgentActionsProps {
   agentName: string;
   org: string;
-  health: HealthStatus;
+  running: boolean;
   onAction?: () => void;
 }
 
@@ -39,12 +38,17 @@ type LifecycleAction = 'start' | 'stop' | 'restart_continue' | 'restart_fresh';
 export function AgentActions({
   agentName,
   org,
-  health,
+  running,
   onAction,
 }: AgentActionsProps) {
   const [loading, setLoading] = useState(false);
+  const [confirmFreshRestart, setConfirmFreshRestart] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [isRunning, setIsRunning] = useState(running);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => setIsRunning(running), [running]);
 
   async function handleLifecycle(action: LifecycleAction) {
     setLoading(true);
@@ -61,7 +65,15 @@ export function AgentActions({
         throw new Error(body?.error ?? `Action failed (${res.status})`);
       }
 
-      setFeedback({ type: 'success', message: `${action.replace('_', ' ')} succeeded` });
+      if (action === 'start') setIsRunning(true);
+      if (action === 'stop') setIsRunning(false);
+      const labels: Record<LifecycleAction, string> = {
+        start: 'Inicio solicitado',
+        stop: 'Detención solicitada',
+        restart_continue: 'Reinicio con continuidad solicitado',
+        restart_fresh: 'Reinicio limpio solicitado',
+      };
+      setFeedback({ type: 'success', message: labels[action] });
       onAction?.();
     } catch (err) {
       setFeedback({
@@ -78,11 +90,12 @@ export function AgentActions({
     setLoading(true);
     setFeedback(null);
     try {
-      const res = await fetch(`/api/agents/${encodeURIComponent(agentName)}`, {
+      const res = await fetch(
+        `/api/agents/${encodeURIComponent(agentName)}/lifecycle?org=${encodeURIComponent(org)}`,
+        {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ org }),
-      });
+        },
+      );
 
       if (!res.ok) {
         const body = await res.json().catch(() => null);
@@ -91,6 +104,7 @@ export function AgentActions({
 
       setFeedback({ type: 'success', message: 'Agent deleted' });
       setConfirmDelete(false);
+      setDeleteConfirmation('');
       onAction?.();
     } catch (err) {
       setFeedback({
@@ -103,17 +117,21 @@ export function AgentActions({
     }
   }
 
-  const isDown = health === 'down' || health === 'stale';
-  const isHealthy = health === 'healthy';
-
   return (
-    <>
+    <div
+      className="relative"
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
             <Button variant="ghost" size="icon-sm" className="h-6 w-6" />
           }
-          onClick={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
           {loading ? (
             <IconLoader2 className="h-3.5 w-3.5 animate-spin" />
@@ -124,32 +142,56 @@ export function AgentActions({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" sideOffset={4}>
-          {isDown && (
-            <DropdownMenuItem onClick={() => handleLifecycle('start')}>
+          {!isRunning && (
+            <DropdownMenuItem onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleLifecycle('start');
+            }}>
               <IconPlayerPlay className="h-4 w-4" />
               Start
             </DropdownMenuItem>
           )}
-          {isHealthy && (
-            <DropdownMenuItem onClick={() => handleLifecycle('stop')}>
+          {isRunning && (
+            <DropdownMenuItem onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void handleLifecycle('stop');
+            }}>
               <IconPlayerStop className="h-4 w-4" />
               Stop
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => handleLifecycle('restart_continue')}>
-            <IconRefresh className="h-4 w-4" />
-            Restart (Continue)
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => handleLifecycle('restart_fresh')}>
-            <IconRefresh className="h-4 w-4" />
-            Restart (Fresh)
-          </DropdownMenuItem>
+          {isRunning && (
+            <>
+              <DropdownMenuItem onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void handleLifecycle('restart_continue');
+              }}>
+                <IconRefresh className="h-4 w-4" />
+                Restart (Continue)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setConfirmFreshRestart(true);
+              }}>
+                <IconRefresh className="h-4 w-4" />
+                Restart (Fresh)
+              </DropdownMenuItem>
+            </>
+          )}
 
           <DropdownMenuSeparator />
 
           <DropdownMenuItem
             variant="destructive"
-            onClick={() => setConfirmDelete(true)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setConfirmDelete(true);
+            }}
           >
             <IconTrash className="h-4 w-4" />
             Delete
@@ -168,16 +210,64 @@ export function AgentActions({
         </span>
       )}
 
-      {/* Delete confirmation dialog */}
-      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+      <Dialog open={confirmFreshRestart} onOpenChange={setConfirmFreshRestart}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Agent</DialogTitle>
+            <DialogTitle>Reiniciar con sesión limpia</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete <strong>{agentName}</strong>? This
-              action cannot be undone. All agent configuration and data will be
-              permanently removed.
+              <strong>{agentName}</strong> iniciará una conversación nueva y no continuará
+              el hilo activo. Su configuración, memoria persistida, crons y credenciales se conservan.
             </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmFreshRestart(false)}
+              disabled={loading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmFreshRestart(false);
+                void handleLifecycle('restart_fresh');
+              }}
+              disabled={loading}
+            >
+              Reiniciar en limpio
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog
+        open={confirmDelete}
+        onOpenChange={(open) => {
+          setConfirmDelete(open);
+          if (!open) setDeleteConfirmation('');
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar agente completamente</DialogTitle>
+            <DialogDescription>
+              Se eliminarán <strong>{agentName}</strong>, su definición, credenciales,
+              memoria, estado, logs, crons y buzones. Las tareas y entregables de la
+              organización se conservan como historial. Esta acción no se puede deshacer.
+            </DialogDescription>
+            <div className="space-y-2 pt-2">
+              <label htmlFor={`delete-${agentName}`} className="text-sm">
+                Escribe <strong>{agentName}</strong> para confirmar:
+              </label>
+              <Input
+                id={`delete-${agentName}`}
+                value={deleteConfirmation}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+                autoComplete="off"
+              />
+            </div>
           </DialogHeader>
           <DialogFooter>
             <Button
@@ -189,15 +279,15 @@ export function AgentActions({
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDelete}
-              disabled={loading}
+              onClick={() => void handleDelete()}
+              disabled={loading || deleteConfirmation !== agentName}
             >
               {loading && <IconLoader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              Delete Agent
+              Eliminar agente
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

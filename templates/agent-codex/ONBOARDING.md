@@ -299,7 +299,7 @@ ORCH=$(echo "$ORG_CONTEXT" | jq -r '.orchestrator // "unknown"')
 DASH_PORT=$(grep -s PORT "${CTX_FRAMEWORK_ROOT}/dashboard/.env.local" | cut -d= -f2 || echo "3000")
 ```
 
-Write to `${CTX_AGENT_DIR}/SYSTEM.md` with org name, runtime (`codex-app-server`), timezone, orchestrator, dashboard URL, and team roster from Step 8.
+Write to `${CTX_AGENT_DIR}/SYSTEM.md` with org name, runtime (`codex`), timezone, orchestrator, dashboard URL, and team roster from Step 8.
 
 ### Step 15c: Ensure TOOLS.md is the full bus reference
 

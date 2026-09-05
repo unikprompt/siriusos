@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AgentCard, type AgentCardData } from './agent-card';
 import { AddAgentCard } from './add-agent-card';
@@ -20,6 +20,13 @@ export function AgentsGrid({ initialAgents }: AgentsGridProps) {
   const router = useRouter();
   const [agents, setAgents] = useState<AgentCardData[]>(initialAgents);
   const [createOpen, setCreateOpen] = useState(false);
+
+  // Server navigation changes `initialAgents` when ?org= changes. React keeps
+  // client state across that navigation, so mirror the new server result or
+  // the grid would continue showing the previous organization's roster.
+  useEffect(() => {
+    setAgents(initialAgents);
+  }, [initialAgents]);
 
   const handleSSEEvent = useCallback((event: SSEEvent) => {
     if (event.type !== 'heartbeat') return;
@@ -80,7 +87,7 @@ export function AgentsGrid({ initialAgents }: AgentsGridProps) {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" data-stagger>
           {agents.map((agent) => (
-            <AgentCard key={agent.name} agent={agent} />
+            <AgentCard key={`${agent.org}:${agent.systemName}`} agent={agent} />
           ))}
           <AddAgentCard onClick={() => setCreateOpen(true)} />
         </div>

@@ -39,8 +39,8 @@ const TEMPLATES = [
   {
     value: 'agent-codex',
     label: 'Agent (Codex)',
-    runtime: 'codex-app-server',
-    description: 'General-purpose worker on the codex-app-server runtime (gpt-5-codex). Skills under plugins/siriusos-agent-skills/skills/, no slash-commands. Switch to `codex` exec-mode after creation via Settings → Runtime if you prefer lower per-turn cost on ChatGPT Plus.',
+    runtime: 'codex',
+    description: 'Agente OpenAI sobre el runtime estable Codex Exec. Sus instrucciones y skills se instalan desde la plantilla; los crons persistentes quedan administrados por el daemon.',
   },
   {
     value: 'orchestrator',

@@ -1,10 +1,22 @@
 import { NextRequest } from 'next/server';
-import { existsSync, readFileSync, writeFileSync, readdirSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, readdirSync, renameSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { getFrameworkRoot, getAllAgents, getAgentDir } from '@/lib/config';
 import { spawnSync } from 'child_process';
 
 export const dynamic = 'force-dynamic';
+
+function atomicWriteFileSync(filePath: string, data: string): void {
+  const tempPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    writeFileSync(tempPath, data, 'utf-8');
+    renameSync(tempPath, filePath);
+  } catch (error) {
+    try { unlinkSync(tempPath); } catch { /* best-effort cleanup */ }
+    throw error;
+  }
+}
 
 function resolveAgentConfigPath(frameworkRoot: string, name: string): string | null {
   // First check via getAllAgents (uses enabled-agents.json + filesystem scan)
@@ -68,7 +80,14 @@ export async function PATCH(
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const allowed = ['timezone', 'day_mode_start', 'day_mode_end', 'communication_style', 'approval_rules', 'max_session_seconds', 'max_crashes_per_day', 'startup_delay', 'model', 'provider', 'runtime', 'ctx_warning_threshold', 'ctx_handoff_threshold', 'reasoning_effort'];
+  let config: Record<string, unknown>;
+  try {
+    config = JSON.parse(readFileSync(configPath, 'utf-8'));
+  } catch {
+    return Response.json({ error: 'Failed to read config' }, { status: 500 });
+  }
+
+  const allowed = ['timezone', 'day_mode_start', 'day_mode_end', 'communication_style', 'approval_rules', 'max_session_seconds', 'max_crashes_per_day', 'startup_delay', 'model', 'provider', 'runtime', 'ctx_warning_threshold', 'ctx_handoff_threshold', 'reasoning_effort', 'claude_effort'];
   if (body.provider !== undefined && body.provider !== 'anthropic' && body.provider !== 'openai') {
     return Response.json({ error: "provider must be 'anthropic' or 'openai'" }, { status: 400 });
   }
@@ -113,18 +132,32 @@ export async function PATCH(
       }
     }
   }
-  if (body.ctx_warning_threshold !== undefined && body.ctx_handoff_threshold !== undefined) {
-    if ((body.ctx_warning_threshold as number) >= (body.ctx_handoff_threshold as number)) {
+  const effectiveWarning = body.ctx_warning_threshold ?? config.ctx_warning_threshold;
+  const effectiveHandoff = body.ctx_handoff_threshold ?? config.ctx_handoff_threshold;
+  if (typeof effectiveWarning === 'number' && typeof effectiveHandoff === 'number') {
+    if (effectiveWarning >= effectiveHandoff) {
       return Response.json({ error: 'ctx_warning_threshold must be less than ctx_handoff_threshold' }, { status: 400 });
     }
   }
 
   // Validate reasoning_effort: must be one of the codex CLI accepted values
   if (body.reasoning_effort !== undefined) {
-    const validEfforts = ['minimal', 'low', 'medium', 'high'] as const;
-    if (typeof body.reasoning_effort !== 'string' || !validEfforts.includes(body.reasoning_effort as any)) {
+    const validEfforts = ['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const;
+    if (typeof body.reasoning_effort !== 'string' || !validEfforts.some(effort => effort === body.reasoning_effort)) {
       return Response.json(
         { error: `reasoning_effort must be one of: ${validEfforts.join(', ')}` },
+        { status: 400 },
+      );
+    }
+  }
+
+  // Validate claude_effort: must be one of the Claude Code --effort accepted
+  // values (Anthropic runtime). Narrower than reasoning_effort: no minimal/ultra.
+  if (body.claude_effort !== undefined) {
+    const validClaudeEfforts = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
+    if (typeof body.claude_effort !== 'string' || !validClaudeEfforts.some(effort => effort === body.claude_effort)) {
+      return Response.json(
+        { error: `claude_effort must be one of: ${validClaudeEfforts.join(', ')}` },
         { status: 400 },
       );
     }
@@ -144,11 +177,10 @@ export async function PATCH(
   }
 
   try {
-    const config = JSON.parse(readFileSync(configPath, 'utf-8'));
     for (const key of allowed) {
       if (body[key] !== undefined) config[key] = body[key];
     }
-    writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
+    atomicWriteFileSync(configPath, JSON.stringify(config, null, 2) + '\n');
 
     // Notify agent immediately (non-fatal if offline)
     try {

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 // Next.js 15.2+ blocks non-localhost origins from /_next/* dev-internal
 // resources by default. When the dashboard is accessed over Tailscale, a LAN
@@ -18,6 +19,12 @@ const allowedDevOrigins = (process.env.DASHBOARD_ALLOWED_DEV_ORIGINS ?? '')
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['better-sqlite3'],
+  // This repository also contains a root package-lock.json and unrelated
+  // Python virtual environments. Without an explicit root, Turbopack selects
+  // the repository root and may crawl symlinks outside the dashboard.
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
   ...(allowedDevOrigins.length > 0 && { allowedDevOrigins }),
   async headers() {
     return [

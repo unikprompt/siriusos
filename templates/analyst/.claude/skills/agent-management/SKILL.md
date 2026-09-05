@@ -18,7 +18,7 @@ triggers: ["new agent", "create agent", "spawn agent", "add agent", "restart", "
 4. **ALWAYS use `siriusos enable` to start agents.** Never manually edit PM2 config.
 5. **NEVER share bot tokens between agents.** Each agent gets its own bot from @BotFather.
 6. **NEVER hardcode chat IDs.** Get them from the actual user via Telegram getUpdates.
-7. **ALWAYS ask the user which runtime** (claude-code vs codex-app-server) before scaffolding a new agent. Default to claude-code only if the user has no preference. Never silently pick.
+7. **ALWAYS ask the user which runtime** (Claude `claude-code` vs OpenAI `codex`) before scaffolding a new agent. The stable OpenAI runtime is `codex`. Treat `codex-app-server` as experimental and never select it unless the user explicitly requests an experiment after being warned about the different session/handoff behavior.
 
 ---
 
@@ -37,7 +37,10 @@ triggers: ["new agent", "create agent", "spawn agent", "add agent", "restart", "
 # claude-code path (the common one):
 siriusos add-agent <name> --template agent --org <org> --runtime claude-code
 
-# codex-app-server path (gpt-5-codex via codex CLI app-server JSONRPC):
+# Stable Codex path (OpenAI via `codex exec`):
+siriusos add-agent <name> --template agent-codex --org <org> --runtime codex
+
+# Experimental only — never use as the default migration/runtime path:
 siriusos add-agent <name> --template agent-codex --org <org> --runtime codex-app-server
 
 # Option B: Manual
@@ -143,10 +146,20 @@ siriusos bus send-message <agent_name> high "soft-restart" "<reason>"
 ### Hard Restart (Fresh Session, Loses History)
 
 ```bash
-siriusos bus hard-restart --reason "context exhaustion"
+siriusos bus hard-restart --reason "explicit user-approved clean restart"
 ```
 
-**When to use:** Context window full, conversation corrupted, need clean slate, or wiring a new hook (see Hook Reload Lifecycle below). Hard-restart sends an IPC `restart-agent` signal to the daemon, which kills the running PID and respawns it fresh. The respawn consumes the `.force-fresh` marker and skips `--continue`, so `settings.json` (including newly-wired hooks) is re-read from scratch.
+**When to use:** The user explicitly asks for a fresh restart, the conversation is corrupted, a clean slate is required for a diagnosed reason, or a new Claude hook must be loaded (see Hook Reload Lifecycle below). **Never hard-restart solely because of a context percentage, warning, or the agent's own estimate of remaining context.** Hard-restart sends an IPC `restart-agent` signal to the daemon, which kills the running PID and respawns it fresh. The respawn consumes the `.force-fresh` marker and skips `--continue`, so `settings.json` (including newly-wired Claude hooks) is re-read from scratch.
+
+### Codex Context Handoff Policy
+
+Use this stable baseline for daemonized Codex agents:
+
+```json
+{"runtime":"codex","ctx_warning_threshold":65,"ctx_handoff_threshold":80}
+```
+
+When the daemon injects an explicit context-handoff instruction, persist the requested state and follow that instruction. Do not call `siriusos bus hard-restart` yourself, and do not send Telegram messages such as “ya volví” for a daemon-managed context transition. The daemon owns the handoff/session boundary.
 
 ### Hook Reload Lifecycle
 
@@ -382,7 +395,7 @@ siriusos enable "$AGENT" --org "$ORG" --restart
 ### Agent Keeps Crashing
 1. Check crash count: `cat $HOME/.siriusos/default/state/$AGENT/.crash_count_today`
 2. Check stderr: `tail -20 $HOME/.siriusos/default/logs/$AGENT/stderr.log`
-3. Common causes: rate limit, auth expired, context exhaustion
+3. Common causes: rate limit, auth expired, stale session state, or a context-handoff policy mismatch
 4. Fix: reset crash count, fix root cause, `siriusos enable <agent> --restart`
 
 ### PM2 Not Restarting Agent
@@ -404,7 +417,7 @@ siriusos enable "$AGENT" --org "$ORG" --restart
 
 | I need to... | Command |
 |---|---|
-| Create new agent | `siriusos add-agent <name> --template agent --org <org> --runtime claude-code` (or `--template agent-codex --runtime codex-app-server` after asking the user which runtime) |
+| Create new agent | `siriusos add-agent <name> --template agent --org <org> --runtime claude-code` (or `--template agent-codex --runtime codex` for stable OpenAI) |
 | Enable agent | `siriusos enable <agent> --org <org>` |
 | Disable agent | `siriusos disable <agent> --org <org>` |
 | Soft restart (self) | `siriusos bus self-restart --reason "<reason>"` |
