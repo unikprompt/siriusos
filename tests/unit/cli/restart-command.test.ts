@@ -3,7 +3,7 @@
  * (issue #328). Companion to lifecycle-markers.test.ts which already
  * covers writeStopMarker — restart re-uses that helper, so this file
  * pins the command-level wiring (name, required argument, --instance
- * option, description) instead of duplicating the marker-write tests.
+ * options and description) instead of duplicating the marker-write tests.
  */
 import { describe, it, expect } from 'vitest';
 import { restartCommand } from '../../../src/cli/restart';
@@ -27,13 +27,15 @@ describe('issue #328: cortextos restart <agent>', () => {
     expect(opts.instance).toBe('default');
   });
 
-  it('describes itself as a stop+start (not a daemon restart)', () => {
-    // The description must make clear this does NOT bounce the daemon —
-    // operator-facing UX guard so users don't reach for this when they
-    // actually need `pm2 restart cortextos-daemon`.
+  it('exposes an explicit --fresh mode', () => {
+    const option = restartCommand.options.find(item => item.long === '--fresh');
+    expect(option).toBeDefined();
+  });
+
+  it('documents continue/fresh semantics without implying a daemon restart', () => {
     const desc = restartCommand.description().toLowerCase();
-    expect(desc).toContain('stop');
-    expect(desc).toContain('start');
+    expect(desc).toContain('continues');
+    expect(desc).toContain('--fresh');
     expect(desc).toContain('daemon');
   });
 });

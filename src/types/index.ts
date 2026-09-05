@@ -164,6 +164,13 @@ export interface AgentConfig {
   max_crashes_per_day?: number;
   provider?: Provider;
   model?: string;
+  /**
+   * Agent role. Read by the daemon to decide whether a session persists across
+   * restarts (`orchestrator`/`specialist` are treated as persistent) and to
+   * label the core mode in the openai bootstrap prompt. Free string to match
+   * existing config.json values.
+   */
+  role?: string;
   working_directory?: string;
   enabled?: boolean;
   crons?: CronEntry[];

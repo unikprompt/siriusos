@@ -5,6 +5,10 @@ const fsMocks = {
   writeFileSync: vi.fn(),
 };
 
+const atomicMocks = {
+  atomicWriteSync: vi.fn(),
+};
+
 vi.mock('fs', async () => {
   const actual = await vi.importActual<typeof import('fs')>('fs');
   return {
@@ -25,6 +29,10 @@ vi.mock('node-pty', () => ({
   }),
 }));
 
+vi.mock('../../../src/utils/atomic.js', () => ({
+  atomicWriteSync: atomicMocks.atomicWriteSync,
+}));
+
 const { CodexPTY } = await import('../../../src/pty/codex-pty.js');
 
 const mockEnv = {
@@ -40,6 +48,7 @@ const mockEnv = {
 beforeEach(() => {
   fsMocks.existsSync.mockReset().mockReturnValue(false);
   fsMocks.writeFileSync.mockReset();
+  atomicMocks.atomicWriteSync.mockReset();
 });
 
 describe('CodexPTY typing-indicator wiring (issue #330)', () => {
@@ -264,6 +273,97 @@ describe('CodexPTY model arg', () => {
     const pty = new CodexPTY(mockEnv, { model: 'gpt-5.3-codex' } as never);
     const args = readFresh(pty);
     expect(args[args.length - 1]).toBe('hi');
+  });
+});
+
+describe('CodexPTY reasoning effort arg', () => {
+  type ArgsPty = {
+    buildFreshArgs(prompt: string): string[];
+    buildResumeArgs(prompt: string): string[];
+  };
+
+  it('passes configured effort to fresh and resumed execs', () => {
+    const pty = new CodexPTY(mockEnv, { reasoning_effort: 'high' });
+    const fresh = (pty as unknown as ArgsPty).buildFreshArgs('hi');
+    const resume = (pty as unknown as ArgsPty).buildResumeArgs('hi');
+    expect(fresh).toContain('model_reasoning_effort=high');
+    expect(resume).toContain('model_reasoning_effort=high');
+  });
+
+  it('omits an invalid runtime value defensively', () => {
+    const pty = new CodexPTY(mockEnv, { reasoning_effort: 'turbo' } as never);
+    const args = (pty as unknown as ArgsPty).buildFreshArgs('hi');
+    expect(args.some((arg) => arg.startsWith('model_reasoning_effort='))).toBe(false);
+  });
+});
+
+describe('CodexPTY exec JSONL context telemetry', () => {
+  type TelemetryPty = {
+    processJsonlChunk(data: string): void;
+    readLastRolloutUsage(threadId: string): unknown;
+  };
+
+  function telemetry(pty: CodexPTY): TelemetryPty {
+    return pty as unknown as TelemetryPty;
+  }
+
+  function mockRollout(pty: CodexPTY, overrides: Record<string, number | null> = {}): void {
+    telemetry(pty).readLastRolloutUsage = vi.fn().mockReturnValue({
+      inputTokens: 40000,
+      outputTokens: 1000,
+      cachedInputTokens: 30000,
+      totalTokens: 41000,
+      contextWindow: 100000,
+      cumulativeInputTokens: 900000,
+      cumulativeOutputTokens: 20000,
+      cumulativeCachedInputTokens: 800000,
+      ...overrides,
+    });
+  }
+
+  it('writes context from rollout last_token_usage', () => {
+    const pty = new CodexPTY(mockEnv, { codex_context_cap: 100000 });
+    mockRollout(pty);
+    telemetry(pty).processJsonlChunk('{"type":"thread.started","thread_id":"thread-a"}\n');
+    telemetry(pty).processJsonlChunk('{"type":"turn.completed","usage":{"input_tokens":900000,"cached_input_tokens":800000,"output_tokens":20000}}\n');
+
+    expect(atomicMocks.atomicWriteSync).toHaveBeenCalledTimes(1);
+    const [, raw] = atomicMocks.atomicWriteSync.mock.calls[0] as [string, string];
+    const status = JSON.parse(raw);
+    expect(status.session_id).toBe('thread-a');
+    expect(status.used_percentage).toBe(41);
+    expect(status.current_usage.input_tokens).toBe(40000);
+  });
+
+  it('never treats turn.completed cumulative usage as context size', () => {
+    const pty = new CodexPTY(mockEnv, { codex_context_cap: 100000 });
+    mockRollout(pty, {
+      inputTokens: 65000,
+      outputTokens: 1000,
+      cachedInputTokens: 55000,
+      totalTokens: 66000,
+      cumulativeInputTokens: 5000000,
+      cumulativeOutputTokens: 100000,
+    });
+    telemetry(pty).processJsonlChunk('{"type":"thread.started","thread_id":"thread-b"}\n');
+    telemetry(pty).processJsonlChunk('{"type":"turn.completed","usage":{"input_tokens":5000000,"cached_input_tokens":4500000,"output_tokens":100000}}\n');
+
+    const [, raw] = atomicMocks.atomicWriteSync.mock.calls[0] as [string, string];
+    const status = JSON.parse(raw);
+    expect(status.used_percentage).toBe(66);
+    expect(status.current_usage.input_tokens).toBe(65000);
+    expect(status.current_usage.output_tokens).toBe(1000);
+    expect(status.current_usage.cache_read_input_tokens).toBe(55000);
+    expect(status.cumulative_usage.input_tokens).toBe(5000000);
+  });
+
+  it('handles JSONL split across PTY chunks', () => {
+    const pty = new CodexPTY(mockEnv, { codex_context_cap: 100000 });
+    mockRollout(pty);
+    telemetry(pty).processJsonlChunk('{"type":"thread.started","thread_');
+    telemetry(pty).processJsonlChunk('id":"thread-c"}\n{"type":"turn.completed","usage":{"input_tokens":10000,');
+    telemetry(pty).processJsonlChunk('"cached_input_tokens":8000,"output_tokens":500}}\n');
+    expect(atomicMocks.atomicWriteSync).toHaveBeenCalledTimes(1);
   });
 });
 
