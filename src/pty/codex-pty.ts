@@ -1,11 +1,12 @@
 import { join } from 'path';
-import { existsSync, writeFileSync, readdirSync, closeSync } from 'fs';
+import { existsSync, writeFileSync, readdirSync, closeSync, readFileSync } from 'fs';
 import { isatty } from 'tty';
 import { homedir } from 'os';
 import type { AgentConfig, CtxEnv } from '../types/index.js';
 import { AgentPTY } from './agent-pty.js';
 import { OutputBuffer } from './output-buffer.js';
 import type { TelegramAPI } from '../telegram/api.js';
+import { atomicWriteSync } from '../utils/atomic.js';
 
 /**
  * Snapshot the parent process's currently-open tty (pty) file descriptors.
@@ -115,6 +116,11 @@ export class CodexPTY {
   // peer agent — confusing UX. fast-checker already gates its own typing
   // path on Telegram-only; this brings CodexPTY's direct path in line.
   private _currentTurnFromTelegram = false;
+  // `codex exec --json` streams one JSON object per line, but PTY chunks can
+  // split a line arbitrarily. Keep a small remainder so token usage and thread
+  // ids are parsed from complete frames only.
+  private _jsonLineRemainder = '';
+  private _threadId: string | null = null;
 
   constructor(env: CtxEnv, config: AgentConfig, logPath?: string) {
     this._env = env;
@@ -143,9 +149,8 @@ export class CodexPTY {
 
     this._alive = true;
 
-    const args = mode === 'continue' && this.hasExistingSession()
-      ? this.buildResumeArgs(prompt)
-      : this.buildFreshArgs(prompt);
+    const willResume = mode === 'continue' && this.hasExistingSession();
+    const args = willResume ? this.buildResumeArgs(prompt) : this.buildFreshArgs(prompt);
 
     await this.runExec(args);
   }
@@ -323,6 +328,7 @@ export class CodexPTY {
 
       dataDisposable = pty.onData((data: string) => {
         this._outputBuffer.push(data);
+        this.processJsonlChunk(data);
         // Detect turn.completed in JSONL output → write last_idle.flag
         if (data.includes('"turn.completed"') || data.includes('"type":"turn.completed"')) {
           this.writeIdleFlag();
@@ -354,6 +360,155 @@ export class CodexPTY {
       const flagPath = join(this._stateDir, 'last_idle.flag');
       writeFileSync(flagPath, Math.floor(Date.now() / 1000).toString(), 'utf-8');
     } catch { /* non-fatal */ }
+  }
+
+  /** Parse complete JSONL frames from arbitrarily chunked PTY output. */
+  private processJsonlChunk(data: string): void {
+    this._jsonLineRemainder += data;
+    const lines = this._jsonLineRemainder.split(/\r?\n/);
+    this._jsonLineRemainder = lines.pop() ?? '';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('{')) continue;
+      try {
+        const event = JSON.parse(trimmed) as Record<string, unknown>;
+        this.handleJsonEvent(event);
+      } catch {
+        // Codex occasionally emits non-JSON diagnostics alongside JSONL.
+      }
+    }
+  }
+
+  private handleJsonEvent(event: Record<string, unknown>): void {
+    const type = typeof event.type === 'string' ? event.type : '';
+    if (type === 'thread.started') {
+      const threadId = typeof event.thread_id === 'string'
+        ? event.thread_id
+        : (typeof event.id === 'string' ? event.id : null);
+      if (threadId && threadId !== this._threadId) {
+        this._threadId = threadId;
+      }
+      return;
+    }
+
+    if (type === 'turn.completed') {
+      this.writeContextStatusFromExec(event);
+    }
+  }
+
+  /**
+   * `codex exec --json` reports cumulative usage for every model call made
+   * inside an exec turn. That number can exceed the context window even when
+   * the live context is small, so it MUST NOT drive handoff thresholds.
+   *
+   * The canonical rollout JSONL records a `token_count` event after each model
+   * call with `last_token_usage` (the live request context) and the actual
+   * `model_context_window`. Read the latest such event and translate it into
+   * the context_status.json contract consumed by FastChecker.
+   */
+  private writeContextStatusFromExec(_event: Record<string, unknown>): void {
+    if (!this._threadId) return;
+    const rolloutUsage = this.readLastRolloutUsage(this._threadId);
+    if (!rolloutUsage) return;
+
+    const totalTokens = rolloutUsage.totalTokens;
+    const cap = rolloutUsage.contextWindow ?? this._config.codex_context_cap ?? 256000;
+    const usedPercentage = cap > 0 ? Math.min(100, (totalTokens / cap) * 100) : null;
+
+    const payload = JSON.stringify({
+      used_percentage: usedPercentage,
+      context_window_size: cap,
+      exceeds_200k_tokens: totalTokens > 200000,
+      current_usage: {
+        input_tokens: rolloutUsage.inputTokens,
+        output_tokens: rolloutUsage.outputTokens,
+        cache_read_input_tokens: rolloutUsage.cachedInputTokens,
+        cache_creation_input_tokens: 0,
+      },
+      cumulative_usage: {
+        input_tokens: rolloutUsage.cumulativeInputTokens,
+        output_tokens: rolloutUsage.cumulativeOutputTokens,
+        cache_read_input_tokens: rolloutUsage.cumulativeCachedInputTokens,
+      },
+      session_id: this._threadId,
+      runtime: 'codex',
+      written_at: new Date().toISOString(),
+    });
+
+    try {
+      atomicWriteSync(join(this._stateDir, 'context_status.json'), payload);
+    } catch (err) {
+      this._outputBuffer.push(
+        `[codex-pty] writeContextStatus failed (non-fatal): ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+    }
+  }
+
+  private readLastRolloutUsage(threadId: string): {
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+    totalTokens: number;
+    contextWindow: number | null;
+    cumulativeInputTokens: number | null;
+    cumulativeOutputTokens: number | null;
+    cumulativeCachedInputTokens: number | null;
+  } | null {
+    try {
+      const { execFileSync } = require('child_process');
+      const dbPath = join(homedir(), '.codex', 'state_5.sqlite');
+      if (!existsSync(dbPath)) return null;
+      const escapedId = threadId.replace(/'/g, "''");
+      const rolloutPath = execFileSync(
+        'sqlite3',
+        [dbPath, `SELECT rollout_path FROM threads WHERE id = '${escapedId}' LIMIT 1;`],
+        { encoding: 'utf-8', timeout: 3000 },
+      ).trim();
+      if (!rolloutPath || !existsSync(rolloutPath)) return null;
+
+      const lines = readFileSync(rolloutPath, 'utf-8').split('\n');
+      for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i].trim();
+        if (!line.includes('"type":"token_count"')) continue;
+        const parsed = JSON.parse(line) as Record<string, unknown>;
+        const payload = parsed.payload && typeof parsed.payload === 'object'
+          ? parsed.payload as Record<string, unknown>
+          : null;
+        const info = payload?.info && typeof payload.info === 'object'
+          ? payload.info as Record<string, unknown>
+          : null;
+        const last = info?.last_token_usage && typeof info.last_token_usage === 'object'
+          ? info.last_token_usage as Record<string, unknown>
+          : null;
+        if (!last) continue;
+
+        const inputTokens = typeof last.input_tokens === 'number' ? last.input_tokens : null;
+        const outputTokens = typeof last.output_tokens === 'number' ? last.output_tokens : null;
+        const cachedInputTokens = typeof last.cached_input_tokens === 'number' ? last.cached_input_tokens : 0;
+        if (inputTokens === null || outputTokens === null) continue;
+        const explicitTotal = typeof last.total_tokens === 'number' ? last.total_tokens : null;
+
+        const cumulative = info?.total_token_usage && typeof info.total_token_usage === 'object'
+          ? info.total_token_usage as Record<string, unknown>
+          : null;
+        return {
+          inputTokens,
+          outputTokens,
+          cachedInputTokens,
+          totalTokens: explicitTotal ?? (inputTokens + outputTokens),
+          contextWindow: typeof info?.model_context_window === 'number' ? info.model_context_window : null,
+          cumulativeInputTokens: typeof cumulative?.input_tokens === 'number' ? cumulative.input_tokens : null,
+          cumulativeOutputTokens: typeof cumulative?.output_tokens === 'number' ? cumulative.output_tokens : null,
+          cumulativeCachedInputTokens: typeof cumulative?.cached_input_tokens === 'number'
+            ? cumulative.cached_input_tokens
+            : null,
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -435,6 +590,15 @@ export class CodexPTY {
       : [];
   }
 
+  /** Pass the dashboard/config reasoning effort through to both exec modes. */
+  private reasoningEffortArgs(): string[] {
+    const effort = this._config.reasoning_effort;
+    const allowed = new Set(['minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra']);
+    return typeof effort === 'string' && allowed.has(effort)
+      ? ['-c', `model_reasoning_effort=${effort}`]
+      : [];
+  }
+
   /**
    * Build args for a fresh exec (new session).
    * --skip-git-repo-check: skip trust check for daemon-managed directories
@@ -451,6 +615,7 @@ export class CodexPTY {
       '--skip-git-repo-check',
       '--sandbox', this.getSandboxLevel(),
       ...this.modelArgs(),
+      ...this.reasoningEffortArgs(),
       '--json',
       ...this.featureFlagArgs(),
       prompt,
@@ -473,6 +638,7 @@ export class CodexPTY {
       '--skip-git-repo-check',
       '--dangerously-bypass-approvals-and-sandbox',
       ...this.modelArgs(),
+      ...this.reasoningEffortArgs(),
       '--json',
       ...this.featureFlagArgs(),
       prompt,

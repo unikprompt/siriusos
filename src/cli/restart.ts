@@ -1,42 +1,73 @@
 import { Command } from 'commander';
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { IPCClient } from '../daemon/ipc-server.js';
-import { writeStopMarker } from './stop.js';
+import { hardRestart, selfRestart } from '../bus/system.js';
+import { resolvePaths } from '../utils/paths.js';
+import { validateAgentName, validateInstanceId } from '../utils/validate.js';
+
+interface RestartOptions {
+  instance: string;
+  fresh?: boolean;
+}
+
+export function writeRestartModeMarkers(
+  agent: string,
+  instance: string,
+  mode: 'continue' | 'fresh',
+): void {
+  const paths = resolvePaths(agent, instance);
+  mkdirSync(paths.stateDir, { recursive: true });
+  const forceFreshPath = join(paths.stateDir, '.force-fresh');
+  const forceContinuePath = join(paths.stateDir, '.force-continue');
+
+  if (mode === 'fresh') {
+    if (existsSync(forceContinuePath)) unlinkSync(forceContinuePath);
+    hardRestart(paths, agent, 'fresh restart requested via siriusos restart');
+    return;
+  }
+
+  // An explicit Continue action must override any stale fresh marker left by
+  // a previously planned restart that never reached the daemon.
+  if (existsSync(forceFreshPath)) unlinkSync(forceFreshPath);
+  writeFileSync(forceContinuePath, 'continue restart requested via siriusos restart\n', 'utf-8');
+  writeFileSync(join(paths.stateDir, '.user-restart'), 'restarted via siriusos restart\n', 'utf-8');
+  selfRestart(paths, agent, 'continue restart requested via siriusos restart');
+}
 
 export const restartCommand = new Command('restart')
   .argument('<agent>', 'Agent name to restart')
   .option('--instance <id>', 'Instance ID', 'default')
-  .description('Restart a running agent (stop + start). Re-reads config.json and .env, respawns the PTY. Does NOT restart the daemon process itself — use `pm2 restart siriusos-daemon` for that.')
-  .action(async (agent: string, options: { instance: string }) => {
+  .option('--fresh', 'Start a clean session instead of continuing the current conversation')
+  .description('Restart a running agent through the daemon. Continues the current conversation by default; --fresh starts a clean session. Re-reads config.json and .env without restarting the daemon.')
+  .action(async (agent: string, options: RestartOptions) => {
+    try {
+      validateAgentName(agent);
+      validateInstanceId(options.instance);
+    } catch (error) {
+      console.error(`Error: ${(error as Error).message}`);
+      process.exit(1);
+    }
+
     const ipc = new IPCClient(options.instance);
     const daemonRunning = await ipc.isDaemonRunning();
-
     if (!daemonRunning) {
       console.error('Daemon is not running. Start it first: siriusos start');
       process.exit(1);
     }
 
-    console.log(`Restarting agent: ${agent}`);
+    const mode = options.fresh ? 'fresh' : 'continue';
+    writeRestartModeMarkers(agent, options.instance, mode);
+    console.log(`Restarting agent ${agent} (${mode})`);
 
-    // Stop phase mirrors `siriusos stop <agent>` — write the .user-stop marker
-    // before the IPC stop so the SessionEnd crash-alert hook does not fire a
-    // false 🚨 CRASH alarm during the brief stop window. (BUG-036 pattern.)
-    writeStopMarker(options.instance, agent, 'stopped via siriusos restart');
-    const stopResponse = await ipc.send({ type: 'stop-agent', agent, source: 'siriusos restart' });
-    if (!stopResponse.success) {
-      console.error(`  Stop failed: ${stopResponse.error}`);
+    const response = await ipc.send({
+      type: 'restart-agent',
+      agent,
+      source: `siriusos restart --mode ${mode}`,
+    });
+    if (!response.success) {
+      console.error(`Restart failed: ${response.error}`);
       process.exit(1);
     }
-    console.log(`  ${stopResponse.data}`);
-
-    // Start phase — daemon's start-agent handler re-reads config.json + .env
-    // and spawns a fresh PTY. Same code path as `siriusos start <agent>`
-    // when the daemon is already running, so env reload / config re-read /
-    // PTY respawn semantics match exactly.
-    const startResponse = await ipc.send({ type: 'start-agent', agent, source: 'siriusos restart' });
-    if (!startResponse.success) {
-      console.error(`  Start failed: ${startResponse.error}`);
-      console.error(`  Agent is now stopped. Recover with: siriusos start ${agent}`);
-      process.exit(1);
-    }
-    console.log(`  ${startResponse.data}`);
+    console.log(`  ${response.data}`);
   });

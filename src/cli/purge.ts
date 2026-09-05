@@ -316,8 +316,30 @@ async function stopAgentIfRunning(instance: string, agent: string): Promise<void
     const response = await ipc.send({ type: 'stop-agent', agent, source: 'siriusos purge' });
     if (response.success) {
       console.log(`  Stopped running agent: ${agent}`);
+      // IPC acknowledges the stop request immediately while AgentProcess still
+      // tears down its PTY, pollers, and cron scheduler. Wait until the daemon
+      // registry confirms removal before deleting state directories; otherwise
+      // an exiting process could recreate a log/marker after the purge.
+      let stopped = false;
+      for (let attempt = 0; attempt < 40; attempt += 1) {
+        const list = await ipc.send({ type: 'list-agents', source: 'siriusos purge wait-for-stop' });
+        const running = list.success && Array.isArray(list.data) ? list.data as string[] : [];
+        if (!running.includes(agent)) {
+          stopped = true;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      if (!stopped) {
+        throw new Error(`Timed out waiting for agent "${agent}" to stop; purge aborted before deleting files.`);
+      }
+    } else {
+      throw new Error(`Daemon refused to stop agent "${agent}": ${response.error || 'unknown error'}`);
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && (error.message.startsWith('Timed out') || error.message.startsWith('Daemon refused'))) {
+      throw error;
+    }
     // Daemon may not be available; safe to continue with file removal.
   }
 
