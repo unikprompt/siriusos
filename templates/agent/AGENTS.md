@@ -301,7 +301,7 @@ The knowledge base is a semantic vector store (ChromaDB, Gemini Embedding 2). Th
 ```bash
 # Run on every heartbeat
 siriusos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
-  --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private --collection memory-$CTX_AGENT_NAME --force
+  --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private --force
 ```
 
 **When to query — before starting any task:**
@@ -323,7 +323,7 @@ siriusos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
 siriusos bus kb-query "your question" --org $CTX_ORG --agent $CTX_AGENT_NAME
 
 # Query only your memory (past experiences, patterns)
-siriusos bus kb-query "question" --org $CTX_ORG --collection memory-$CTX_AGENT_NAME
+siriusos bus kb-query "question" --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private
 
 # Ingest output to your private collection
 siriusos bus kb-ingest /path/to/output --org $CTX_ORG --agent $CTX_AGENT_NAME --scope private
