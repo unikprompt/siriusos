@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { listAgents, notifyAgent } from '../../../src/bus/agents';
+import { listAgents, inventoryAgents, notifyAgent } from '../../../src/bus/agents';
 import type { BusPaths } from '../../../src/types';
 
 describe('Agent Discovery', () => {
@@ -173,6 +173,100 @@ describe('Agent Discovery', () => {
       expect(agents.length).toBe(1);
       expect(agents[0].name).toBe('alice');
       expect(agents[0].enabled).toBe(false);
+    });
+  });
+
+  describe('inventoryAgents', () => {
+    // config.json presence is the reality check. Helpers mirror how the daemon
+    // lays agents out on disk.
+    function makeAgent(org: string, name: string, config: Record<string, unknown> = {}) {
+      const dir = join(testDir, 'framework', 'orgs', org, 'agents', name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify(config));
+    }
+    function setRegistry(obj: Record<string, { org?: string; enabled?: boolean }>) {
+      const configDir = join(ctxRoot, 'config');
+      mkdirSync(configDir, { recursive: true });
+      writeFileSync(join(configDir, 'enabled-agents.json'), JSON.stringify(obj));
+    }
+
+    it('lists a real agent (config.json present, registry agrees) with no inconsistencies', () => {
+      makeAgent('acme', 'alice', { enabled: true });
+      setRegistry({ alice: { org: 'acme', enabled: true } });
+
+      const inv = inventoryAgents(ctxRoot);
+      expect(inv.agents.map(a => a.name)).toEqual(['alice']);
+      expect(inv.agents[0].org).toBe('acme');
+      expect(inv.agents[0].enabled).toBe(true);
+      expect(inv.agents[0].inconsistencies).toBeUndefined();
+      expect(inv.inconsistencies).toEqual([]);
+    });
+
+    it('excludes registry entries with no config.json and reports them as missing_config (FS-noise remedy: purge)', () => {
+      // ".DS_Store" and a stale "ghost" both live only in the registry.
+      setRegistry({ '.DS_Store': { enabled: true }, ghost: { org: 'acme', enabled: true } });
+
+      const inv = inventoryAgents(ctxRoot);
+      expect(inv.agents).toEqual([]);
+      const flagged = inv.inconsistencies.filter(i => i.kind === 'missing_config').map(i => i.name).sort();
+      expect(flagged).toEqual(['.DS_Store', 'ghost']);
+    });
+
+    it('reports an agents/ dir without config.json as missing_config, carrying its disk org', () => {
+      mkdirSync(join(testDir, 'framework', 'orgs', 'acme', 'agents', 'stub'), { recursive: true });
+
+      const inv = inventoryAgents(ctxRoot);
+      expect(inv.agents).toEqual([]);
+      const inc = inv.inconsistencies.find(i => i.name === 'stub');
+      expect(inc?.kind).toBe('missing_config');
+      expect(inc?.disk_org).toBe('acme');
+    });
+
+    it('uses the disk org (not the registry) and flags org_mismatch — the director case', () => {
+      makeAgent('sirius-consul', 'director', { enabled: true });
+      setRegistry({ director: { org: 'unikprompt', enabled: true } });
+
+      const inv = inventoryAgents(ctxRoot);
+      expect(inv.agents.length).toBe(1);
+      expect(inv.agents[0].org).toBe('sirius-consul'); // disk truth, not the registry's 'unikprompt'
+      const inc = inv.agents[0].inconsistencies?.find(i => i.kind === 'org_mismatch');
+      expect(inc?.registry_org).toBe('unikprompt');
+      expect(inc?.disk_org).toBe('sirius-consul');
+      expect(inv.inconsistencies.some(i => i.kind === 'org_mismatch' && i.name === 'director')).toBe(true);
+    });
+
+    it('uses config enabled (not the registry) and flags enabled_mismatch — the sentinel case', () => {
+      makeAgent('unikprompt', 'sentinel', { enabled: false });
+      setRegistry({ sentinel: { org: 'unikprompt', enabled: true } });
+
+      const inv = inventoryAgents(ctxRoot);
+      expect(inv.agents.length).toBe(1);
+      expect(inv.agents[0].enabled).toBe(false); // config.json is disk truth
+      const inc = inv.agents[0].inconsistencies?.find(i => i.kind === 'enabled_mismatch');
+      expect(inc?.registry_enabled).toBe(true);
+      expect(inc?.config_enabled).toBe(false);
+    });
+
+    it('keeps the three kinds distinct so each gets its own remedy', () => {
+      makeAgent('acme', 'good', { enabled: true });          // clean
+      makeAgent('sirius-consul', 'director', { enabled: true }); // org_mismatch
+      makeAgent('acme', 'sentinel', { enabled: false });     // enabled_mismatch
+      setRegistry({
+        good: { org: 'acme', enabled: true },
+        director: { org: 'acme', enabled: true },   // registry says acme, disk says sirius-consul
+        sentinel: { org: 'acme', enabled: true },   // registry enabled, config disabled
+        phantom: { org: 'acme', enabled: true },    // no config.json anywhere
+      });
+
+      const inv = inventoryAgents(ctxRoot);
+      expect(inv.agents.map(a => a.name).sort()).toEqual(['director', 'good', 'sentinel']);
+      const byKind = inv.inconsistencies.reduce<Record<string, string[]>>((acc, i) => {
+        (acc[i.kind] ||= []).push(i.name);
+        return acc;
+      }, {});
+      expect(byKind.org_mismatch).toEqual(['director']);
+      expect(byKind.enabled_mismatch).toEqual(['sentinel']);
+      expect(byKind.missing_config).toEqual(['phantom']);
     });
   });
 
