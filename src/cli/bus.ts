@@ -3,7 +3,7 @@ import { spawnSync, execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { sendMessage, checkInbox, ackInbox } from '../bus/message.js';
-import { notifyAgent } from '../bus/agents.js';
+import { notifyAgent, inventoryAgents } from '../bus/agents.js';
 import { validateAgentName } from '../utils/validate.js';
 import { createTask, updateTask, completeTask, claimTask, readTaskAudit, checkTaskDependencies, compactTasks, listTasks, checkStaleTasks, archiveTasks, checkHumanTasks } from '../bus/task.js';
 import { saveOutput } from '../bus/save-output.js';
@@ -1968,38 +1968,16 @@ busCommand
   .option('--status <filter>', 'Filter by status: running|all', 'all')
   .option('--format <fmt>', 'Output format: json|text', 'json')
   .action(async (opts: { org?: string; status?: string; format?: string }) => {
-    const { existsSync, readdirSync, readFileSync } = require('fs');
-    const { join } = require('path');
     const env = resolveEnv();
-    const ctxRoot = require('path').join(require('os').homedir(), '.siriusos', env.instanceId);
-    const frameworkRoot = env.frameworkRoot || process.cwd();
+    const ctxRoot = join(require('os').homedir(), '.siriusos', env.instanceId);
 
-    // Collect agents from enabled-agents.json + filesystem scan
-    const enabledFile = join(ctxRoot, 'config', 'enabled-agents.json');
-    const agentMap: Record<string, { org: string; enabled: boolean }> = {};
+    // Reliable inventory: a config.json on disk is the reality check for "real
+    // agent". Replaces the old inline enumeration that trusted enabled-agents.json
+    // and so surfaced .DS_Store and wrong orgs as if they were agents. Registry-
+    // vs-disk drift is reported (not auto-fixed) so a human can pick the remedy.
+    const inventory = inventoryAgents(ctxRoot, opts.org);
 
-    if (existsSync(enabledFile)) {
-      try {
-        const data = JSON.parse(readFileSync(enabledFile, 'utf-8'));
-        for (const [name, cfg] of Object.entries(data as Record<string, any>)) {
-          agentMap[name] = { org: cfg.org ?? '', enabled: cfg.enabled !== false };
-        }
-      } catch { /* skip corrupt */ }
-    }
-
-    // Also scan org agent directories
-    const orgsDir = join(frameworkRoot, 'orgs');
-    if (existsSync(orgsDir)) {
-      for (const org of readdirSync(orgsDir)) {
-        const agentsDir = join(orgsDir, org, 'agents');
-        if (!existsSync(agentsDir)) continue;
-        for (const name of readdirSync(agentsDir)) {
-          if (!agentMap[name]) agentMap[name] = { org, enabled: true };
-        }
-      }
-    }
-
-    // Determine running agents via IPC daemon.
+    // Running-state is authoritative from the daemon, overlaid on the inventory.
     const runningAgents = new Set<string>();
     const ipc = new IPCClient(env.instanceId);
     try {
@@ -2010,55 +1988,33 @@ busCommand
         }
       }
     } catch {
-      // Daemon not running — no running agent data available
+      // Daemon not running — no running-state overlay available.
     }
 
-    const results = [];
-    for (const [name, info] of Object.entries(agentMap)) {
-      if (opts.org && info.org !== opts.org) continue;
-
-      const running = runningAgents.has(name);
-      if (opts.status === 'running' && !running) continue;
-
-      // Read role from IDENTITY.md
-      let role = '';
-      const agentDir = info.org
-        ? join(frameworkRoot, 'orgs', info.org, 'agents', name)
-        : join(frameworkRoot, 'agents', name);
-      const identityFile = join(agentDir, 'IDENTITY.md');
-      if (existsSync(identityFile)) {
-        const content = readFileSync(identityFile, 'utf-8');
-        const m = content.match(/^## Role\s*\n(.+)/m);
-        if (m) role = m[1].trim();
-      }
-
-      // Read heartbeat
-      const hbFile = join(ctxRoot, 'state', name, 'heartbeat.json');
-      let lastHeartbeat = '', currentTask = '', mode = '';
-      if (existsSync(hbFile)) {
-        try {
-          const hb = JSON.parse(readFileSync(hbFile, 'utf-8'));
-          lastHeartbeat = hb.last_heartbeat ?? '';
-          currentTask = hb.current_task ?? '';
-          mode = hb.mode ?? '';
-        } catch { /* skip */ }
-      }
-
-      results.push({ name, org: info.org, role, enabled: info.enabled, running, last_heartbeat: lastHeartbeat, current_task: currentTask, mode });
-    }
+    let agents = inventory.agents.map(a => ({ ...a, running: runningAgents.has(a.name) }));
+    if (opts.status === 'running') agents = agents.filter(a => a.running);
 
     if (opts.format === 'text') {
       console.log(`Agents in system:\n`);
-      for (const a of results) {
+      for (const a of agents) {
         const status = a.running ? 'RUNNING' : 'stopped';
         console.log(`  ${a.name} (${a.org || 'root'}) [${status}]`);
         if (a.role) console.log(`    Role: ${a.role}`);
         if (a.current_task) console.log(`    Working on: ${a.current_task}`);
+        for (const inc of a.inconsistencies ?? []) {
+          console.log(`    ⚠ ${inc.kind}: ${inc.message}`);
+        }
         console.log('');
       }
-      console.log(`Total: ${results.length} agents`);
+      console.log(`Total: ${agents.length} agents`);
+      if (inventory.inconsistencies.length > 0) {
+        console.log(`\n⚠ Registry inconsistencies (${inventory.inconsistencies.length}) — reported, not auto-fixed:`);
+        for (const inc of inventory.inconsistencies) {
+          console.log(`  [${inc.kind}] ${inc.name}: ${inc.message}`);
+        }
+      }
     } else {
-      console.log(JSON.stringify(results, null, 2));
+      console.log(JSON.stringify({ agents, inconsistencies: inventory.inconsistencies }, null, 2));
     }
   });
 

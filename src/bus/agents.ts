@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentInfo, AgentConfig, BusPaths } from '../types/index.js';
+import type { AgentInfo, AgentConfig, BusPaths, AgentInventory, AgentInconsistency } from '../types/index.js';
 import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
 import { sendMessage } from './message.js';
 import { logEvent } from './event.js';
@@ -109,6 +109,163 @@ export function listAgents(ctxRoot: string, org?: string): AgentInfo[] {
   }
 
   return agents;
+}
+
+/**
+ * Reliable agent inventory: what is ACTUALLY on disk, plus the registry
+ * discrepancies, reported rather than hidden.
+ *
+ * Unlike listAgents() (which surfaces every enabled-agents.json entry and every
+ * agents/ subdirectory so nothing the daemon might touch is missed), this treats
+ * the presence of `orgs/<org>/agents/<name>/config.json` as the reality check
+ * for "is this a real agent". Consequences:
+ *   - an agent's `org` is where its config.json actually lives on disk, not what
+ *     the registry claims (fixes `director` showing the wrong org);
+ *   - a registry entry (or an agents/ dir) with no config.json is NOT listed as
+ *     an agent — it is reported as a `missing_config` inconsistency instead
+ *     (fixes `.DS_Store` and stale registrations appearing as agents);
+ *   - registry-vs-config `org_mismatch` and `enabled_mismatch` are flagged on
+ *     the agent (and in the inconsistency list) rather than silently resolved.
+ *
+ * The three `kind`s stay distinct because each has a different remedy — see
+ * AgentInconsistency. This function does NOT autocorrect anything; it reports.
+ */
+export function inventoryAgents(ctxRoot: string, org?: string): AgentInventory {
+  const agents: AgentInfo[] = [];
+  const inconsistencies: AgentInconsistency[] = [];
+  const seen = new Set<string>();
+
+  // Registry (enabled-agents.json) — metadata to cross-check against disk.
+  const enabledFile = join(ctxRoot, 'config', 'enabled-agents.json');
+  let registry: Record<string, { org?: string; enabled?: boolean }> = {};
+  if (existsSync(enabledFile)) {
+    try {
+      registry = JSON.parse(readFileSync(enabledFile, 'utf-8'));
+    } catch {
+      // Corrupt registry — fall through to the disk scan only.
+    }
+  }
+
+  // Same scan-root resolution as listAgents(): prefer CTX_FRAMEWORK_ROOT, fall
+  // back to cwd ONLY when it is completely unset (avoids test contamination).
+  const cliProjectRoot = process.env.CTX_FRAMEWORK_ROOT;
+  const scanRoots: string[] = [];
+  if (cliProjectRoot && existsSync(join(cliProjectRoot, 'orgs'))) {
+    scanRoots.push(cliProjectRoot);
+  }
+  if (scanRoots.length === 0 && !cliProjectRoot) {
+    const cwd = process.cwd();
+    if (existsSync(join(cwd, 'orgs'))) scanRoots.push(cwd);
+  }
+
+  // Disk scan: config.json is the reality check for "real agent".
+  for (const root of scanRoots) {
+    const orgsDir = join(root, 'orgs');
+    if (!existsSync(orgsDir)) continue;
+
+    let orgDirs: string[];
+    try {
+      orgDirs = readdirSync(orgsDir);
+    } catch {
+      continue;
+    }
+
+    for (const orgName of orgDirs) {
+      if (org && orgName !== org) continue;
+      const agentsDir = join(orgsDir, orgName, 'agents');
+      if (!existsSync(agentsDir)) continue;
+
+      let agentDirs: string[];
+      try {
+        agentDirs = readdirSync(agentsDir);
+      } catch {
+        continue;
+      }
+
+      for (const agentName of agentDirs) {
+        // Filesystem noise (`.DS_Store`, etc.) never matches a valid agent name.
+        if (!/^[a-z0-9_-]+$/.test(agentName)) continue;
+        if (seen.has(agentName)) continue;
+
+        const configPath = join(agentsDir, agentName, 'config.json');
+        if (!existsSync(configPath)) {
+          // A dir with no config.json is not a runnable agent — report, skip.
+          seen.add(agentName);
+          inconsistencies.push({
+            kind: 'missing_config',
+            name: agentName,
+            message: `agents/${agentName} under org '${orgName}' has no config.json`,
+            disk_org: orgName,
+          });
+          continue;
+        }
+
+        seen.add(agentName);
+
+        // config.json is disk truth for enabled; cross-check the registry.
+        let configEnabled: boolean | undefined;
+        try {
+          const cfg: AgentConfig = JSON.parse(readFileSync(configPath, 'utf-8'));
+          configEnabled = cfg.enabled;
+        } catch {
+          // Corrupt config — treat enabled as unknown; buildAgentInfo re-reads it.
+        }
+
+        const reg = registry[agentName];
+        const agentInc: AgentInconsistency[] = [];
+
+        if (reg && reg.org && reg.org !== orgName) {
+          agentInc.push({
+            kind: 'org_mismatch',
+            name: agentName,
+            message: `registry org '${reg.org}' != disk org '${orgName}'`,
+            registry_org: reg.org,
+            disk_org: orgName,
+          });
+        }
+
+        const registryEnabled = reg ? reg.enabled !== false : undefined;
+        if (registryEnabled !== undefined && configEnabled !== undefined && registryEnabled !== configEnabled) {
+          agentInc.push({
+            kind: 'enabled_mismatch',
+            name: agentName,
+            message: `registry enabled=${registryEnabled} != config enabled=${configEnabled}`,
+            registry_enabled: registryEnabled,
+            config_enabled: configEnabled,
+          });
+        }
+
+        // Disk config is authoritative for enabled; fall back to the registry,
+        // then default-on (matches the daemon's discoverAndStart behavior).
+        const enabled = configEnabled !== undefined
+          ? configEnabled
+          : (reg ? reg.enabled !== false : true);
+
+        const info = buildAgentInfo(agentName, orgName, enabled, ctxRoot);
+        if (agentInc.length > 0) info.inconsistencies = agentInc;
+        agents.push(info);
+        inconsistencies.push(...agentInc);
+      }
+    }
+  }
+
+  // Registry entries with no matching config.json anywhere on disk: stale
+  // registrations (deleted agent, wrong instance) or plain noise. Reported, not
+  // listed as agents.
+  for (const [name, cfg] of Object.entries(registry)) {
+    if (seen.has(name)) continue;
+    const registryOrg = cfg.org || '';
+    if (org && registryOrg !== org) continue;
+    seen.add(name);
+    inconsistencies.push({
+      kind: 'missing_config',
+      name,
+      message: `registry entry '${name}' (org '${registryOrg || '?'}') has no config.json on disk`,
+      registry_org: registryOrg,
+    });
+  }
+
+  return { agents, inconsistencies };
 }
 
 /**

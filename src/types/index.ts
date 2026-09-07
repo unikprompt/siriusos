@@ -823,6 +823,50 @@ export interface AgentInfo {
   last_heartbeat: string | null;
   current_task: string | null;
   mode: string | null;
+  /**
+   * Registry-vs-disk inconsistencies for THIS agent (org/enabled mismatches).
+   * Present only when inventoryAgents() found a discrepancy; absent for clean
+   * agents. Purely informational — the fields above already reflect disk truth.
+   */
+  inconsistencies?: AgentInconsistency[];
+}
+
+/**
+ * A discrepancy between the enabled-agents.json registry and what is actually
+ * on disk. The `kind` distinguishes the three cases that get conflated in a
+ * flat listing, because each has a different remedy:
+ *   - `missing_config`: a registry entry (or a stray agents/ dir) with no
+ *     config.json on disk. Not a real agent — filesystem noise or a stale
+ *     registration. Remedy: purge the registry entry / remove the dir.
+ *   - `org_mismatch`: the agent's config.json lives under a different org than
+ *     the registry claims. Remedy: fix the registry's org field.
+ *   - `enabled_mismatch`: the registry's enabled flag disagrees with the
+ *     agent's own config.json. Remedy: reconcile the two enabled flags.
+ */
+export type InconsistencyKind = 'missing_config' | 'org_mismatch' | 'enabled_mismatch';
+
+export interface AgentInconsistency {
+  kind: InconsistencyKind;
+  name: string;
+  message: string;
+  /** Org the registry claims (for org_mismatch / missing_config from registry). */
+  registry_org?: string;
+  /** Org the config.json actually lives under (for org_mismatch). */
+  disk_org?: string;
+  /** enabled value from the registry (for enabled_mismatch). */
+  registry_enabled?: boolean;
+  /** enabled value from the agent's config.json (for enabled_mismatch). */
+  config_enabled?: boolean;
+}
+
+/**
+ * Result of inventoryAgents(): the real agents (those with a config.json on
+ * disk) plus every registry-vs-disk inconsistency found, reported rather than
+ * hidden so a human can decide the remedy per `kind`.
+ */
+export interface AgentInventory {
+  agents: AgentInfo[];
+  inconsistencies: AgentInconsistency[];
 }
 
 // Agent Status (returned by daemon)
