@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { Heartbeat, BusPaths } from '../types/index.js';
 import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
+import { classifyIdentity } from './agents.js';
 
 /**
  * Update heartbeat for the current agent.
@@ -19,6 +20,13 @@ export function updateHeartbeat(
   const ts = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const mode = options?.timezone ? detectDayNightMode(options.timezone) : detectDayNightMode('UTC');
 
+  // Identity guard: MARK (do not block) heartbeats written under a name the bus
+  // cannot confirm as an active agent of ours — e.g. another of Mario's projects
+  // reusing CTX_AGENT_NAME. Only tagged when non-'registered', so a normal agent's
+  // heartbeat is byte-for-byte unchanged and read-all-heartbeats can show foreign
+  // writers separately instead of counting them as online agents.
+  const identity = classifyIdentity(agentName, paths.ctxRoot);
+
   const heartbeat: Heartbeat = {
     agent: agentName,
     org: options?.org ?? '',
@@ -28,6 +36,7 @@ export function updateHeartbeat(
     mode,
     last_heartbeat: ts,
     loop_interval: options?.loopInterval ?? '',
+    ...(identity !== 'registered' ? { identity } : {}),
   };
 
   atomicWriteSync(

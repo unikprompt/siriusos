@@ -109,7 +109,24 @@ export interface Heartbeat {
   loop_interval: string;
   // Legacy field — sync.ts falls back to this if last_heartbeat absent
   timestamp?: string;
+  /**
+   * Identity classification of the writer against disk truth. Absent (or
+   * 'registered') for a real, enabled agent of ours; present with 'disabled' or
+   * 'unregistered' when the write came from an identity the bus could not
+   * confirm as an active agent — e.g. another of Mario's projects reusing
+   * CTX_AGENT_NAME. Marked, not blocked. See classifyIdentity().
+   */
+  identity?: IdentityStatus;
 }
+
+/**
+ * How a write identity (CTX_AGENT_NAME) checks out against disk:
+ *   - registered:   config.json under orgs/<org>/agents/<name>/ AND enabled.
+ *   - disabled:     that config.json exists but enabled === false (a real but
+ *                   turned-off agent whose name a foreign session is reusing).
+ *   - unregistered: no config.json anywhere — not an agent of ours at all.
+ */
+export type IdentityStatus = 'registered' | 'disabled' | 'unregistered';
 
 // Approval Types
 

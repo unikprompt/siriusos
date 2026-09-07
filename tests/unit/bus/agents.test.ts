@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { listAgents, notifyAgent } from '../../../src/bus/agents';
+import { listAgents, notifyAgent, classifyIdentity } from '../../../src/bus/agents';
+import { updateHeartbeat } from '../../../src/bus/heartbeat';
 import type { BusPaths } from '../../../src/types';
 
 describe('Agent Discovery', () => {
@@ -173,6 +174,92 @@ describe('Agent Discovery', () => {
       expect(agents.length).toBe(1);
       expect(agents[0].name).toBe('alice');
       expect(agents[0].enabled).toBe(false);
+    });
+  });
+
+  describe('classifyIdentity', () => {
+    // config.json under orgs/<org>/agents/<name>/ is the reality check.
+    function makeAgent(org: string, name: string, config: Record<string, unknown> = {}) {
+      const dir = join(testDir, 'framework', 'orgs', org, 'agents', name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify(config));
+    }
+    function setRegistry(obj: Record<string, { org?: string; enabled?: boolean }>) {
+      const configDir = join(ctxRoot, 'config');
+      mkdirSync(configDir, { recursive: true });
+      writeFileSync(join(configDir, 'enabled-agents.json'), JSON.stringify(obj));
+    }
+
+    it("classifies an enabled agent with config.json as 'registered'", () => {
+      makeAgent('acme', 'alice', { enabled: true });
+      expect(classifyIdentity('alice', ctxRoot)).toBe('registered');
+    });
+
+    it("classifies a disabled agent that still has a config.json as 'disabled' (the orquestador-codex case)", () => {
+      makeAgent('unikprompt', 'orquestador-codex', { enabled: false });
+      expect(classifyIdentity('orquestador-codex', ctxRoot)).toBe('disabled');
+    });
+
+    it("classifies a name with no config.json anywhere as 'unregistered' (the vip-limo-voice-agent case)", () => {
+      expect(classifyIdentity('vip-limo-voice-agent', ctxRoot)).toBe('unregistered');
+    });
+
+    it('is org-agnostic: an agent in its own org (son-de-nudos) is registered', () => {
+      makeAgent('son-de-nudos', 'son-de-nudos', { enabled: true });
+      expect(classifyIdentity('son-de-nudos', ctxRoot)).toBe('registered');
+    });
+
+    it('falls back to the registry when config.json has no enabled field', () => {
+      makeAgent('acme', 'bob', {}); // no enabled key
+      setRegistry({ bob: { org: 'acme', enabled: false } });
+      expect(classifyIdentity('bob', ctxRoot)).toBe('disabled');
+    });
+
+    it('defaults to registered (daemon default-on) when neither config nor registry set enabled', () => {
+      makeAgent('acme', 'carol', {});
+      expect(classifyIdentity('carol', ctxRoot)).toBe('registered');
+    });
+  });
+
+  describe('updateHeartbeat identity guard (mark, not block)', () => {
+    function makeAgent(org: string, name: string, config: Record<string, unknown> = {}) {
+      const dir = join(testDir, 'framework', 'orgs', org, 'agents', name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, 'config.json'), JSON.stringify(config));
+    }
+    function pathsOf(agent: string): BusPaths {
+      return {
+        ctxRoot,
+        inbox: join(ctxRoot, 'inbox', agent),
+        inflight: join(ctxRoot, 'inflight', agent),
+        processed: join(ctxRoot, 'processed', agent),
+        logDir: join(ctxRoot, 'logs', agent),
+        stateDir: join(ctxRoot, 'state', agent),
+        taskDir: join(ctxRoot, 'tasks'),
+        approvalDir: join(ctxRoot, 'approvals'),
+        analyticsDir: join(ctxRoot, 'analytics'),
+        heartbeatDir: join(ctxRoot, 'heartbeats'),
+      };
+    }
+    function readHb(agent: string) {
+      return JSON.parse(readFileSync(join(ctxRoot, 'state', agent, 'heartbeat.json'), 'utf-8'));
+    }
+
+    it('leaves a registered agent heartbeat untagged (byte-for-byte unchanged behavior)', () => {
+      makeAgent('acme', 'alice', { enabled: true });
+      updateHeartbeat(pathsOf('alice'), 'alice', 'online', { org: 'acme' });
+      expect(readHb('alice').identity).toBeUndefined();
+    });
+
+    it('tags a foreign write (unregistered name) so read-all-heartbeats can separate it', () => {
+      updateHeartbeat(pathsOf('vip-limo-voice-agent'), 'vip-limo-voice-agent', 'online', {});
+      expect(readHb('vip-limo-voice-agent').identity).toBe('unregistered');
+    });
+
+    it('tags a disabled agent write (orquestador-codex reused by a foreign session)', () => {
+      makeAgent('unikprompt', 'orquestador-codex', { enabled: false });
+      updateHeartbeat(pathsOf('orquestador-codex'), 'orquestador-codex', 'online', {});
+      expect(readHb('orquestador-codex').identity).toBe('disabled');
     });
   });
 

@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentInfo, AgentConfig, BusPaths } from '../types/index.js';
+import type { AgentInfo, AgentConfig, BusPaths, IdentityStatus } from '../types/index.js';
 import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
 import { sendMessage } from './message.js';
 import { logEvent } from './event.js';
@@ -109,6 +109,83 @@ export function listAgents(ctxRoot: string, org?: string): AgentInfo[] {
   }
 
   return agents;
+}
+
+/**
+ * Classify a write identity (CTX_AGENT_NAME) against disk truth, so the bus can
+ * MARK — not block — writes that came from an identity it cannot confirm as an
+ * active agent of ours (e.g. another of Mario's Codex projects reusing the name
+ * `orquestador-codex`, or `vip-limo-voice-agent` with no home here at all).
+ *
+ * The reality check is `orgs/<org>/agents/<name>/config.json` (the same check
+ * inventoryAgents uses), scanned across ALL orgs so it is org-agnostic —
+ * `son-de-nudos` lives in its own org but is ours and classifies as
+ * `registered` as long as it has a config.json and is enabled.
+ *
+ *   - registered:   config.json exists AND enabled (config wins, else registry,
+ *                   else default-on, matching the daemon's discoverAndStart).
+ *   - disabled:     config.json exists but enabled === false.
+ *   - unregistered: no config.json under any org.
+ *
+ * ctxRoot locates the registry (config/enabled-agents.json); CTX_FRAMEWORK_ROOT
+ * (with the cwd fallback, as in listAgents) locates orgs/.
+ */
+export function classifyIdentity(name: string, ctxRoot: string): IdentityStatus {
+  const cliProjectRoot = process.env.CTX_FRAMEWORK_ROOT;
+  const scanRoots: string[] = [];
+  if (cliProjectRoot && existsSync(join(cliProjectRoot, 'orgs'))) {
+    scanRoots.push(cliProjectRoot);
+  }
+  if (scanRoots.length === 0 && !cliProjectRoot) {
+    const cwd = process.cwd();
+    if (existsSync(join(cwd, 'orgs'))) scanRoots.push(cwd);
+  }
+
+  let configPath: string | undefined;
+  for (const root of scanRoots) {
+    const orgsDir = join(root, 'orgs');
+    if (!existsSync(orgsDir)) continue;
+    let orgDirs: string[];
+    try {
+      orgDirs = readdirSync(orgsDir);
+    } catch {
+      continue;
+    }
+    for (const org of orgDirs) {
+      const p = join(orgsDir, org, 'agents', name, 'config.json');
+      if (existsSync(p)) {
+        configPath = p;
+        break;
+      }
+    }
+    if (configPath) break;
+  }
+
+  if (!configPath) return 'unregistered';
+
+  let configEnabled: boolean | undefined;
+  try {
+    configEnabled = (JSON.parse(readFileSync(configPath, 'utf-8')) as AgentConfig).enabled;
+  } catch {
+    // Corrupt config — treat enabled as unknown (fall through to registry/default).
+  }
+
+  let registryEnabled: boolean | undefined;
+  const enabledFile = join(ctxRoot, 'config', 'enabled-agents.json');
+  if (existsSync(enabledFile)) {
+    try {
+      const reg = (JSON.parse(readFileSync(enabledFile, 'utf-8')) as Record<string, { enabled?: boolean }>)[name];
+      if (reg) registryEnabled = reg.enabled !== false;
+    } catch {
+      // Corrupt registry — ignore.
+    }
+  }
+
+  const enabled = configEnabled !== undefined
+    ? configEnabled
+    : (registryEnabled !== undefined ? registryEnabled : true);
+
+  return enabled ? 'registered' : 'disabled';
 }
 
 /**
