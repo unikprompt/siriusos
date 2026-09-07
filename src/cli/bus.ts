@@ -645,12 +645,26 @@ busCommand
       return;
     }
 
-    for (const hb of heartbeats) {
+    // Split by identity: heartbeats written under a name the bus could not
+    // confirm as an active agent of ours (identity 'disabled'/'unregistered')
+    // are shown separately, not counted among our agents. See classifyIdentity().
+    const ours = heartbeats.filter(hb => !hb.identity || hb.identity === 'registered');
+    const foreign = heartbeats.filter(hb => hb.identity && hb.identity !== 'registered');
+
+    for (const hb of ours) {
       const stale = new Date(hb.last_heartbeat) < new Date(Date.now() - 2 * 60 * 60 * 1000);
       const staleFlag = stale ? ' [STALE]' : '';
       const label = hb.display_name ? `${hb.display_name} (${hb.agent})` : hb.agent;
       console.log(`${label} (${hb.org}) — ${hb.status}${staleFlag} — last seen ${hb.last_heartbeat}`);
       if (hb.current_task) console.log(`  task: ${hb.current_task}`);
+    }
+
+    if (foreign.length > 0) {
+      console.log(`\n⚠ Foreign / unregistered writers (${foreign.length}) — NOT counted as our agents:`);
+      for (const hb of foreign) {
+        console.log(`  ${hb.agent} (${hb.org || '?'}) [${hb.identity}] — ${hb.status} — last seen ${hb.last_heartbeat}`);
+        if (hb.current_task) console.log(`    task: ${hb.current_task}`);
+      }
     }
   });
 
