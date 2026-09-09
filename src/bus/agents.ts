@@ -158,7 +158,12 @@ export function inventoryAgents(ctxRoot: string, org?: string): AgentInventory {
     if (existsSync(join(cwd, 'orgs'))) scanRoots.push(cwd);
   }
 
-  // Disk scan: config.json is the reality check for "real agent".
+  // Disk scan: config.json is the reality check for "real agent". Collect every
+  // on-disk agent GROUPED BY NAME across orgs, so a duplicate name (e.g.
+  // `analista` in both unikprompt and sirius-consul) is resolved deliberately by
+  // the registry below, not by whichever org readdir happens to return first.
+  type DiskEntry = { orgName: string; configEnabled: boolean | undefined };
+  const diskByName = new Map<string, DiskEntry[]>();
   for (const root of scanRoots) {
     const orgsDir = join(root, 'orgs');
     if (!existsSync(orgsDir)) continue;
@@ -185,12 +190,10 @@ export function inventoryAgents(ctxRoot: string, org?: string): AgentInventory {
       for (const agentName of agentDirs) {
         // Filesystem noise (`.DS_Store`, etc.) never matches a valid agent name.
         if (!/^[a-z0-9_-]+$/.test(agentName)) continue;
-        if (seen.has(agentName)) continue;
 
         const configPath = join(agentsDir, agentName, 'config.json');
         if (!existsSync(configPath)) {
           // A dir with no config.json is not a runnable agent — report, skip.
-          seen.add(agentName);
           inconsistencies.push({
             kind: 'missing_config',
             name: agentName,
@@ -200,9 +203,7 @@ export function inventoryAgents(ctxRoot: string, org?: string): AgentInventory {
           continue;
         }
 
-        seen.add(agentName);
-
-        // config.json is disk truth for enabled; cross-check the registry.
+        // config.json is disk truth for enabled; cross-check the registry below.
         let configEnabled: boolean | undefined;
         try {
           const cfg: AgentConfig = JSON.parse(readFileSync(configPath, 'utf-8'));
@@ -211,41 +212,61 @@ export function inventoryAgents(ctxRoot: string, org?: string): AgentInventory {
           // Corrupt config — treat enabled as unknown; buildAgentInfo re-reads it.
         }
 
-        const reg = registry[agentName];
-        const agentInc: AgentInconsistency[] = [];
-
-        if (reg && reg.org && reg.org !== orgName) {
-          agentInc.push({
-            kind: 'org_mismatch',
-            name: agentName,
-            message: `registry org '${reg.org}' != disk org '${orgName}'`,
-            registry_org: reg.org,
-            disk_org: orgName,
-          });
-        }
-
-        const registryEnabled = reg ? reg.enabled !== false : undefined;
-        if (registryEnabled !== undefined && configEnabled !== undefined && registryEnabled !== configEnabled) {
-          agentInc.push({
-            kind: 'enabled_mismatch',
-            name: agentName,
-            message: `registry enabled=${registryEnabled} != config enabled=${configEnabled}`,
-            registry_enabled: registryEnabled,
-            config_enabled: configEnabled,
-          });
-        }
-
-        // Disk config is authoritative for enabled; fall back to the registry,
-        // then default-on (matches the daemon's discoverAndStart behavior).
-        const enabled = configEnabled !== undefined
-          ? configEnabled
-          : (reg ? reg.enabled !== false : true);
-
-        const info = buildAgentInfo(agentName, orgName, enabled, ctxRoot);
-        if (agentInc.length > 0) info.inconsistencies = agentInc;
-        agents.push(info);
-        inconsistencies.push(...agentInc);
+        const list = diskByName.get(agentName) ?? [];
+        list.push({ orgName, configEnabled });
+        diskByName.set(agentName, list);
       }
+    }
+  }
+
+  // Resolve each name to the entr(y|ies) to list. The registry decides the
+  // canonical org for a duplicate name: if the registered org has a config on
+  // disk, that entry wins and the homonym is dropped (no false org_mismatch).
+  // Only when the registry has no home for the name do we surface one entry per
+  // org rather than silently pick one by readdir order.
+  for (const [agentName, entries] of diskByName) {
+    seen.add(agentName);
+    const reg = registry[agentName];
+    const regEntry = reg && reg.org ? entries.find((e) => e.orgName === reg.org) : undefined;
+    const chosen = regEntry ? [regEntry] : entries;
+    const registryEnabled = reg ? reg.enabled !== false : undefined;
+
+    for (const entry of chosen) {
+      const agentInc: AgentInconsistency[] = [];
+
+      // org_mismatch ONLY when the registry names an org that has NO config on
+      // disk yet the agent lives under a different org (a real move/stale
+      // registry) — never for a homonym whose registered org is present.
+      if (reg && reg.org && !regEntry && reg.org !== entry.orgName) {
+        agentInc.push({
+          kind: 'org_mismatch',
+          name: agentName,
+          message: `registry org '${reg.org}' has no config on disk; found under '${entry.orgName}'`,
+          registry_org: reg.org,
+          disk_org: entry.orgName,
+        });
+      }
+
+      if (registryEnabled !== undefined && entry.configEnabled !== undefined && registryEnabled !== entry.configEnabled) {
+        agentInc.push({
+          kind: 'enabled_mismatch',
+          name: agentName,
+          message: `registry enabled=${registryEnabled} != config enabled=${entry.configEnabled}`,
+          registry_enabled: registryEnabled,
+          config_enabled: entry.configEnabled,
+        });
+      }
+
+      // Disk config is authoritative for enabled; fall back to the registry,
+      // then default-on (matches the daemon's discoverAndStart behavior).
+      const enabled = entry.configEnabled !== undefined
+        ? entry.configEnabled
+        : (reg ? reg.enabled !== false : true);
+
+      const info = buildAgentInfo(agentName, entry.orgName, enabled, ctxRoot);
+      if (agentInc.length > 0) info.inconsistencies = agentInc;
+      agents.push(info);
+      inconsistencies.push(...agentInc);
     }
   }
 
@@ -298,24 +319,59 @@ export function classifyIdentity(name: string, ctxRoot: string): IdentityStatus 
     if (existsSync(join(cwd, 'orgs'))) scanRoots.push(cwd);
   }
 
-  let configPath: string | undefined;
-  for (const root of scanRoots) {
-    const orgsDir = join(root, 'orgs');
-    if (!existsSync(orgsDir)) continue;
-    let orgDirs: string[];
+  // Registry (enabled-agents.json): gives this identity's registered org and
+  // enabled flag. Used to resolve the home org when CTX_ORG is unset, and as the
+  // enabled fallback below.
+  let registryOrg: string | undefined;
+  let registryEnabled: boolean | undefined;
+  const enabledFile = join(ctxRoot, 'config', 'enabled-agents.json');
+  if (existsSync(enabledFile)) {
     try {
-      orgDirs = readdirSync(orgsDir);
+      const reg = (JSON.parse(readFileSync(enabledFile, 'utf-8')) as Record<string, { org?: string; enabled?: boolean }>)[name];
+      if (reg) {
+        registryOrg = reg.org;
+        registryEnabled = reg.enabled !== false;
+      }
     } catch {
-      continue;
+      // Corrupt registry — ignore.
     }
-    for (const org of orgDirs) {
-      const p = join(orgsDir, org, 'agents', name, 'config.json');
+  }
+
+  // (org, name) is the primary key: resolve THIS identity's own home org first —
+  // CTX_ORG (the caller's org), else the registry's org — so a homonym in another
+  // org (e.g. sirius-consul's `analista`) never shadows ours by readdir order.
+  // Only when no config exists under the home org do we scan all orgs, which is
+  // what correctly classifies a genuinely foreign writer as unregistered.
+  const homeOrg = process.env.CTX_ORG || registryOrg;
+  let configPath: string | undefined;
+  if (homeOrg) {
+    for (const root of scanRoots) {
+      const p = join(root, 'orgs', homeOrg, 'agents', name, 'config.json');
       if (existsSync(p)) {
         configPath = p;
         break;
       }
     }
-    if (configPath) break;
+  }
+  if (!configPath) {
+    for (const root of scanRoots) {
+      const orgsDir = join(root, 'orgs');
+      if (!existsSync(orgsDir)) continue;
+      let orgDirs: string[];
+      try {
+        orgDirs = readdirSync(orgsDir);
+      } catch {
+        continue;
+      }
+      for (const org of orgDirs) {
+        const p = join(orgsDir, org, 'agents', name, 'config.json');
+        if (existsSync(p)) {
+          configPath = p;
+          break;
+        }
+      }
+      if (configPath) break;
+    }
   }
 
   if (!configPath) return 'unregistered';
@@ -325,17 +381,6 @@ export function classifyIdentity(name: string, ctxRoot: string): IdentityStatus 
     configEnabled = (JSON.parse(readFileSync(configPath, 'utf-8')) as AgentConfig).enabled;
   } catch {
     // Corrupt config — treat enabled as unknown (fall through to registry/default).
-  }
-
-  let registryEnabled: boolean | undefined;
-  const enabledFile = join(ctxRoot, 'config', 'enabled-agents.json');
-  if (existsSync(enabledFile)) {
-    try {
-      const reg = (JSON.parse(readFileSync(enabledFile, 'utf-8')) as Record<string, { enabled?: boolean }>)[name];
-      if (reg) registryEnabled = reg.enabled !== false;
-    } catch {
-      // Corrupt registry — ignore.
-    }
   }
 
   const enabled = configEnabled !== undefined
