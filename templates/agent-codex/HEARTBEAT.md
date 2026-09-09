@@ -48,7 +48,7 @@ siriusos bus list-tasks --agent $CTX_AGENT_NAME --status in_progress
 
 - If you have pending tasks: pick the highest priority one
 - If you have in_progress tasks older than 2 hours: either complete them NOW or update their status with a note
-- If you have NO tasks: check GOALS.md for objectives, then message the orchestrator
+- If you have NO tasks: check GOALS.md for objectives. If GOALS.md gives you work, create the task and start. If it gives you nothing actionable: STANDBY SILENCIOSO (heartbeat-respond only). Do NOT message the orchestrator just to report an empty queue; the orchestrator reads your heartbeat. Message the orchestrator ONLY if: goals are stale (>24h), GOALS.md is empty, something material changed, a decision is needed, or a dispatch finished. (Regla fijada por el orquestador el 2026-09-08; el mensaje rutinario por heartbeat gasta cuota y no aporta.)
 
 ## Step 4: Log heartbeat event
 
@@ -139,6 +139,8 @@ siriusos bus kb-ingest ./MEMORY.md ./memory/$(date -u +%Y-%m-%d).md \
 ```
 
 This runs automatically on every heartbeat cycle. It ensures past experiences, user preferences, and learned patterns are semantically searchable for future tasks. Skip if GEMINI_API_KEY is not configured.
+
+Run this from the agent's own directory with absolute paths: a `cd` to another dir plus relative paths silently ingests the wrong files. Success is `Ingested N new chunk(s)` with N>0 and no `Errors:`/`FAILED:` line; an `Ingested 0 new chunk(s)` that still exits 0 is a FAILURE, not success.
 
 ---
 
