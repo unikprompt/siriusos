@@ -23,6 +23,8 @@ export interface InboxMessage {
   text: string;
   reply_to: string | null;
   sig?: string; // Security (H10): HMAC-SHA256 signature — optional for backwards compat
+  /** Write-identity of the sender, tagged only when not 'registered' (C1 guard). */
+  identity?: IdentityStatus;
 }
 
 // Task Types
@@ -56,6 +58,9 @@ export interface Task {
   completed_at: string | null;
   due_date: string | null;
   archived: boolean;
+  /** Write-identity: the creator's status (create-task), or a foreign completer's
+   * (complete-task). Tagged only when not 'registered' (C1 guard). */
+  identity?: IdentityStatus;
   result?: string;
   /** Linked deliverables (files saved via `siriusos bus save-output`). */
   outputs?: TaskOutput[];

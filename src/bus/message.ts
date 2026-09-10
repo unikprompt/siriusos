@@ -7,6 +7,7 @@ import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
 import { acquireLock, releaseLock } from '../utils/lock.js';
 import { randomString } from '../utils/random.js';
 import { validateAgentName, validatePriority } from '../utils/validate.js';
+import { classifyIdentity } from './agents.js';
 
 // ---------------------------------------------------------------------------
 // Security (H10): HMAC-SHA256 message signing
@@ -76,6 +77,11 @@ export function sendMessage(
   const msgId = `${epochMs}-${from}-${rand}`;
   const filename = `${pnum}-${epochMs}-from-${from}-${rand}.json`;
 
+  // Identity guard (C1): tag a message whose sender is not a registered agent of
+  // ours, so a foreign session's message is MARKED in the recipient's inbox
+  // rather than posing as one of ours. Registered senders leave no tag.
+  const identity = classifyIdentity(from, paths.ctxRoot);
+
   // Security (H10): Sign message with HMAC-SHA256.
   const signingKey = loadSigningKey(paths.ctxRoot);
   const message: InboxMessage = {
@@ -86,6 +92,7 @@ export function sendMessage(
     timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '.000Z'),
     text,
     reply_to: replyTo || null,
+    ...(identity !== 'registered' ? { identity } : {}),
     ...(signingKey ? { sig: hmacSign(signingKey, signPayload(msgId, from, to, text)) } : {}),
   };
 

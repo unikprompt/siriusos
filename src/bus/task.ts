@@ -5,6 +5,7 @@ import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
 import { randomDigits } from '../utils/random.js';
 import { validatePriority } from '../utils/validate.js';
 import { logEvent } from './event.js';
+import { classifyIdentity } from './agents.js';
 
 /**
  * Create a new task. Identical JSON format to bash create-task.sh.
@@ -60,6 +61,13 @@ export function createTask(
     for (const downId of blocks) detectCycleOrThrow(paths, downId, [taskId], virtualTask);
   }
 
+  // Identity guard (C1): tag the task with the CREATOR's write-identity when it
+  // is not a registered agent of ours, so a task a foreign session drops on our
+  // board (e.g. a VIP Limo or observatorio-ia session reusing the bus) is MARKED,
+  // not silently mixed in. Same (CTX_ORG, name) resolution as the heartbeat guard.
+  // Registered creators leave no tag, so normal tasks are unchanged.
+  const identity = classifyIdentity(agentName, paths.ctxRoot);
+
   const task: Task = {
     id: taskId,
     title,
@@ -78,6 +86,7 @@ export function createTask(
     completed_at: null,
     due_date: dueDate || null,
     archived: false,
+    ...(identity !== 'registered' ? { identity } : {}),
     ...(blockedBy.length ? { blocked_by: [...blockedBy] } : {}),
     ...(blocks.length ? { blocks: [...blocks] } : {}),
   };
@@ -456,6 +465,7 @@ export function completeTask(
   paths: BusPaths,
   taskId: string,
   result?: string,
+  completedBy?: string,
 ): void {
   const filePath = findTaskFile(paths, taskId);
   if (!filePath) {
@@ -477,6 +487,14 @@ export function completeTask(
     task.completed_at = task.updated_at;
     if (result) {
       task.result = result;
+    }
+    // Identity guard (C1): a foreign session completing one of our tasks is a
+    // signal too. When the completer is passed and is not registered, MARK the
+    // task with its status. A registered completer leaves any existing tag alone,
+    // so a foreign-CREATION flag survives a legitimate completion.
+    if (completedBy) {
+      const completerIdentity = classifyIdentity(completedBy, paths.ctxRoot);
+      if (completerIdentity !== 'registered') task.identity = completerIdentity;
     }
     atomicWriteSync(filePath, JSON.stringify(task));
   } catch (err) {

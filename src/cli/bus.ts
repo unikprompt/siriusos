@@ -340,7 +340,7 @@ busCommand
       }
     }
 
-    completeTask(paths, id, effectiveResult);
+    completeTask(paths, id, effectiveResult, env.agentName);
     console.log(`Completed ${id}`);
   });
 
@@ -415,7 +415,14 @@ busCommand
       const id = t.id.substring(0, 26).padEnd(26);
       const assignee = (t.assigned_to || '-').substring(0, 16).padEnd(17);
       const title = t.title.substring(0, 50);
-      console.log(`  ${statusIcon}${priIcon}${id}${assignee}${title}`);
+      // Identity guard (C1): mark a task written by a non-registered identity so a
+      // foreign session's task never blends into ours in the text view.
+      const idTag = t.identity ? `  ⚠ ${t.identity}` : '';
+      console.log(`  ${statusIcon}${priIcon}${id}${assignee}${title}${idTag}`);
+    }
+    const foreign = tasks.filter(t => t.identity);
+    if (foreign.length > 0) {
+      console.log(`\n  ⚠ ${foreign.length} task(s) from a non-registered identity (marked above): ${foreign.map(t => `${t.id.substring(0, 20)}=${t.identity}`).join(', ')}`);
     }
     console.log('');
   });

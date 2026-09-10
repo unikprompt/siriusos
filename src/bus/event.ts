@@ -4,6 +4,7 @@ import type { EventCategory, EventSeverity, BusPaths, Heartbeat } from '../types
 import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
 import { randomString } from '../utils/random.js';
 import { validateEventCategory, validateEventSeverity, isValidJson } from '../utils/validate.js';
+import { classifyIdentity } from './agents.js';
 
 /**
  * Log a structured event. Appends JSONL line to daily event file.
@@ -51,6 +52,11 @@ export function logEvent(
   const eventsDir = join(paths.analyticsDir, 'events', agentName);
   ensureDir(eventsDir);
 
+  // Identity guard (C1): tag an event whose writer is not a registered agent of
+  // ours, so a foreign session's events are MARKED in the activity feed rather
+  // than blending into ours. Registered writers leave no tag.
+  const identity = classifyIdentity(agentName, paths.ctxRoot);
+
   const eventLine = JSON.stringify({
     id: eventId,
     agent: agentName,
@@ -60,6 +66,7 @@ export function logEvent(
     event: eventName,
     severity,
     metadata: meta,
+    ...(identity !== 'registered' ? { identity } : {}),
   });
 
   appendFileSync(join(eventsDir, `${today}.jsonl`), eventLine + '\n', 'utf-8');
