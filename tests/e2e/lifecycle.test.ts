@@ -231,9 +231,16 @@ describe('E2E Lifecycle', () => {
       const files = readdirSync(inboxDir).filter(f => f.endsWith('.json'));
       const msg = JSON.parse(readFileSync(join(inboxDir, files[0]), 'utf-8'));
 
-      // Verify exact field set matches bash send-message.sh
-      const expectedFields = ['id', 'from', 'to', 'priority', 'timestamp', 'text', 'reply_to'];
-      expect(Object.keys(msg).sort()).toEqual(expectedFields.sort());
+      // Every required field from bash send-message.sh must be present...
+      const requiredFields = ['id', 'from', 'to', 'priority', 'timestamp', 'text', 'reply_to'];
+      expect(Object.keys(msg)).toEqual(expect.arrayContaining(requiredFields));
+      // ...and any extra key must be a documented optional: `sig` (HMAC signature)
+      // or `identity` (C1 write-identity guard, tagged only when the sender is not
+      // a registered agent — which is the case here in CI). This still fails on an
+      // unexpected/rogue field, unlike a plain subset check.
+      const optionalFields = ['sig', 'identity'];
+      const unexpected = Object.keys(msg).filter(k => !requiredFields.includes(k) && !optionalFields.includes(k));
+      expect(unexpected).toEqual([]);
 
       // Verify field types
       expect(typeof msg.id).toBe('string');
@@ -260,12 +267,20 @@ describe('E2E Lifecycle', () => {
 
       const task = JSON.parse(readFileSync(join(paths.taskDir, `${taskId}.json`), 'utf-8'));
 
-      const expectedFields = [
+      // The 17 required fields (bash create-task.sh format) must all be present...
+      const requiredFields = [
         'id', 'title', 'description', 'type', 'needs_approval', 'status',
         'assigned_to', 'created_by', 'org', 'priority', 'project',
         'kpi_key', 'created_at', 'updated_at', 'completed_at', 'due_date', 'archived',
       ];
-      expect(Object.keys(task).sort()).toEqual(expectedFields.sort());
+      expect(Object.keys(task)).toEqual(expect.arrayContaining(requiredFields));
+      // ...and any extra key must be a documented optional: `result`, `outputs`,
+      // the `blocked_by`/`blocks` dependency edges, or `identity` (C1 write-identity
+      // guard, tagged only when the creator is not a registered agent — the CI
+      // case). Still fails on an unexpected/rogue field.
+      const optionalFields = ['result', 'outputs', 'blocked_by', 'blocks', 'identity'];
+      const unexpected = Object.keys(task).filter(k => !requiredFields.includes(k) && !optionalFields.includes(k));
+      expect(unexpected).toEqual([]);
     });
 
     it('filename format matches bash convention', () => {
