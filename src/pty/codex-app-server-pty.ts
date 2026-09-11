@@ -519,37 +519,18 @@ export class CodexAppServerPTY {
         persisted = null;
       }
     }
-    if (persisted) {
-      try {
-        const resumed = await this.request<ThreadResponse>('thread/resume', {
-          threadId: persisted.threadId,
-          cwd: this._cwd,
-          ...THREAD_PERMISSION_OVERRIDES,
-          config: { features: { goals: true } },
-          excludeTurns: true,
-          persistExtendedHistory: true,
-        });
-        this.setThreadId(resumed.result?.thread.id || persisted.threadId);
-        return;
-      } catch (err) {
-        this._outputBuffer.push(`[codex-app-server] persisted resume failed: ${err}\n`);
-      }
-    }
 
+    // Resume the persisted thread first, then (in continue mode) the latest
+    // thread for this cwd. ANY resume failure falls through to a fresh thread —
+    // see tryResume(). Previously the second resume (latest-for-cwd) was
+    // unguarded, so an app-server -32601 (paginated_threads not supported) — or a
+    // thread grown too large to resume — threw, the spawn failed, and the agent
+    // retried the same dead thread on every injection and went mute for days.
+    // See reference_codex_persistent_pty_resume_wedge.
+    if (persisted && await this.tryResume(persisted.threadId)) return;
     if (mode === 'continue') {
       const latest = await this.findLatestThreadForCwd();
-      if (latest) {
-        const resumed = await this.request<ThreadResponse>('thread/resume', {
-          threadId: latest,
-          cwd: this._cwd,
-          ...THREAD_PERMISSION_OVERRIDES,
-          config: { features: { goals: true } },
-          excludeTurns: true,
-          persistExtendedHistory: true,
-        });
-        this.setThreadId(resumed.result?.thread.id || latest);
-        return;
-      }
+      if (latest && await this.tryResume(latest)) return;
     }
 
     const started = await this.request<ThreadResponse>('thread/start', {
@@ -561,6 +542,57 @@ export class CodexAppServerPTY {
       persistExtendedHistory: true,
     });
     this.setThreadId(started.result!.thread.id);
+    this._outputBuffer.push(`[codex-app-server] fresh thread started: ${this._threadId}\n`);
+  }
+
+  /**
+   * Resume `threadId`; return true on success. On ANY failure — notably the
+   * app-server's -32601 (paginated_threads not supported) or a thread too large
+   * to resume — log a single greppable marker naming the dead thread and the rpc
+   * code, clear the persisted thread so the NEXT spawn does not retry it, and
+   * return false so the caller falls through to a fresh thread. Never throws: a
+   * thrown resume is exactly what wedged the agent before.
+   */
+  private async tryResume(threadId: string): Promise<boolean> {
+    try {
+      const resumed = await this.request<ThreadResponse>('thread/resume', {
+        threadId,
+        cwd: this._cwd,
+        ...THREAD_PERMISSION_OVERRIDES,
+        config: { features: { goals: true } },
+        excludeTurns: true,
+        persistExtendedHistory: true,
+      });
+      this.setThreadId(resumed.result?.thread.id || threadId);
+      return true;
+    } catch (err) {
+      const code = this.rpcCode(err);
+      // Name the dead thread + code so a later trace can tell WHICH thread died
+      // and why. The "fresh thread started" line (logged at the actual start)
+      // carries the NEW id, so old and new are both greppable. Kept separate on
+      // purpose: a persisted-resume failure may still recover via the latest
+      // thread, so claiming "starting fresh" here would sometimes be wrong.
+      this._outputBuffer.push(
+        `[codex-app-server] resume failed (${code}) for thread ${threadId}\n`,
+      );
+      this.clearPersistedThreadState();
+      return false;
+    }
+  }
+
+  /**
+   * Best-effort JSON-RPC error code for the fallback log. Prefers a numeric
+   * `code` property; else the -32xxx code embedded in the message (e.g.
+   * "... (code -32601)"); else 'unknown'.
+   */
+  private rpcCode(err: unknown): string {
+    if (err && typeof err === 'object' && 'code' in err) {
+      const c = (err as { code?: unknown }).code;
+      if (typeof c === 'number') return String(c);
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    const m = msg.match(/-3\d{4}\b/);
+    return m ? m[0] : 'unknown';
   }
 
   private async findLatestThreadForCwd(): Promise<string | null> {
@@ -963,6 +995,15 @@ export class CodexAppServerPTY {
     this._outputBuffer.push(
       `[codex-app-server] bloat guard: clearing persisted thread (prior used_percentage=${usedPct.toFixed(1)}%, threshold=${THREAD_BLOAT_GUARD_PCT}%)\n`,
     );
+    this.clearPersistedThreadState();
+  }
+
+  /**
+   * Delete the persisted thread state file and the stale context_status so the
+   * next thread-resolution attempt falls through to `thread/start`. Shared by the
+   * bloat guard and the resume-failure fallback (tryResume).
+   */
+  private clearPersistedThreadState(): void {
     for (const target of [this._threadStatePath, join(this._stateDir, 'context_status.json')]) {
       try {
         if (existsSync(target)) unlinkSync(target);
