@@ -25,7 +25,21 @@ export interface InboxMessage {
   sig?: string; // Security (H10): HMAC-SHA256 signature — optional for backwards compat
   /** Write-identity of the sender, tagged only when not 'registered' (C1 guard). */
   identity?: IdentityStatus;
+  /**
+   * Org of the SENDER, stamped at send time from the sender's CTX_ORG (xorg
+   * guard). Optional and backward-compatible: messages written before this field
+   * existed, or by a CLI that does not set it, simply lack it. The cross-org
+   * quarantine guard only acts when this is present AND differs from the
+   * recipient's org; a missing org is delivered as before (marked, never
+   * quarantined), because absence is not evidence of a foreign origin.
+   */
+  org?: string;
 }
+
+/** Cross-org inbox guard mode. 'mark' = current behavior (deliver, C1 tags it);
+ *  'quarantine' = a message whose sender-org differs from the recipient's org is
+ *  moved aside instead of delivered. Default is 'mark'. */
+export type CrossOrgMode = 'mark' | 'quarantine';
 
 // Task Types
 
@@ -672,6 +686,9 @@ export interface BusPaths {
   inbox: string;
   inflight: string;
   processed: string;
+  /** {ctxRoot}/inbox-quarantine/{agent}/ — where the cross-org guard sets aside
+   *  messages from another org (xorg quarantine), instead of delivering them. */
+  quarantine: string;
   logDir: string;
   stateDir: string;
   taskDir: string;

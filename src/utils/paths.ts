@@ -39,6 +39,7 @@ export function resolvePaths(
     inbox: join(ctxRoot, 'inbox', agentName),
     inflight: join(ctxRoot, 'inflight', agentName),
     processed: join(ctxRoot, 'processed', agentName),
+    quarantine: join(ctxRoot, 'inbox-quarantine', agentName),
     logDir: join(ctxRoot, 'logs', agentName),
     stateDir: join(ctxRoot, 'state', agentName),
     taskDir: join(orgBase, 'tasks'),

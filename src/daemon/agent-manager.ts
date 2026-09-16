@@ -263,6 +263,7 @@ export class AgentManager {
       telegramApi,
       chatId,
       allowedUserId: allowedUserId ? parseInt(allowedUserId, 10) : undefined,
+      org: env.org, // recipient org for the cross-org quarantine guard (default 'mark')
     });
 
     // Sweep al arranque + interval. unref() para no bloquear el shutdown del

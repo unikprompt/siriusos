@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, renameSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
 import { createHmac, timingSafeEqual } from 'crypto';
-import type { InboxMessage, Priority, BusPaths } from '../types/index.js';
+import type { InboxMessage, Priority, BusPaths, CrossOrgMode } from '../types/index.js';
 import { PRIORITY_MAP } from '../types/index.js';
 import { atomicWriteSync, ensureDir } from '../utils/atomic.js';
 import { acquireLock, releaseLock } from '../utils/lock.js';
@@ -56,6 +56,10 @@ export function sendMessage(
   priority: Priority,
   text: string,
   replyTo?: string,
+  /** Org of the sender (CTX_ORG), stamped on the message for the cross-org
+   *  guard. Optional: omit it and the message carries no org (delivered as
+   *  before). Additive and backward-compatible; not part of the HMAC payload. */
+  senderOrg?: string,
 ): string {
   validateAgentName(from);
   validateAgentName(to);
@@ -92,6 +96,7 @@ export function sendMessage(
     timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '.000Z'),
     text,
     reply_to: replyTo || null,
+    ...(senderOrg ? { org: senderOrg } : {}),
     ...(identity !== 'registered' ? { identity } : {}),
     ...(signingKey ? { sig: hmacSign(signingKey, signPayload(msgId, from, to, text)) } : {}),
   };
@@ -105,12 +110,34 @@ export function sendMessage(
 }
 
 /**
+ * Options for the cross-org quarantine guard (xorg). All optional; with no
+ * options (or mode 'mark') checkInbox behaves exactly as before.
+ */
+export interface InboxGuardOptions {
+  /** The RECIPIENT's org — the agent running check-inbox. Cross-org is decided
+   *  against this. Without it, nothing is quarantined. */
+  recipientOrg?: string;
+  /** 'mark' (default) delivers as today; 'quarantine' sets aside cross-org. */
+  mode?: CrossOrgMode;
+  /** Sender-orgs always delivered even in quarantine mode. */
+  whitelist?: string[];
+  /** Invoked for each quarantined message (e.g. to log 'crossorg_quarantined').
+   *  Keeps message.ts decoupled from the event logger. */
+  onQuarantine?: (msg: InboxMessage) => void;
+}
+
+/**
  * Check inbox for pending messages.
  * Reads inbox directory, moves messages to inflight, returns sorted array.
  * Recovers stale inflight messages (>5 minutes old).
  * Identical to bash check-inbox.sh behavior.
+ *
+ * When `guard` is in 'quarantine' mode, a message stamped with a sender-org that
+ * differs from `guard.recipientOrg` (and is not whitelisted) is moved to
+ * `paths.quarantine` instead of being delivered. A message with no org is never
+ * quarantined (absence of org is not evidence of a foreign origin).
  */
-export function checkInbox(paths: BusPaths): InboxMessage[] {
+export function checkInbox(paths: BusPaths, guard?: InboxGuardOptions): InboxMessage[] {
   const { inbox, inflight } = paths;
   ensureDir(inbox);
   ensureDir(inflight);
@@ -156,6 +183,25 @@ export function checkInbox(paths: BusPaths): InboxMessage[] {
         } else if (signingKey && !msg.sig) {
           // Signing key exists but message has no sig — legacy message, log warning
           console.warn(`[bus/message] WARNING: Unsigned message ${msg.id} from '${msg.from}' — accepted (legacy)`);
+        }
+
+        // Cross-org quarantine guard (xorg): set aside a message whose stamped
+        // sender-org differs from the recipient's org, instead of delivering it.
+        // Only in 'quarantine' mode, only when the message actually carries an
+        // org, only when it differs, and only when not whitelisted. A message
+        // with no org is delivered as before (absence is not a foreign origin),
+        // and 'mark' mode (the default) never quarantines.
+        if (
+          guard?.mode === 'quarantine' &&
+          guard.recipientOrg &&
+          msg.org &&
+          msg.org !== guard.recipientOrg &&
+          !(guard.whitelist ?? []).includes(msg.org)
+        ) {
+          ensureDir(paths.quarantine);
+          try { renameSync(srcPath, join(paths.quarantine, file)); } catch { /* ignore */ }
+          try { guard.onQuarantine?.(msg); } catch { /* logging must not break intake */ }
+          continue;
         }
 
         // Move to inflight
@@ -244,6 +290,53 @@ export function ackInbox(paths: BusPaths, messageId: string): AckResult {
   return unreadableFile !== null
     ? { status: 'read_error', file: unreadableFile }
     : { status: 'not_found' };
+}
+
+/**
+ * List messages the cross-org guard has quarantined for this agent. Read-only:
+ * the files stay in `paths.quarantine` until released or discarded.
+ */
+export function listQuarantine(paths: BusPaths): InboxMessage[] {
+  let files: string[];
+  try {
+    files = readdirSync(paths.quarantine).filter(f => f.endsWith('.json') && !f.startsWith('.'));
+  } catch {
+    return []; // no quarantine dir -> nothing quarantined
+  }
+  const out: InboxMessage[] = [];
+  for (const file of files.sort()) {
+    try {
+      out.push(JSON.parse(readFileSync(join(paths.quarantine, file), 'utf-8')) as InboxMessage);
+    } catch { /* skip unreadable */ }
+  }
+  return out;
+}
+
+/**
+ * Release one quarantined message back to the agent's inbox so it is delivered
+ * on the next check-inbox (the escape hatch for a legitimately cross-org message
+ * the operator wants to accept). Returns true if a message with `messageId` was
+ * found and moved, false otherwise.
+ */
+export function releaseQuarantine(paths: BusPaths, messageId: string): boolean {
+  let files: string[];
+  try {
+    files = readdirSync(paths.quarantine).filter(f => f.endsWith('.json'));
+  } catch {
+    return false;
+  }
+  for (const file of files) {
+    const src = join(paths.quarantine, file);
+    try {
+      const msg = JSON.parse(readFileSync(src, 'utf-8')) as InboxMessage;
+      if (msg.id === messageId) {
+        ensureDir(paths.inbox);
+        renameSync(src, join(paths.inbox, file));
+        return true;
+      }
+    } catch { /* skip unreadable */ }
+  }
+  return false;
 }
 
 /**
