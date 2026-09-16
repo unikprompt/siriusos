@@ -137,6 +137,19 @@ function saveProcessedUids(path: string, set: Set<string>): void {
   }
 }
 
+/**
+ * Dedup por Message-ID. El dedup por UID no cubre un mismo correo que llega como
+ * VARIAS UIDs distintas cuando el mail-server lo entrega duplicado (reintentos
+ * SMTP; visto 2026-09-16: el DMARC <18102481714037553403@google.com> llegó como
+ * UID 197/198/199 vía relays Google→Zoho). El Message-ID (RFC 5322, único por
+ * mensaje) sí lo identifica. Devuelve true solo si hay Message-ID y ya se entregó
+ * uno igual; sin Message-ID no dedupa (entrega como antes).
+ */
+export function isDuplicateMessage(messageId: string, deliveredMsgIds: Set<string>): boolean {
+  const id = messageId.trim();
+  return id.length > 0 && deliveredMsgIds.has(id);
+}
+
 /** Lee el high-water-mark (UID) del estado local; -1 si no existe (cold start). */
 function loadWatermark(path: string): number {
   try {
@@ -273,7 +286,9 @@ export function pollEmail(opts: PollOptions): PollResult {
 
   const dedupPath = join(paths.stateDir, '.email-processed-uids');
   const watermarkPath = join(paths.stateDir, '.email-watermark');
+  const msgIdPath = join(paths.stateDir, '.email-delivered-msgids');
   const processed = loadProcessedUids(dedupPath);
+  const deliveredMsgIds = loadProcessedUids(msgIdPath);
   const watermark = loadWatermark(watermarkPath);
   let fetched = 0;
   let delivered = 0;
@@ -309,6 +324,19 @@ export function pollEmail(opts: PollOptions): PollResult {
           continue;
         }
         const email = parseEmail(raw);
+
+        // Dedup por Message-ID: si este mismo correo ya se entregó bajo otra UID
+        // (entrega duplicada del mail-server), no lo re-entregamos, pero SÍ lo
+        // marcamos manejado (processed + prefijo del watermark) para no reintentarlo.
+        const msgId = email.messageId.trim();
+        if (isDuplicateMessage(msgId, deliveredMsgIds)) {
+          logLine(paths.stateDir, `uid ${uid}: Message-ID ${msgId} ya entregado (entrega duplicada del mail-server), skip`);
+          processed.add(String(uid));
+          deliveredUids.add(uid);
+          saveProcessedUids(dedupPath, processed);
+          continue;
+        }
+
         const attachmentPaths = saveAttachments(agentDir, String(uid), email.attachments);
         const block = buildForwardedBlock(email, attachmentPaths, cfg.user);
 
@@ -327,6 +355,10 @@ export function pollEmail(opts: PollOptions): PollResult {
         processed.add(String(uid));
         deliveredUids.add(uid);
         saveProcessedUids(dedupPath, processed);
+        if (msgId) {
+          deliveredMsgIds.add(msgId);
+          saveProcessedUids(msgIdPath, deliveredMsgIds);
+        }
         delivered++;
         logLine(paths.stateDir, `uid ${uid}: entregado a ${cfg.deliverTo} (${email.attachments.length} adjuntos)`);
       } catch (e) {

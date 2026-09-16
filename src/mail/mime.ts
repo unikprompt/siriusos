@@ -22,6 +22,8 @@ export interface ParsedEmail {
   from: string;
   subject: string;
   date: string;
+  /** Message-ID del header (RFC 5322), '' si falta. Clave de dedup de duplicados. */
+  messageId: string;
   /** Mejor esfuerzo de cuerpo en texto plano (text/plain, o HTML degradado). */
   text: string;
   attachments: ParsedAttachment[];
@@ -244,6 +246,7 @@ export function parseEmail(raw: string): ParsedEmail {
   const from = decodeEncodedWords(topHeaders.get('from') || '(remitente desconocido)');
   const subject = decodeEncodedWords(topHeaders.get('subject') || '(sin asunto)');
   const date = topHeaders.get('date') || '';
+  const messageId = topHeaders.get('message-id') || '';
 
   const acc = { plain: '', html: '', attachments: [] as ParsedAttachment[] };
   try {
@@ -257,5 +260,5 @@ export function parseEmail(raw: string): ParsedEmail {
   if (!text && acc.html) text = stripHtml(acc.html);
   if (!text) text = '(cuerpo no extraíble en texto)';
 
-  return { from, subject, date, text, attachments: acc.attachments };
+  return { from, subject, date, messageId, text, attachments: acc.attachments };
 }

@@ -7,7 +7,7 @@ import {
   decodeEncodedWords,
   stripHtml,
 } from '../src/mail/mime.js';
-import { parseSearchUids, contiguousWatermark } from '../src/mail/imap-poller.js';
+import { parseSearchUids, contiguousWatermark, isDuplicateMessage } from '../src/mail/imap-poller.js';
 
 describe('mime helpers', () => {
   it('decodes quoted-printable with soft line breaks', () => {
@@ -161,5 +161,48 @@ describe('imap poller pure helpers', () => {
     expect(contiguousWatermark(100, [101, 102], new Set())).toBe(100);
     // Sin candidatos: se queda igual.
     expect(contiguousWatermark(100, [], new Set())).toBe(100);
+  });
+});
+
+describe('Message-ID dedup (entrega duplicada del mail-server)', () => {
+  // Reproduce el incidente 2026-09-16: el mismo DMARC de Google llegó al buzón
+  // como UID 197/198/199 (relays Google→Zoho distintos, mismo Message-ID). El
+  // dedup por UID no lo cubre (UIDs distintas); el Message-ID sí.
+  const dmarc = (relay: string): string =>
+    [
+      'Return-Path: <noreply-dmarc-support@google.com>',
+      `Received: from ${relay}.google.com by mx.zohomail.com`,
+      'From: noreply-dmarc-support@google.com',
+      'Date: Tue, 15 Sep 2026 16:59:59 -0700',
+      'Message-ID: <18102481714037553403@google.com>',
+      'Subject: Report domain: unikprompt.com Report-ID: 18102481714037553403',
+      '',
+      'cuerpo del reporte',
+    ].join('\n');
+
+  it('parseEmail extrae el Message-ID', () => {
+    expect(parseEmail(dmarc('mail-qv1-f73')).messageId).toBe('<18102481714037553403@google.com>');
+  });
+
+  it('el mismo Message-ID en UIDs distintas se entrega UNA sola vez', () => {
+    const delivered = new Set<string>();
+    // UID 197 (relay f73), 198 y 199 (relay f74): mismo Message-ID.
+    const raws = [dmarc('mail-qv1-f73'), dmarc('mail-qv1-f74'), dmarc('mail-qv1-f74')];
+    const decisions = raws.map((raw) => {
+      const { messageId } = parseEmail(raw);
+      if (isDuplicateMessage(messageId, delivered)) return 'skip';
+      delivered.add(messageId.trim());
+      return 'deliver';
+    });
+    expect(decisions).toEqual(['deliver', 'skip', 'skip']);
+    expect(delivered.size).toBe(1);
+  });
+
+  it('sin Message-ID no dedupa (entrega como antes)', () => {
+    const noId = 'From: a@b.com\nSubject: x\nDate: hoy\n\nbody';
+    expect(parseEmail(noId).messageId).toBe('');
+    expect(isDuplicateMessage('', new Set())).toBe(false);
+    // Dos correos distintos sin Message-ID no se suprimen entre sí.
+    expect(isDuplicateMessage('', new Set(['']))).toBe(false);
   });
 });
