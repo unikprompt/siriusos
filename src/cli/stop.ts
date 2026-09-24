@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { mkdirSync, writeFileSync } from 'fs';
+import { mkdirSync, writeFileSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { IPCClient } from '../daemon/ipc-server.js';
@@ -17,6 +17,21 @@ export function writeStopMarker(instanceId: string, agent: string, reason: strin
     mkdirSync(stateDir, { recursive: true });
     writeFileSync(join(stateDir, '.user-stop'), reason);
   } catch { /* don't block stop on marker-write failure */ }
+}
+
+/**
+ * BUG-050 fix: remove the `.user-stop` marker so a re-started/re-enabled agent
+ * both starts now AND survives future daemon restarts. The daemon's
+ * discoverAndStart() skips agents whose `.user-stop` marker is present, so
+ * `siriusos start`/`enable` must clear it — otherwise the agent would come up
+ * once and then be skipped on the next daemon restart (e.g. a machine reboot).
+ * Safe no-op if the marker is absent.
+ */
+export function clearStopMarker(instanceId: string, agent: string): void {
+  try {
+    const marker = join(homedir(), '.siriusos', instanceId, 'state', agent, '.user-stop');
+    if (existsSync(marker)) unlinkSync(marker);
+  } catch { /* don't block start/enable on marker-clear failure */ }
 }
 
 export const stopCommand = new Command('stop')

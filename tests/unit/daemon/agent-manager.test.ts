@@ -139,6 +139,53 @@ describe('AgentManager.discoverAndStart - BUG-028 fix', () => {
   });
 });
 
+describe('AgentManager.discoverAndStart - BUG-050 fix (.user-stop survives daemon restart)', () => {
+  let testDir: string;
+  let ctxRoot: string;
+  let frameworkRoot: string;
+
+  beforeEach(() => {
+    testDir = mkdtempSync(join(tmpdir(), 'cortextos-am-userstop-'));
+    ctxRoot = join(testDir, 'instance');
+    frameworkRoot = join(testDir, 'framework');
+    mkdirSync(join(ctxRoot, 'config'), { recursive: true });
+    mkdirSync(join(frameworkRoot, 'orgs', 'acme', 'agents', 'alice'), { recursive: true });
+    mkdirSync(join(frameworkRoot, 'orgs', 'acme', 'agents', 'bob'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('skips an agent with a .user-stop marker so a deliberate stop survives a daemon restart', async () => {
+    // `siriusos stop alice` writes this marker; a machine reboot then relaunches
+    // the daemon (pm2), which must NOT resurrect a deliberately-stopped agent.
+    mkdirSync(join(ctxRoot, 'state', 'alice'), { recursive: true });
+    writeFileSync(join(ctxRoot, 'state', 'alice', '.user-stop'), 'stopped via siriusos stop');
+
+    const am = new AgentManager('test-instance', ctxRoot, frameworkRoot, 'acme');
+    const startSpy = vi.spyOn(am, 'startAgent').mockResolvedValue();
+
+    await am.discoverAndStart();
+
+    // alice is user-stopped → skipped; bob (no marker) → started
+    expect(startSpy).toHaveBeenCalledTimes(1);
+    expect(startSpy).toHaveBeenCalledWith('bob', expect.any(String), expect.any(Object), 'acme');
+  });
+
+  it('starts an agent whose .user-stop marker has been cleared (start/enable path)', async () => {
+    // No marker present (as after clearStopMarker) → both agents start normally.
+    const am = new AgentManager('test-instance', ctxRoot, frameworkRoot, 'acme');
+    const startSpy = vi.spyOn(am, 'startAgent').mockResolvedValue();
+
+    await am.discoverAndStart();
+
+    expect(startSpy).toHaveBeenCalledTimes(2);
+    const namesStarted = startSpy.mock.calls.map(call => call[0]).sort();
+    expect(namesStarted).toEqual(['alice', 'bob']);
+  });
+});
+
 describe('AgentManager.discoverAndStart - BUG-043 fix (multi-org support)', () => {
   let testDir: string;
   let ctxRoot: string;

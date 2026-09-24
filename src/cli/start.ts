@@ -4,6 +4,7 @@ import { join } from 'path';
 import { homedir, platform } from 'os';
 import { execSync, spawn, spawnSync } from 'child_process';
 import { IPCClient } from '../daemon/ipc-server.js';
+import { clearStopMarker } from './stop.js';
 
 const IS_WINDOWS = platform() === 'win32';
 const SAFE_CMD = /^[@a-z0-9._/-]+$/i;
@@ -21,6 +22,15 @@ export const startCommand = new Command('start')
   .option('--foreground', 'Run daemon in foreground (no PM2, for debugging)')
   .description('Start the SiriusOS daemon and agents')
   .action(async (agent: string | undefined, options: { instance: string; foreground?: boolean }) => {
+    // BUG-050: if the user explicitly names an agent to start, clear any
+    // `.user-stop` marker up front — both so it starts now and so the daemon's
+    // discoverAndStart() (which skips user-stopped agents) does not skip it on
+    // this start or on any future restart. Covers both the daemon-down branch
+    // (which boots the daemon → discoverAndStart) and the daemon-up branch.
+    if (agent) {
+      clearStopMarker(options.instance, agent);
+    }
+
     const ipc = new IPCClient(options.instance);
     const daemonRunning = await ipc.isDaemonRunning();
 
