@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import { spawnSync, execFileSync } from 'child_process';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { sendMessage, checkInbox, ackInbox } from '../bus/message.js';
+import { sendMessage, checkInbox, ackInbox, listQuarantine, releaseQuarantine } from '../bus/message.js';
 import { notifyAgent, inventoryAgents } from '../bus/agents.js';
 import { validateAgentName } from '../utils/validate.js';
 import { createTask, updateTask, completeTask, claimTask, readTaskAudit, checkTaskDependencies, compactTasks, listTasks, checkStaleTasks, archiveTasks, checkHumanTasks } from '../bus/task.js';
@@ -28,6 +28,7 @@ import { IPCClient } from '../daemon/ipc-server.js';
 import { TelegramAPI } from '../telegram/api.js';
 import { logOutboundMessage, cacheLastSent } from '../telegram/logging.js';
 import type { Priority, Task, TaskStatus, EventCategory, EventSeverity, ApprovalCategory, ApprovalStatus, OrgContext, CronDefinition } from '../types/index.js';
+import { resolveCrossOrgGuard } from '../bus/crossorg-guard.js';
 
 /**
  * Check if the org requires deliverables and the task has none attached.
@@ -117,7 +118,7 @@ busCommand
 
     let msgId: string;
     try {
-      msgId = sendMessage(paths, env.agentName, to, priority as Priority, text, effectiveReplyTo);
+      msgId = sendMessage(paths, env.agentName, to, priority as Priority, text, effectiveReplyTo, env.org || undefined);
     } catch (err) {
       // Empty/blank text (the pipe footgun) and any other send failure surface
       // here as a clean error + non-zero exit, instead of a silent "success"
@@ -136,7 +137,18 @@ busCommand
   .action(() => {
     const env = resolveEnv();
     const paths = resolvePaths(env.agentName, env.instanceId, env.org);
-    const messages = checkInbox(paths);
+    const guard = resolveCrossOrgGuard(env.frameworkRoot, env.org);
+    const messages = checkInbox(paths, {
+      recipientOrg: env.org || undefined,
+      mode: guard.mode,
+      whitelist: guard.whitelist,
+      onQuarantine: (msg) => {
+        try {
+          logEvent(paths, env.agentName, env.org, 'message', 'crossorg_quarantined', 'warning',
+            JSON.stringify({ msg_id: msg.id, from: msg.from, sender_org: msg.org ?? null, recipient_org: env.org }));
+        } catch { /* non-fatal */ }
+      },
+    });
     console.log(JSON.stringify(messages));
   });
 
@@ -166,6 +178,32 @@ busCommand
       logEvent(paths, env.agentName, env.org, 'message', 'inbox_ack', 'info', JSON.stringify({ msg_id: id }));
     } catch { /* non-fatal */ }
     console.log(`ACK'd ${id}`);
+  });
+
+busCommand
+  .command('list-quarantine')
+  .description('List messages the cross-org guard set aside for this agent (JSON)')
+  .action(() => {
+    const env = resolveEnv();
+    const paths = resolvePaths(env.agentName, env.instanceId, env.org);
+    console.log(JSON.stringify(listQuarantine(paths)));
+  });
+
+busCommand
+  .command('release-quarantine')
+  .argument('<id>', 'Message ID to release back to the inbox')
+  .description('Release a quarantined cross-org message back to the inbox (delivered on the next check-inbox)')
+  .action((id: string) => {
+    const env = resolveEnv();
+    const paths = resolvePaths(env.agentName, env.instanceId, env.org);
+    if (!releaseQuarantine(paths, id)) {
+      console.error(`release-quarantine: no quarantined message with id '${id}'.`);
+      process.exit(1);
+    }
+    try {
+      logEvent(paths, env.agentName, env.org, 'message', 'crossorg_released', 'info', JSON.stringify({ msg_id: id }));
+    } catch { /* non-fatal */ }
+    console.log(`Released ${id} back to inbox.`);
   });
 
 busCommand
@@ -201,7 +239,8 @@ busCommand
       // non-empty literal prefix if you edit this template — the task is already
       // created above, so a throw here would report failure on a created task.
       sendMessage(assigneePaths, env.agentName, opts.assignee, 'normal',
-        `Task assigned: [${opts.priority}] ${title}${desc} (id: ${taskId})`);
+        `Task assigned: [${opts.priority}] ${title}${desc} (id: ${taskId})`,
+        undefined, env.org || undefined);
     }
   });
 

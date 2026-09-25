@@ -5,6 +5,8 @@ import { createHash } from 'crypto';
 import { hardRestart } from '../bus/system.js';
 import type { InboxMessage, BusPaths, TelegramMessage, TelegramCallbackQuery } from '../types/index.js';
 import { checkInbox, ackInbox } from '../bus/message.js';
+import { resolveCrossOrgGuard, type CrossOrgGuardConfig } from '../bus/crossorg-guard.js';
+import { logEvent } from '../bus/event.js';
 import { updateApproval } from '../bus/approval.js';
 import { AgentProcess } from './agent-process.js';
 import type { TelegramAPI } from '../telegram/api.js';
@@ -31,6 +33,11 @@ export class FastChecker {
   // Track stdout log size to detect when agent is actively producing output
   private stdoutLogSize: number = -1;
   private frameworkRoot: string;
+  /** This agent's org, for the cross-org quarantine guard (recipient side). */
+  private recipientOrg?: string;
+  /** Guard config (mode + whitelist) resolved once from the org's context.json;
+   *  lazy so a fresh daemon picks up the current config on its first poll. */
+  private crossOrgGuard: CrossOrgGuardConfig | null = null;
   private telegramApi?: TelegramAPI;
   private chatId?: string;
   private allowedUserId?: number;
@@ -63,11 +70,12 @@ export class FastChecker {
     agent: AgentProcess,
     paths: BusPaths,
     frameworkRoot: string,
-    options: { pollInterval?: number; log?: LogFn; telegramApi?: TelegramAPI; chatId?: string; allowedUserId?: number } = {},
+    options: { pollInterval?: number; log?: LogFn; telegramApi?: TelegramAPI; chatId?: string; allowedUserId?: number; org?: string } = {},
   ) {
     this.agent = agent;
     this.paths = paths;
     this.frameworkRoot = frameworkRoot;
+    this.recipientOrg = options.org;
     this.pollInterval = options.pollInterval || 1000;
     this.log = options.log || ((msg) => console.log(`[fast-checker/${agent.name}] ${msg}`));
     this.telegramApi = options.telegramApi;
@@ -189,8 +197,27 @@ export class FastChecker {
       hasTelegramMessage = true;
     }
 
-    // Check agent inbox
-    const inboxMessages = checkInbox(this.paths);
+    // Check agent inbox. Cross-org quarantine guard (xorg): a message stamped
+    // with a sender-org different from this agent's org is set aside instead of
+    // injected into the session, when the org opts into 'quarantine' mode. This
+    // is the REAL enforcement point — the fast-checker is how cross-instance
+    // assignments actually reach a session in real time. Config resolved once
+    // (lazy); a mode change takes effect on the next daemon restart, which is the
+    // deliberate activation path. Default 'mark' = today's behavior (deliver).
+    if (this.crossOrgGuard === null) {
+      this.crossOrgGuard = resolveCrossOrgGuard(this.frameworkRoot, this.recipientOrg || '');
+    }
+    const inboxMessages = checkInbox(this.paths, {
+      recipientOrg: this.recipientOrg,
+      mode: this.crossOrgGuard.mode,
+      whitelist: this.crossOrgGuard.whitelist,
+      onQuarantine: (msg) => {
+        try {
+          logEvent(this.paths, this.agent.name, this.recipientOrg || '', 'message', 'crossorg_quarantined', 'warning',
+            JSON.stringify({ msg_id: msg.id, from: msg.from, sender_org: msg.org ?? null, recipient_org: this.recipientOrg ?? null }));
+        } catch { /* logging must not break the poll */ }
+      },
+    });
     for (const msg of inboxMessages) {
       messageBlock += this.formatInboxMessage(msg);
       ackIds.push(msg.id);
