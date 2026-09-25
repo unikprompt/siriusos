@@ -4,6 +4,7 @@ import { join } from 'path';
 import { homedir } from 'os';
 import { IPCClient } from '../daemon/ipc-server.js';
 import { TelegramAPI, formatValidateError } from '../telegram/api.js';
+import { clearStopMarker } from './stop.js';
 
 /**
  * BUG-035 fix: discover the SiriusOS framework root without depending on
@@ -234,6 +235,11 @@ export const enableAgentCommand = new Command('enable')
       ...(options.org ? { org: options.org } : {}),
     };
     writeEnabledAgents(options.instance, agents);
+
+    // BUG-050: enabling an agent means the user wants it running, so clear any
+    // stale `.user-stop` marker — otherwise the daemon's discoverAndStart()
+    // would skip it on the next restart despite being enabled.
+    clearStopMarker(options.instance, agent);
 
     // Create per-agent state directories
     const ctxRoot = join(homedir(), '.siriusos', options.instance);

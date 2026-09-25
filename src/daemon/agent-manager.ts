@@ -75,6 +75,16 @@ export class AgentManager {
         console.log(`[agent-manager] Skipping disabled agent: ${name} (enabled-agents.json)`);
         continue;
       }
+      // BUG-050 fix: a user-stopped agent (`siriusos stop`) must stay down across
+      // daemon restarts — e.g. a machine reboot relaunching the daemon via pm2,
+      // which otherwise re-discovers and re-starts every enabled agent regardless
+      // of a deliberate stop. stop.ts writes a `.user-stop` marker in the agent's
+      // state dir; honor it here. `siriusos start`/`enable` clear the marker
+      // (clearStopMarker in src/cli/stop.ts) so a restarted agent survives reboots.
+      if (existsSync(join(this.ctxRoot, 'state', name, '.user-stop'))) {
+        console.log(`[agent-manager] Skipping user-stopped agent: ${name} (.user-stop present; run \`siriusos start ${name}\` to resume)`);
+        continue;
+      }
       // BUG-043 fix: pass the per-agent org so startAgent can use it instead
       // of falling back to `this.org` (the daemon's startup org).
       await this.startAgent(name, dir, config, org);
